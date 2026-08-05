@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# env - 環境変数はコミットしない(.env.exampleのみ管理)
+.env
+.env.*
+!.env.example
+
+# misc
+*.tsbuildinfo
+.DS_Store
+
+# supabase local
+supabase/.temp/
+supabase/.branches/
+
+# test
+coverage/

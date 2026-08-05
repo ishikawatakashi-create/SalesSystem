@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  /* 落ち着いたスレート基調(docs/ui-guidelines.md) */
+  --color-primary: oklch(0.42 0.06 255);
+  --color-primary-hover: oklch(0.36 0.06 255);
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family:
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", Meiryo,
+    system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
