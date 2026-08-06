@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { listContactsByCustomer } from "@/lib/contacts/read-list";
 import { getCustomerDetail } from "@/lib/customers/read-detail";
 import type { CustomerDetail } from "@/lib/customers/types";
+import { listDealsByCustomer } from "@/lib/deals/read-list";
 import { isCustomerSyncError } from "@/lib/sync/errors";
 import {
   loadDetailLabelMaps,
@@ -14,6 +15,8 @@ import {
 import { loadListLabelMaps } from "@/features/contacts/list-data";
 import { formatOptional } from "@/features/contacts/format";
 import { formatDateTime, formatYen } from "@/features/customers/format";
+import { CustomerDealsSection } from "@/features/deals/customer-deals-section";
+import { loadListLabelMaps as loadDealListLabelMaps } from "@/features/deals/list-data";
 
 export const dynamic = "force-dynamic";
 
@@ -76,10 +79,12 @@ export default async function CustomerDetailPage({
 }) {
   let canEdit = false;
   let canEditContact = false;
+  let canEditDeal = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "customer.edit");
     canEditContact = hasPermission(user.role, "contact.edit");
+    canEditDeal = hasPermission(user.role, "deal.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
@@ -136,10 +141,16 @@ export default async function CustomerDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const contacts = await listContactsByCustomer(detail.notionPageId, {
-    includeInactive: includeInactiveContacts,
-  });
-  const contactLabels = await loadListLabelMaps(contacts);
+  const [contacts, deals] = await Promise.all([
+    listContactsByCustomer(detail.notionPageId, {
+      includeInactive: includeInactiveContacts,
+    }),
+    listDealsByCustomer(detail.notionPageId),
+  ]);
+  const [contactLabels, dealLabels] = await Promise.all([
+    loadListLabelMaps(contacts),
+    loadDealListLabelMaps(deals),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -264,7 +275,7 @@ export default async function CustomerDetailPage({
                 <span>
                   {formatYen(detail.expectedAmount)}
                   <span className="ml-2 text-[10px] text-slate-400">
-                    案件の進行状況から自動集計
+                    進行中・保留案件から自動集計
                   </span>
                 </span>
               }
@@ -432,6 +443,15 @@ export default async function CustomerDetailPage({
           </table>
         </div>
       </section>
+
+      <CustomerDealsSection
+        customerPageId={detail.notionPageId}
+        deals={deals}
+        labels={dealLabels}
+        canEditDeal={canEditDeal}
+        customerArchived={detail.isArchived}
+        expectedAmount={detail.expectedAmount}
+      />
 
       <p className="text-xs text-slate-400">
         作成日時: {formatDateTime(detail.createdTime)} / 更新日時:{" "}

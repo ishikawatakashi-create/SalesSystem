@@ -61,7 +61,8 @@ Notionが営業データの正本(SSoT)である。本書は**9つのNotionデ�
 | 氏名 | title | |
 | 氏名よみ | rich_text | ひらがな。検索正規化に使用 |
 | 所属アカウント | relation → 顧客アカウント(単一、dual) | |
-| 部署 / 役職 | rich_text | |
+| 部署 | rich_text | |
+| 役職 | rich_text | |
 | 電話番号 | phone_number | |
 | メールアドレス | email | |
 | 区分 | relation → 営業マスタ(単一) | 種別=担当者区分 |

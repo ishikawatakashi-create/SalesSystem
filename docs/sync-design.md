@@ -200,7 +200,7 @@ flowchart LR
 | 自社担当者(app_users)の氏名変更・無効化 | staff_user_idsを持つ各インデックスの表示、Notion自社担当者ページ |
 | 対応履歴の作成・編集・削除検知 | 顧客の `latest_activity_summary` / `last_activity_at`(Notionの導出キャッシュプロパティ含む) |
 | 次回アクションの作成・状態変更・期限変更 | 顧客・案件の `next_action` / `next_action_date`(未完了・最短期限から導出。Notion側プロパティ含む) |
-| 案件の金額・ステータス変更 | KPI集計(オンデマンドのため通常は不要)。顧客.見込み金額を導出にする場合は顧客行 |
+| 案件の金額・ステータス変更・所属顧客変更 | 顧客.見込み金額(**確定: 導出値**。案件ステータスsemantic_keyが`active`/`on_hold`の見込み金額合計)。再計算は`customer.recalculate_expected_amount`ジョブ(顧客単位・冪等)で実行し、Notion顧客DBとcustomer_indexへsystem-only反映 |
 
 - 再計算ルール: 派生値は**常に計算元から一方向に導出**し、手作業更新を前提にしない([notion-schema.md §9](./notion-schema.md#9-派生項目の再計算ルール手作業で不整合にしない))。Notion側で導出プロパティが手編集されていた場合は再計算値で上書きし、`sync_errors`(stage=`derived_recalc`、警告)に記録する。
 - 書込パイプライン内で同期的に反映できる場合(単一顧客の履歴登録等)は即時反映し、影響行が多い場合(マスタ名変更等)はジョブ化する。
@@ -211,8 +211,8 @@ flowchart LR
 
 | Phase | 実装するハンドラー |
 |---|---|
-| Phase 2 | 顧客・顧客担当者(担当者名変更→customer_index.search_text再構築。書込パイプライン内の同期実行) |
-| Phase 3 | 対応履歴(最新対応内容・最終対応日)、次回アクション(next_action/next_action_date)、案件(顧客.見込み金額合計・status_semantic) |
+| Phase 2 | 顧客・先方担当者(担当者名変更→customer_index.search_text再構築。書込パイプライン内の同期実行) — **完了** |
+| Phase 3(=作業呼称Phase 4・完了) | 案件(status_semantic・顧客.見込み金額合計の再計算ジョブ`customer.recalculate_expected_amount`)。対応履歴・次回アクションは後続 |
 | Phase 4 | マスタ名変更・自社担当者名変更などの**大量波及**(dependency_reindexジョブとしての非同期実行)、管理画面からの手動再実行 |
 
 - Phase 2・3では影響範囲が単一〜少数ページのため、ジョブ基盤を使わず書込パイプライン内で同期的に再計算する(Phase 4のジョブ化・管理画面に依存しない)。

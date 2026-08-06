@@ -45,6 +45,9 @@ export default async function MainLayout({
             <Link href="/contacts" className="hover:text-slate-900">
               担当者
             </Link>
+            <Link href="/deals" className="hover:text-slate-900">
+              案件
+            </Link>
             {hasPermission(user.role, "user.manage") && (
               <Link href="/admin/users" className="hover:text-slate-900">
                 ユーザー管理

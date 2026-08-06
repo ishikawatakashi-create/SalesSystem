@@ -212,6 +212,40 @@ export type ContactIndexRow = {
   search_text: string;
 };
 
+export type DealIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  customer_page_id: string | null;
+  contact_page_ids: string[];
+  business_category_id: string | null;
+  product_name: string | null;
+  stage_id: string | null;
+  status_id: string | null;
+  status_semantic: string | null;
+  staff_user_ids: string[];
+  staff_page_ids: string[];
+  expected_amount: number | null;
+  contract_amount: number | null;
+  probability: number | null;
+  expected_close_date: string | null;
+  contracted_at: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  lost_reason: string | null;
+  note: string | null;
+  search_text: string;
+};
+
 export type WriteOperationRow = {
   request_id: string;
   entity_type: string;
@@ -281,7 +315,7 @@ export type Database = {
         to_page_id: string;
       }>;
       contact_index: TableDef<ContactIndexRow>;
-      deal_index: TableDef<Record<string, unknown>>;
+      deal_index: TableDef<DealIndexRow>;
       activity_index: TableDef<Record<string, unknown>>;
       contract_index: TableDef<Record<string, unknown>>;
       complaint_index: TableDef<Record<string, unknown>>;

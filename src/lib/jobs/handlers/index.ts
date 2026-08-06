@@ -1,4 +1,5 @@
 import type { JobHandler, JobKind } from "@/lib/jobs/types";
+import { recalculateExpectedAmountHandler } from "@/lib/jobs/handlers/recalculate-expected-amount";
 
 /**
  * kindごとのハンドラー登録。
@@ -19,3 +20,7 @@ export const noopJobHandler: JobHandler = async () => ({ status: "succeeded" });
 
 registerJobHandler("storage_cleanup", noopJobHandler);
 registerJobHandler("dependency_reindex", noopJobHandler);
+registerJobHandler(
+  "customer.recalculate_expected_amount",
+  recalculateExpectedAmountHandler,
+);

@@ -15,7 +15,8 @@ export type JobKind =
   | "export_full"
   | "dependency_reindex"
   | "user_provisioning"
-  | "storage_cleanup";
+  | "storage_cleanup"
+  | "customer.recalculate_expected_amount";
 
 export type JobRow = {
   id: string;
