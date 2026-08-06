@@ -6,7 +6,11 @@
 
 import type { Client } from "@notionhq/client";
 
-import { DATABASES, type NotionDbKey } from "@/lib/notion/schema/databases";
+import {
+  DATABASES,
+  RELATION_PHASE_ORDER,
+  type NotionDbKey,
+} from "@/lib/notion/schema/databases";
 import { INITIAL_MASTERS, masterExternalId } from "@/lib/notion/schema/masters";
 import { STANDARD_VIEWS } from "@/lib/notion/schema/views";
 
@@ -26,6 +30,8 @@ export type SetupState = {
   views: Record<string, { viewId?: string; name: string; databaseKey: NotionDbKey }>;
   mastersSeeded: boolean;
   snapshotSaved: boolean;
+  /** 実行記録(トークン・ページIDは含めない) */
+  notes?: string[];
 };
 
 export const SETUP_STATE_KEY = "notion_setup_state";
@@ -50,6 +56,9 @@ export function emptySetupState(parentPageId: string): SetupState {
     views,
     mastersSeeded: false,
     snapshotSaved: false,
+    notes: [
+      "2026-08-06: read-only preflightの初回insertプローブが無題ページを1件誤作成。ゴミ箱へ移動済み。ゴミ箱内ページは既存DB/setup対象として扱わない。",
+    ],
   };
 }
 
@@ -78,8 +87,10 @@ export async function applyNotionSetup(input: {
     );
   }
 
-  // Phase A
-  for (const db of DATABASES) {
+  // Phase A — RELATION_PHASE_ORDERで作成(依存関係の見通し用。全完了後にPhase B)
+  state.phase = "a";
+  for (const key of RELATION_PHASE_ORDER) {
+    const db = DATABASES.find((d) => d.key === key)!;
     const current = state.databases[db.key];
     if (current.databaseId && current.dataSourceId) continue;
 
@@ -91,44 +102,91 @@ export async function applyNotionSetup(input: {
       },
     } as never);
 
+    const databaseId = (created as { id: string }).id;
     const verified = await input.client.databases.retrieve({
-      database_id: (created as { id: string }).id,
+      database_id: databaseId,
     });
+    if ((verified as { in_trash?: boolean }).in_trash) {
+      throw new Error(`${db.title}: 作成直後にin_trash=true`);
+    }
     const dataSources = (verified as { data_sources?: Array<{ id: string }> })
       .data_sources;
     const dataSourceId = dataSources?.[0]?.id;
     if (!dataSourceId) {
       throw new Error(`${db.title}: data_source_idを取得できませんでした`);
     }
+    if (dataSourceId === databaseId) {
+      throw new Error(
+        `${db.title}: database_idとdata_source_idが同一です(混同の疑い)`,
+      );
+    }
+
+    // data source側でも必須プロパティを再確認
+    const ds = await input.client.dataSources.retrieve({
+      data_source_id: dataSourceId,
+    });
+    const props = (ds as { properties: Record<string, { type: string }> })
+      .properties;
+    for (const required of ["external_id", "作成日時", "更新日時"]) {
+      if (!props[required]) {
+        throw new Error(`${db.title}: 作成直後に ${required} が欠落`);
+      }
+    }
 
     state.databases[db.key] = {
       title: db.title,
-      databaseId: (created as { id: string }).id,
+      databaseId,
       dataSourceId,
     };
     state.updatedAt = new Date().toISOString();
-    state.phase = "a";
     await input.store.save(state);
   }
 
   // Phase B relations
+  // dual=true → dual_property(双方向)。singleは「単一ページ制限」の設計意図で、
+  // Notion APIの single_property(片方向)とは別概念。API種別は dual 優先。
   state.phase = "b";
-  for (const key of DATABASES.map((d) => d.key)) {
+  for (const key of RELATION_PHASE_ORDER) {
     const db = DATABASES.find((d) => d.key === key)!;
     const dsId = state.databases[key].dataSourceId!;
     const retrieved = await input.client.dataSources.retrieve({
       data_source_id: dsId,
     });
-    const existingProps = (retrieved as { properties: Record<string, { type: string }> })
-      .properties;
+    const existingProps = (
+      retrieved as {
+        properties: Record<
+          string,
+          {
+            type: string;
+            relation?: {
+              data_source_id?: string;
+              type?: string;
+              dual_property?: unknown;
+              single_property?: unknown;
+            };
+          }
+        >;
+      }
+    ).properties;
 
     for (const prop of db.phaseBRelations) {
       if (prop.type !== "relation") continue;
-      if (existingProps[prop.name]) continue;
       const targetDs = state.databases[prop.target].dataSourceId;
       if (!targetDs) {
         throw new Error(`relation対象 ${prop.target} のdata_source_idが未確定`);
       }
+
+      const expectedKind = prop.dual ? "dual_property" : "single_property";
+      const existing = existingProps[prop.name];
+      if (existing) {
+        if (existing.type !== "relation") {
+          throw new Error(
+            `${db.title}.${prop.name}: 既存プロパティがrelationではありません`,
+          );
+        }
+        continue;
+      }
+
       await input.client.dataSources.update({
         data_source_id: dsId,
         properties: {
@@ -136,19 +194,61 @@ export async function applyNotionSetup(input: {
             type: "relation",
             relation: {
               data_source_id: targetDs,
-              ...(prop.single
-                ? { type: "single_property", single_property: {} }
-                : { type: "dual_property", dual_property: {} }),
+              ...(prop.dual
+                ? { type: "dual_property", dual_property: {} }
+                : { type: "single_property", single_property: {} }),
             },
           },
         },
       } as never);
+
+      const after = await input.client.dataSources.retrieve({
+        data_source_id: dsId,
+      });
+      const afterProp = (
+        after as {
+          properties: Record<
+            string,
+            {
+              type: string;
+              relation?: {
+                data_source_id?: string;
+                type?: string;
+                dual_property?: unknown;
+                single_property?: unknown;
+              };
+            }
+          >;
+        }
+      ).properties[prop.name];
+      if (!afterProp || afterProp.type !== "relation") {
+        throw new Error(`${db.title}.${prop.name}: relation作成後に検証失敗`);
+      }
+      if (afterProp.relation?.data_source_id !== targetDs) {
+        throw new Error(
+          `${db.title}.${prop.name}: 参照先data_source_idが不一致`,
+        );
+      }
+      const actualKind =
+        afterProp.relation?.type ??
+        (afterProp.relation?.dual_property
+          ? "dual_property"
+          : afterProp.relation?.single_property
+            ? "single_property"
+            : "unknown");
+      if (actualKind !== expectedKind) {
+        throw new Error(
+          `${db.title}.${prop.name}: relation種別が不一致 expected=${expectedKind} actual=${actualKind}`,
+        );
+      }
+      existingProps[prop.name] = afterProp;
     }
     state.updatedAt = new Date().toISOString();
     await input.store.save(state);
   }
 
   // Phase C masters (idempotent by external_id query)
+  state.phase = "c";
   if (!state.mastersSeeded) {
     const mastersDs = state.databases.masters.dataSourceId!;
     for (const seed of INITIAL_MASTERS) {
@@ -206,55 +306,88 @@ export async function applyNotionSetup(input: {
     const databaseId = state.databases[view.databaseKey].databaseId!;
     const dataSourceId = state.databases[view.databaseKey].dataSourceId!;
 
-    // 既存ビュー一覧(重複防止)。APIがviews.listを持つ場合に使用。
-    const listFn = (input.client as unknown as {
-      views?: { list?: (args: unknown) => Promise<{ results: Array<{ id: string; name?: string }> }> };
-    }).views?.list;
-
-    if (listFn) {
-      const listed = await listFn({
-        database_id: databaseId,
-        data_source_id: dataSourceId,
-      });
-      const existing = listed.results.find((v) => v.name === view.name);
-      if (existing) {
-        state.views[view.key] = {
-          viewId: existing.id,
-          name: view.name,
-          databaseKey: view.databaseKey,
-        };
-        await input.store.save(state);
-        continue;
+    const listed = await input.client.views.list({
+      database_id: databaseId,
+      data_source_id: dataSourceId,
+    });
+    // list results may be id-only; retrieve to match by name
+    let existingId: string | undefined;
+    for (const ref of listed.results) {
+      const detail = await input.client.views.retrieve({ view_id: ref.id });
+      const name = (detail as { name?: string }).name;
+      if (name === view.name) {
+        existingId = ref.id;
+        break;
       }
     }
-
-    const createFn = (input.client as unknown as {
-      views?: { create?: (args: unknown) => Promise<{ id: string }> };
-    }).views?.create;
-
-    if (!createFn) {
-      // Views APIがSDKに無い場合は状態にmanual保留として残す
+    if (existingId) {
       state.views[view.key] = {
+        viewId: existingId,
         name: view.name,
         databaseKey: view.databaseKey,
       };
+      await input.store.save(state);
       continue;
     }
 
-    const created = await createFn({
-      parent: {
-        type: "data_source_id",
-        database_id: databaseId,
-        data_source_id: dataSourceId,
-      },
-      type: view.type,
-      name: view.name,
+    const ds = await input.client.dataSources.retrieve({
+      data_source_id: dataSourceId,
     });
+    const props = (
+      ds as { properties: Record<string, { id: string; type: string }> }
+    ).properties;
+
+    const payload: Record<string, unknown> = {
+      database_id: databaseId,
+      data_source_id: dataSourceId,
+      name: view.name,
+      type: view.type,
+    };
+
+    // 可能な範囲でfilter/sortを付与。マスタページID依存フィルタは未設定のままMANUAL。
+    if (view.key === "customers_all") {
+      payload.filter = { property: "アーカイブ", checkbox: { equals: false } };
+      payload.sorts = [
+        { property: "最終対応日", direction: "descending" },
+      ];
+    } else if (view.key === "activities_latest") {
+      payload.sorts = [
+        { property: "対応日時", direction: "descending" },
+      ];
+    } else if (view.key === "customers_by_status") {
+      const groupProp = props["営業ステータス"];
+      if (!groupProp) {
+        throw new Error("営業ステータスプロパティが無くboard作成不可");
+      }
+      payload.configuration = {
+        type: "board",
+        group_by: {
+          type: "relation",
+          property_id: groupProp.id,
+          sort: { type: "manual" },
+          hide_empty_groups: false,
+        },
+      };
+    } else if (view.key === "actions_due") {
+      payload.sorts = [{ property: "期限", direction: "ascending" }];
+    } else if (view.key === "complaints_open") {
+      payload.sorts = [{ property: "対応期限", direction: "ascending" }];
+    } else if (view.key === "contracts_active") {
+      payload.sorts = [{ property: "契約終了日", direction: "ascending" }];
+    }
+
+    const created = await input.client.views.create(payload as never);
     state.views[view.key] = {
-      viewId: created.id,
+      viewId: (created as { id: string }).id,
       name: view.name,
       databaseKey: view.databaseKey,
     };
+    if (view.manualSetupNotes?.length) {
+      state.notes = [
+        ...(state.notes ?? []),
+        ...view.manualSetupNotes.map((n) => `view:${view.key} MANUAL — ${n}`),
+      ];
+    }
     state.updatedAt = new Date().toISOString();
     await input.store.save(state);
   }

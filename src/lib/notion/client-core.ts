@@ -32,8 +32,13 @@ export class NotionHttpError extends Error {
     readonly status: number,
     readonly code: string,
     readonly requestId: string,
+    readonly bodySummary?: string,
   ) {
-    super(`Notion HTTP ${status} (${code}) request_id=${requestId}`);
+    super(
+      `Notion HTTP ${status} (${code}) request_id=${requestId}${
+        bodySummary ? ` body=${bodySummary}` : ""
+      }`,
+    );
     this.name = "NotionHttpError";
   }
 }
@@ -130,6 +135,7 @@ export function createNotionClient(options: NotionClientOptions): Client {
         }
 
         if (NON_RETRYABLE_4XX.has(response.status)) {
+          const bodySummary = await safeBodySummary(response);
           logNotionError({
             request_id: requestId,
             method,
@@ -137,8 +143,14 @@ export function createNotionClient(options: NotionClientOptions): Client {
             status: response.status,
             attempt,
             message: "non_retryable_4xx",
+            body: bodySummary,
           });
-          throw new NotionHttpError(response.status, "non_retryable", requestId);
+          throw new NotionHttpError(
+            response.status,
+            "non_retryable",
+            requestId,
+            bodySummary,
+          );
         }
 
         logNotionError({
@@ -193,6 +205,17 @@ function safePath(url: string): string {
     return new URL(url).pathname;
   } catch {
     return url.replace(/https?:\/\/[^/]+/i, "");
+  }
+}
+
+async function safeBodySummary(response: Response): Promise<string> {
+  try {
+    const text = await response.clone().text();
+    const trimmed = text.replace(/\s+/g, " ").trim().slice(0, 300);
+    // トークン等を含む可能性のある長文は短縮のみ。Authorizationはheaders側。
+    return trimmed || "(empty)";
+  } catch {
+    return "(unreadable)";
   }
 }
 
