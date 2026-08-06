@@ -62,6 +62,7 @@ function sampleInput(over: Partial<CustomerWriteInput> = {}): CustomerWriteInput
     priorityPageId: null,
     staffPageIds: [],
     relatedAccountPageIds: [],
+    expectedAmount: null,
     isArchived: false,
     ...over,
   };

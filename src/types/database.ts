@@ -112,6 +112,26 @@ export type SystemSettingRow = {
   updated_at: string;
 };
 
+export type MastersCacheRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  master_type: string;
+  name: string;
+  semantic_key: string | null;
+  semantic_tags: string[];
+  sort_order: number | null;
+  color: string | null;
+  is_active: boolean;
+  applicable_category_ids: string[];
+};
+
 export type AuditLogRow = {
   id: string;
   actor_id: string | null;
@@ -240,7 +260,7 @@ export type Database = {
       contract_index: TableDef<Record<string, unknown>>;
       complaint_index: TableDef<Record<string, unknown>>;
       action_index: TableDef<Record<string, unknown>>;
-      masters_cache: TableDef<Record<string, unknown>>;
+      masters_cache: TableDef<MastersCacheRow>;
     };
     Views: Record<string, never>;
     Functions: {

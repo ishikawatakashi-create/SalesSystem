@@ -45,7 +45,7 @@ export function buildCustomerPropertyDiff(input: {
     lastActivityAt: input.before.lastActivityAt,
     nextAction: input.before.nextAction,
     nextActionDate: input.before.nextActionDate,
-    expectedAmount: input.before.expectedAmount,
+    expectedAmount: input.write.expectedAmount,
     isArchived: input.write.isArchived,
   };
 
@@ -85,13 +85,12 @@ export function buildCustomerPropertyDiff(input: {
     propertiesByName: input.propertiesByName,
   });
 
-  // 導出プロパティは差分から除外
+  // 導出プロパティは差分から除外(見込み金額はユーザー入力のため対象)
   const skipNames = new Set([
     "最新対応内容",
     "最終対応日",
     "次回アクション",
     "次回予定日",
-    "見込み金額",
   ]);
   const skipIds = new Set(
     [...skipNames]
@@ -149,6 +148,7 @@ export function buildChangedFieldsAudit(input: {
       input.before.relatedAccountPageIds,
       input.write.relatedAccountPageIds,
     ],
+    ["見込み金額", input.before.expectedAmount, input.write.expectedAmount],
     ["アーカイブ", input.before.isArchived, input.write.isArchived],
   ];
   for (const [field, before, after] of pairs) {
@@ -169,7 +169,6 @@ export function writeInputToDomainFields(
       | "lastActivityAt"
       | "nextAction"
       | "nextActionDate"
-      | "expectedAmount"
     >
   >,
 ): Omit<CustomerDomain, "notionPageId" | "inTrash"> {
@@ -197,7 +196,7 @@ export function writeInputToDomainFields(
     lastActivityAt: derived?.lastActivityAt ?? null,
     nextAction: derived?.nextAction ?? null,
     nextActionDate: derived?.nextActionDate ?? null,
-    expectedAmount: derived?.expectedAmount ?? null,
+    expectedAmount: write.expectedAmount,
     isArchived: write.isArchived,
   };
 }

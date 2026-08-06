@@ -651,7 +651,6 @@ export async function executeCustomerUpdate(
       lastActivityAt: customer.lastActivityAt,
       nextAction: customer.nextAction,
       nextActionDate: customer.nextActionDate,
-      expectedAmount: customer.expectedAmount,
     },
     expectedLastEditedTime: command.expectedLastEditedTime,
   });

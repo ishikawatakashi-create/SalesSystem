@@ -24,6 +24,8 @@ export type CustomerWriteInput = {
   priorityPageId: string | null;
   staffPageIds: string[];
   relatedAccountPageIds: string[];
+  /** 見込み金額(円)。ユーザー入力項目 */
+  expectedAmount: number | null;
   isArchived: boolean;
 };
 
@@ -129,15 +131,27 @@ export type CustomerRecoveryPayload = {
 
 /** 詳細読取結果。Notion正本。障害時にindexで偽装しない。 */
 export type CustomerDetail = CustomerDomain & {
+  createdTime: string;
   lastEditedTime: string;
   contentHash: string;
 };
+
+export type CustomerListSortKey =
+  | "updated_at"
+  | "display_name"
+  | "last_activity_at"
+  | "next_action_date"
+  | "expected_amount";
 
 export type CustomerListQuery = {
   q?: string;
   prefecture?: string;
   salesStatusId?: string;
+  businessCategoryId?: string;
+  staffUserId?: string;
   isArchived?: boolean;
+  sort?: CustomerListSortKey;
+  sortDir?: "asc" | "desc";
   limit?: number;
   offset?: number;
 };

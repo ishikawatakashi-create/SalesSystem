@@ -17,11 +17,14 @@ export async function listCustomers(
   const supabase = await createClient();
   const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
   const offset = Math.max(query.offset ?? 0, 0);
+  const sortKey = query.sort ?? "updated_at";
+  const ascending = query.sortDir === "asc";
 
   let q = supabase
     .from("customer_index")
     .select("*", { count: "exact" })
-    .order("updated_at", { ascending: false })
+    .order(sortKey, { ascending, nullsFirst: false })
+    .order("notion_page_id", { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (typeof query.isArchived === "boolean") {
@@ -34,6 +37,12 @@ export async function listCustomers(
   }
   if (query.salesStatusId) {
     q = q.eq("sales_status_id", query.salesStatusId);
+  }
+  if (query.businessCategoryId) {
+    q = q.contains("business_category_ids", [query.businessCategoryId]);
+  }
+  if (query.staffUserId) {
+    q = q.contains("staff_user_ids", [query.staffUserId]);
   }
   if (query.q && query.q.trim()) {
     const term = `%${query.q.trim()}%`;

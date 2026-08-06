@@ -87,8 +87,11 @@ export async function getCustomerDetail(input: {
 
     const lastEditedTime =
       (page as { last_edited_time?: string }).last_edited_time ?? "";
+    const createdTime =
+      (page as { created_time?: string }).created_time ?? "";
     const detail: CustomerDetail = {
       ...customer,
+      createdTime,
       lastEditedTime,
       contentHash: hashCustomerDomain(customer),
     };
