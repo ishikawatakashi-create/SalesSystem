@@ -37,7 +37,6 @@ export function canonicalizeCustomerWriteInput(
     priorityPageId: input.priorityPageId,
     staffPageIds: sorted(input.staffPageIds),
     relatedAccountPageIds: sorted(input.relatedAccountPageIds),
-    expectedAmount: input.expectedAmount,
     isArchived: input.isArchived,
   };
 }
@@ -78,11 +77,6 @@ export function sanitizeCustomerWriteInput(
     priorityPageId: input.priorityPageId,
     staffPageIds: [...input.staffPageIds],
     relatedAccountPageIds: [...input.relatedAccountPageIds],
-    expectedAmount:
-      typeof input.expectedAmount === "number" &&
-      Number.isFinite(input.expectedAmount)
-        ? input.expectedAmount
-        : null,
     isArchived: Boolean(input.isArchived),
   };
 }

@@ -66,10 +66,6 @@ export const customerWriteSchema = z.object({
   priorityPageId: singleRelation,
   staffPageIds: multiRelation,
   relatedAccountPageIds: multiRelation,
-  expectedAmount: z
-    .union([z.number().finite().min(0).max(1_000_000_000_000), z.null()])
-    .optional()
-    .transform((v) => (v === undefined ? null : v)),
   isArchived: z.boolean().optional().default(false),
 });
 

@@ -143,7 +143,6 @@ export function CustomerForm({
       priorityPageId: initial?.priorityPageId ?? null,
       staffPageIds: initial?.staffPageIds ?? [],
       relatedAccountPageIds: initial?.relatedAccountPageIds ?? [],
-      expectedAmount: initial?.expectedAmount ?? null,
       isArchived: initial?.isArchived ?? false,
     }),
     [initial],
@@ -351,18 +350,6 @@ export function CustomerForm({
           </Field>
           <Field label="優先度">
             {singleSelect("priorityPageId", options.priorities)}
-          </Field>
-          <Field label="見込み金額(円)" error={errors.expectedAmount?.message}>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              className={inputCls}
-              {...register("expectedAmount", {
-                setValueAs: (v) =>
-                  v === "" || v === null || v === undefined ? null : Number(v),
-              })}
-            />
           </Field>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">

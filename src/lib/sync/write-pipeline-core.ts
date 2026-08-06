@@ -28,6 +28,7 @@ import { newRequestId } from "@/lib/notion/ids";
 import {
   buildChangedFieldsAudit,
   buildCustomerPropertyDiff,
+  omitDerivedCustomerProperties,
   writeInputToDomainFields,
 } from "@/lib/sync/customer-diff";
 import { CustomerSyncError } from "@/lib/sync/errors";
@@ -160,10 +161,13 @@ function buildRecoveryPayload(input: {
     input.derived,
   );
   return {
-    expectedProperties: customerToNotionProperties({
-      customer: domain,
-      propertiesByName: input.propertiesByName,
-    }),
+    expectedProperties: omitDerivedCustomerProperties(
+      customerToNotionProperties({
+        customer: domain,
+        propertiesByName: input.propertiesByName,
+      }),
+      input.propertiesByName,
+    ),
     expectedRelations: {
       businessCategoryPageIds: input.write.businessCategoryPageIds,
       tagPageIds: input.write.tagPageIds,
@@ -465,10 +469,14 @@ async function createNotionPage(input: {
   let notionPageId = existing?.id;
 
   if (!notionPageId) {
-    const properties = customerToNotionProperties({
-      customer: writeInputToDomainFields(input.externalId, input.write),
-      propertiesByName: deps.propertiesByName,
-    });
+    // 導出キャッシュ(見込み金額含む)はcreate時も送らない
+    const properties = omitDerivedCustomerProperties(
+      customerToNotionProperties({
+        customer: writeInputToDomainFields(input.externalId, input.write),
+        propertiesByName: deps.propertiesByName,
+      }),
+      deps.propertiesByName,
+    );
     try {
       const created = await deps.notion.pages.create({
         parent: {
@@ -651,6 +659,7 @@ export async function executeCustomerUpdate(
       lastActivityAt: customer.lastActivityAt,
       nextAction: customer.nextAction,
       nextActionDate: customer.nextActionDate,
+      expectedAmount: customer.expectedAmount,
     },
     expectedLastEditedTime: command.expectedLastEditedTime,
   });

@@ -237,7 +237,17 @@ export default async function CustomerDetailPage({
                 )
               }
             />
-            <Item label="見込み金額" value={formatYen(detail.expectedAmount)} />
+            <Item
+              label="見込み金額"
+              value={
+                <span>
+                  {formatYen(detail.expectedAmount)}
+                  <span className="ml-2 text-[10px] text-slate-400">
+                    案件の進行状況から自動集計
+                  </span>
+                </span>
+              }
+            />
           </dl>
         </section>
 

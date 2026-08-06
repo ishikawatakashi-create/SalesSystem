@@ -57,6 +57,7 @@ export function hashCustomerWriteWithExternalId(input: {
       | "lastActivityAt"
       | "nextAction"
       | "nextActionDate"
+      | "expectedAmount"
     >
   >;
 }): string {
@@ -84,7 +85,7 @@ export function hashCustomerWriteWithExternalId(input: {
     lastActivityAt: input.derived?.lastActivityAt ?? null,
     nextAction: input.derived?.nextAction ?? null,
     nextActionDate: input.derived?.nextActionDate ?? null,
-    expectedAmount: input.write.expectedAmount,
+    expectedAmount: input.derived?.expectedAmount ?? null,
     isArchived: input.write.isArchived,
   });
 }

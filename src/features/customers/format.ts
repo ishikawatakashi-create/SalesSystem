@@ -20,7 +20,8 @@ export function formatDateTime(iso: string | null): string {
 }
 
 export function formatYen(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "-";
+  // null = 未集計。0円とは区別する
+  if (value === null || !Number.isFinite(value)) return "—";
   return `¥${value.toLocaleString("ja-JP")}`;
 }
 

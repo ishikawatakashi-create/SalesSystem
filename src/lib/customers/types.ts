@@ -24,8 +24,6 @@ export type CustomerWriteInput = {
   priorityPageId: string | null;
   staffPageIds: string[];
   relatedAccountPageIds: string[];
-  /** 見込み金額(円)。ユーザー入力項目 */
-  expectedAmount: number | null;
   isArchived: boolean;
 };
 

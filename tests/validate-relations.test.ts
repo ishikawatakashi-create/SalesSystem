@@ -85,7 +85,6 @@ function input(
     priorityPageId: null,
     staffPageIds: [],
     relatedAccountPageIds: [],
-    expectedAmount: null,
     isArchived: false,
     ...overrides,
   };

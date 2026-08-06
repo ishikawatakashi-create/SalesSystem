@@ -119,7 +119,6 @@ export default async function CustomerEditPage({
           priorityPageId: detail.priorityPageId,
           staffPageIds: detail.staffPageIds,
           relatedAccountPageIds: detail.relatedAccountPageIds,
-          expectedAmount: detail.expectedAmount,
           isArchived: detail.isArchived,
         }}
       />

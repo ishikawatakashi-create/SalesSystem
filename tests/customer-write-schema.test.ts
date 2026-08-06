@@ -57,7 +57,6 @@ function validData(overrides: Record<string, unknown> = {}) {
     legalName: "",
     email: "a@example.com",
     businessCategoryPageIds: [BIZ],
-    expectedAmount: 100000,
     ...overrides,
   };
 }
@@ -69,7 +68,9 @@ describe("customerWriteSchema", () => {
     expect(parsed.tagPageIds).toEqual([]);
     expect(parsed.salesStatusPageId).toBeNull();
     expect(parsed.isArchived).toBe(false);
-    expect(parsed.expectedAmount).toBe(100000);
+    expect(
+      Object.prototype.hasOwnProperty.call(parsed, "expectedAmount"),
+    ).toBe(false);
   });
 
   it("表示名必須", () => {
@@ -77,18 +78,22 @@ describe("customerWriteSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("メール形式・負の金額・不正IDを拒否", () => {
+  it("メール形式・不正IDを拒否し、見込み金額の手入力キーは無視する", () => {
     expect(
       customerWriteSchema.safeParse(validData({ email: "not-an-email" }))
         .success,
     ).toBe(false);
     expect(
-      customerWriteSchema.safeParse(validData({ expectedAmount: -1 })).success,
-    ).toBe(false);
-    expect(
       customerWriteSchema.safeParse(
         validData({ businessCategoryPageIds: ["<script>"] }),
       ).success,
+    ).toBe(false);
+    // 導出項目のためスキーマに含めない(余分なキーはstrip)
+    const withAmount = customerWriteSchema.parse(
+      validData({ expectedAmount: 100000 }),
+    );
+    expect(
+      Object.prototype.hasOwnProperty.call(withAmount, "expectedAmount"),
     ).toBe(false);
   });
 });

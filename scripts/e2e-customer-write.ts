@@ -424,7 +424,6 @@ async function main() {
     priorityPageId: priorityId,
     staffPageIds: [],
     relatedAccountPageIds: [],
-    expectedAmount: null,
     isArchived: false,
   };
 

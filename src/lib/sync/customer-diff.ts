@@ -15,6 +15,32 @@ function sameIds(a: string[], b: string[]) {
 /**
  * 更新時に送る差分プロパティのみ抽出(導出キャッシュはユーザー入力に含めない)。
  */
+export const DERIVED_CUSTOMER_PROPERTY_NAMES = [
+  "最新対応内容",
+  "最終対応日",
+  "次回アクション",
+  "次回予定日",
+  "見込み金額",
+] as const;
+
+/** 顧客create/updateでNotionへ送らない導出プロパティを除外する */
+export function omitDerivedCustomerProperties(
+  properties: Record<string, unknown>,
+  propertiesByName: PropertyIdMap,
+): Record<string, unknown> {
+  const skipIds = new Set(
+    DERIVED_CUSTOMER_PROPERTY_NAMES.map((n) => propertiesByName[n]?.id).filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (skipIds.has(key)) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
 export function buildCustomerPropertyDiff(input: {
   before: CustomerDomain;
   write: CustomerWriteInput;
@@ -45,7 +71,7 @@ export function buildCustomerPropertyDiff(input: {
     lastActivityAt: input.before.lastActivityAt,
     nextAction: input.before.nextAction,
     nextActionDate: input.before.nextActionDate,
-    expectedAmount: input.write.expectedAmount,
+    expectedAmount: input.before.expectedAmount,
     isArchived: input.write.isArchived,
   };
 
@@ -85,17 +111,11 @@ export function buildCustomerPropertyDiff(input: {
     propertiesByName: input.propertiesByName,
   });
 
-  // 導出プロパティは差分から除外(見込み金額はユーザー入力のため対象)
-  const skipNames = new Set([
-    "最新対応内容",
-    "最終対応日",
-    "次回アクション",
-    "次回予定日",
-  ]);
+  // 導出プロパティは差分から除外
   const skipIds = new Set(
-    [...skipNames]
-      .map((n) => input.propertiesByName[n]?.id)
-      .filter((id): id is string => Boolean(id)),
+    DERIVED_CUSTOMER_PROPERTY_NAMES.map(
+      (n) => input.propertiesByName[n]?.id,
+    ).filter((id): id is string => Boolean(id)),
   );
 
   const diff: Record<string, unknown> = {};
@@ -148,7 +168,6 @@ export function buildChangedFieldsAudit(input: {
       input.before.relatedAccountPageIds,
       input.write.relatedAccountPageIds,
     ],
-    ["見込み金額", input.before.expectedAmount, input.write.expectedAmount],
     ["アーカイブ", input.before.isArchived, input.write.isArchived],
   ];
   for (const [field, before, after] of pairs) {
@@ -169,6 +188,7 @@ export function writeInputToDomainFields(
       | "lastActivityAt"
       | "nextAction"
       | "nextActionDate"
+      | "expectedAmount"
     >
   >,
 ): Omit<CustomerDomain, "notionPageId" | "inTrash"> {
@@ -196,7 +216,7 @@ export function writeInputToDomainFields(
     lastActivityAt: derived?.lastActivityAt ?? null,
     nextAction: derived?.nextAction ?? null,
     nextActionDate: derived?.nextActionDate ?? null,
-    expectedAmount: write.expectedAmount,
+    expectedAmount: derived?.expectedAmount ?? null,
     isArchived: write.isArchived,
   };
 }
