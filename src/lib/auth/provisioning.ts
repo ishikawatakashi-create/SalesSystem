@@ -1,8 +1,6 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeEmail } from "@/lib/auth/normalize-email";
-import { isInvitationUsable } from "@/lib/auth/invitation-logic";
 import type { AppUserRow } from "@/types/database";
 
 export type ProvisioningResult =
@@ -15,9 +13,9 @@ export type ProvisioningResult =
  * Auth作成 → app_users作成 → Notion自社担当者ページ作成 は原子的でないため、
  * provisioning_statusで進行を記録する(docs/supabase-schema.md §2)。
  *
- * 注: Notion自社担当者ページの作成はPhase 1のNotion接続ステップで実装し、
- * 既存ユーザーへはバックフィルジョブ(user_provisioning)で適用する。
- * それまでは app_users 作成完了をもって completed とする。
+ * 認証スパイク中はAuth+app_users作成完了をprofile_createdとする。
+ * Notion接続時にuser_provisioningジョブが自社担当者ページを作成し、
+ * notion_staff_page_id保存と同時にcompletedへ遷移する。
  */
 export async function ensureProvisioned(
   userId: string,
@@ -43,45 +41,36 @@ export async function ensureProvisioned(
         message: "このアカウントは無効化されています。",
       };
     }
+    // 旧暫定実装でapp_users作成後・招待更新前に止まった不整合を修復する。
+    if (existing.invitation_id) {
+      const { error: reconcileError } = await admin
+        .from("user_invitations")
+        .update({ status: "accepted", accepted_at: new Date().toISOString() })
+        .eq("id", existing.invitation_id)
+        .eq("status", "pending");
+      if (reconcileError) {
+        console.error("既存ユーザーの招待状態を修復できませんでした", reconcileError);
+        return {
+          ok: false,
+          reason: "error",
+          message: "プロビジョニング状態を確認できませんでした。",
+        };
+      }
+    }
     return { ok: true, appUser: existing };
   }
 
-  // 2) 有効な招待を照合(Before User Created Hookの多重防御)
-  const normalized = normalizeEmail(email);
-  const { data: invitation, error: invError } = await admin
-    .from("user_invitations")
-    .select("*")
-    .eq("normalized_email", normalized)
-    .eq("status", "pending")
-    .maybeSingle();
+  // 2) 有効招待の消費・app_users作成をDB内の単一トランザクションで行う。
+  // RPC自身もpending+期限内を再検査する(Before User Created Hookの多重防御)。
+  const { data: created, error: provisioningError } = await admin.rpc(
+    "accept_invitation_and_provision",
+    {
+      p_user_id: userId,
+      p_email: email,
+    },
+  );
 
-  if (invError) {
-    return { ok: false, reason: "error", message: invError.message };
-  }
-  if (!invitation || !isInvitationUsable(invitation)) {
-    return {
-      ok: false,
-      reason: "not_invited",
-      message:
-        "このアカウントは利用登録されていません。管理者にお問い合わせください。",
-    };
-  }
-
-  // 3) app_users作成(同時ログインの競合はPK衝突で片方が失敗 → 再取得)
-  const { data: created, error: insertError } = await admin
-    .from("app_users")
-    .insert({
-      id: userId,
-      email,
-      display_name: invitation.display_name,
-      role: invitation.role,
-      provisioning_status: "completed",
-      invitation_id: invitation.id,
-    })
-    .select("*")
-    .single();
-
-  if (insertError) {
+  if (provisioningError) {
     // 競合(すでに作成済み)なら再取得して成功扱い
     const { data: raced } = await admin
       .from("app_users")
@@ -91,15 +80,16 @@ export async function ensureProvisioned(
     if (raced) {
       return { ok: true, appUser: raced };
     }
-    return { ok: false, reason: "error", message: insertError.message };
+    if (provisioningError.code === "P0001") {
+      return {
+        ok: false,
+        reason: "not_invited",
+        message:
+          "このアカウントは利用登録されていません。管理者にお問い合わせください。",
+      };
+    }
+    return { ok: false, reason: "error", message: "プロビジョニングに失敗しました。" };
   }
-
-  // 4) 招待を受諾済みへ(失敗しても利用は妨げない。日次ジョブで整合)
-  await admin
-    .from("user_invitations")
-    .update({ status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("id", invitation.id)
-    .eq("status", "pending");
 
   return { ok: true, appUser: created };
 }

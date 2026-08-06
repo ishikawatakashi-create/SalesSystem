@@ -92,7 +92,7 @@ stateDiagram-v2
 
 ### 各ステップの仕様
 
-1. 認証: `supabase.auth.getUser()` + `app_users.is_active` + `provisioning_status='completed'`。
+1. 認証: `supabase.auth.getUser()` + `app_users.is_active` + 利用可能な`provisioning_status`。認証スパイク中は`profile_created`/`completed`、Notion接続完了後の最終状態は`completed`([permissions.md §4](./permissions.md#4-認証設計))。
 2. 権限: [permissions.md](./permissions.md)。**Secret key操作はRLSに守られないため、この層が必須の防御線。**
 3. 検証: Zod。マスタ参照はmasters_cacheで種別・有効性を検証。
 4. write_operations記録(上記)。

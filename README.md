@@ -43,6 +43,7 @@ npm run build      # 本番ビルド
 
 1. **Supabaseプロジェクト作成**
    - `.env.example` をコピーして `.env.local` を作成し、`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`(sb_publishable_...)/ `SUPABASE_SECRET_KEY`(sb_secret_...)を設定する。JWT系レガシーキー(anon / service_role)は使用しない。
+   - Authentication → Sign In / Providers → Emailの **Email OTP Expiration** を確認し、同じ秒数を `SUPABASE_EMAIL_OTP_EXPIRY_SECONDS` に設定する。公式既定値は1時間だが、実プロジェクトの値を推測してはならない。招待リンクとDB招待の期限はこの値で一致させる。
 2. **マイグレーション適用**
    - `supabase/migrations/` のSQLを順に適用する(Supabase CLIの `supabase db push`、またはダッシュボードのSQL Editor)。
 3. **Before User Created Hook の有効化**
@@ -51,16 +52,31 @@ npm run build      # 本番ビルド
    - Google Cloud ConsoleでOAuthクライアントを作成し、SupabaseのAuthentication → Providers → Googleに Client ID / Secret を設定する。リダイレクトURLはSupabaseが表示するもの(`https://<project>.supabase.co/auth/v1/callback`)を登録する。
 5. **Auth URL設定**
    - Authentication → URL Configuration で Site URL(本番URL)とRedirect URLs(`http://localhost:3000/auth/callback` 等)を設定する。
+   - Authentication → Email Templates → Invite userのリンクを、`token_hash`と`type=invite`を`/auth/callback`へ渡すSSR用テンプレートに設定する。例: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`。実際のSite URL/許可済みRedirect URLと一致させる。
 6. **SMTP設定(推奨)**
    - 招待・パスワード再設定メールを確実に届けるため、本番運用前にカスタムSMTPを設定する(Supabase既定のメール送信はレート制限が厳しい)。
-7. **最初の管理者の投入**
-   - 招待は管理者権限が必要なため、最初の1人はSQLで直接投入する:
+7. **最初の管理者の招待**
+   - 招待は管理者権限が必要なため、最初の1人は期限を明示して招待レコードを投入した後、Supabase Dashboardまたはサーバー側Admin APIから同じメールへ招待メールを送る。DB行だけではAuthユーザーも招待リンクも作成されない。
 
 ```sql
-insert into public.user_invitations (email, normalized_email, display_name, role)
-values ('admin@example.com', 'admin@example.com', '管理者名', 'admin');
+insert into public.user_invitations (
+  email, normalized_email, display_name, role, expires_at
+)
+values (
+  'admin@example.com',
+  'admin@example.com',
+  '管理者名',
+  'admin',
+  now() + make_interval(secs => <Email OTP Expirationの実設定秒数>)
+);
 ```
 
-   - その後、ログイン画面の「パスワードをお忘れの方」ではなく、ダッシュボードから招待メールを送るか、Googleでログインする(招待済みのため Before User Created Hook を通過できる)。
+   - 実際のSQLでは列一覧に `expires_at` も指定すること。プレースホルダーをそのまま実行しない。
+
+## 認証スパイク中の暫定運用
+
+- `profile_created`: Authと`app_users`の作成が完了した状態。Notion未接続の認証スパイク中は利用可能とする。
+- `completed`: Notion自社担当者ページ作成と`notion_staff_page_id`保存まで完了した最終状態。Notion接続時に`user_provisioning`ジョブで`profile_created`をバックフィルする。
+- Authに存在して`app_users`に存在しないユーザーは管理画面で検知する。初期版では自動削除せず、人間が招待状態と認証ログを確認する。削除機能・自動削除ジョブは別途承認なしに追加しない。
 
 Notionインテグレーション・9DB作成(`scripts/setup-notion.ts`)の手順は、Phase 1のNotion接続ステップ実装時に追記する。

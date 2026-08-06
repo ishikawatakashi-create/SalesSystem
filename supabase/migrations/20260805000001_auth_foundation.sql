@@ -29,7 +29,8 @@ create table public.user_invitations (
   role             public.app_role not null,
   status           public.invitation_status not null default 'pending',
   invited_by       uuid,
-  expires_at       timestamptz not null default now() + interval '7 days',
+  -- 招待時にSupabase AuthのEmail OTP Expirationと同じ期限を必ず明示する。
+  expires_at       timestamptz not null,
   accepted_at      timestamptz,
   revoked_at       timestamptz,
   created_at       timestamptz not null default now()
@@ -95,18 +96,14 @@ declare
   v_email text;
   v_ok    boolean;
 begin
-  -- ペイロードからメールアドレスを取得(実環境での形式確認が必要: スパイク項目)
-  v_email := lower(trim(coalesce(
-    event #>> '{user,email}',
-    event #>> '{record,email}',
-    event #>> '{claims,email}'
-  )));
+  -- 公式ペイロードevent.user.emailだけを参照。欠落時はフェイルクローズする。
+  v_email := pg_catalog.lower(pg_catalog.btrim(event #>> '{user,email}'));
 
   if v_email is null or v_email = '' then
     return jsonb_build_object(
       'error', jsonb_build_object(
         'http_code', 403,
-        'message', 'メールアドレスを確認できないためサインアップできません。'
+        'message', 'このアカウントは利用登録されていません。'
       )
     );
   end if;
@@ -115,20 +112,20 @@ begin
     select 1 from public.user_invitations
     where normalized_email = v_email
       and status = 'pending'
-      and expires_at >= now()
+      and expires_at >= pg_catalog.now()
   ) into v_ok;
 
   if not v_ok then
     return jsonb_build_object(
       'error', jsonb_build_object(
         'http_code', 403,
-        'message', 'このアカウントは利用登録されていません。管理者にお問い合わせください。'
+        'message', 'このアカウントは利用登録されていません。'
       )
     );
   end if;
 
-  -- 許可: eventをそのまま返す
-  return event;
+  -- 公式仕様: 許可時は空JSONを返す。
+  return '{}'::jsonb;
 end $$;
 
 revoke execute on function public.hook_before_user_created(jsonb) from public, anon, authenticated;

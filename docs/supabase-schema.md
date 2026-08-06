@@ -36,7 +36,7 @@ create type import_row_status as enum (
 | role | app_role not null | |
 | **status** | invitation_status not null default 'pending' | pending / accepted / revoked / expired |
 | invited_by | uuid → app_users.id | |
-| expires_at | timestamptz not null | 既定: 発行から7日 |
+| expires_at | timestamptz not null(既定値なし) | Supabase AuthのEmail OTP Expirationと同じ秒数を発行時に明示 |
 | accepted_at | timestamptz | 受諾(初回ログイン成立)時刻 |
 | revoked_at | timestamptz | 取消時刻 |
 | created_at | timestamptz | |
@@ -49,10 +49,11 @@ create unique index user_invitations_pending_email_uniq
   where status = 'pending';
 ```
 
-- **期限切れ処理**: 定期ジョブ(既存の `storage_cleanup` 等と同じ日次バッチ)が `status='pending' and expires_at < now()` の行を `status='expired'` へ更新する。招待の有効性判定(Before User Created Hook等)は「`status='pending'` かつ `expires_at >= now()`」の両方で行い、ジョブの実行遅延に依存しない。
+- **期限の正**: 招待リンクの実期限はSupabase Authの **Email OTP Expiration**。実プロジェクトの設定秒数を`SUPABASE_EMAIL_OTP_EXPIRY_SECONDS`へ明示し、アプリは同じ秒数から`expires_at`を算出する。公式既定値だけを根拠に実設定を推測しない。
+- **期限切れ処理**: 定期ジョブ(既存の `storage_cleanup` 等と同じ日次バッチ)が `status='pending' and expires_at < now()` の行を `status='expired'` へ更新する。招待の有効性判定(Before User Created Hook等)は「`status='pending'` かつ `expires_at >= now()`」の両方で行い、ジョブの実行遅延に依存しない。再招待時も対象メールの期限超過pendingを先に`expired`へ遷移するため、日次ジョブを待たず再発行できる。
 - 期限切れ・取消済みのメールアドレスには再招待(新しいpending行の作成)が可能。
 
-- **未招待ユーザーの作成拒否**: Supabase Authの **Before User Created Hook** で、作成されようとしているユーザーのメールを `user_invitations`(`status='pending'` かつ `expires_at >= now()`)と照合し、一致しなければ作成を拒否する。これによりGoogle OAuth経由でも未招待アカウントは `auth.users` 自体が作られない。Hookの挙動(メール招待フローとの干渉含む)は**Phase 1最初の技術スパイクで確認**する([implementation-plan.md](./implementation-plan.md))。
+- **未招待ユーザーの作成拒否**: Supabase Authの **Before User Created Hook** で、公式ペイロードの`event.user.email`だけを参照し、`user_invitations`(`status='pending'` かつ `expires_at >= now()`)と照合する。メール欠落時はフェイルクローズし、`record.email`や`claims.email`へフォールバックしない。一致しなければ作成を拒否するため、Google OAuth経由でも未招待アカウントは `auth.users` 自体が作られない。関数はマイグレーション所有者(`postgres`)の`SECURITY DEFINER set search_path=''`として`public.user_invitations`を参照するため、同テーブルのRLSを迂回して招待を照合できる。EXECUTEは`supabase_auth_admin`だけへ許可し、`public`/`anon`/`authenticated`からREVOKEする。
 
 ### app_users
 
@@ -70,7 +71,8 @@ create unique index user_invitations_pending_email_uniq
 | invitation_id | uuid → user_invitations.id | |
 | created_at / updated_at | timestamptz | |
 
-- **プロビジョニングの部分失敗対策**: 招待受諾時の「Auth作成 → app_users作成 → Notion自社担当者ページ作成」は複数システムにまたがり原子的でない。`provisioning_status` で進行を記録し、途中失敗(例: Notionページ作成失敗)は `failed` とせず該当ステップから**再試行ジョブ(kind=`user_provisioning`)**で完遂する。`completed` 以外のユーザーはログイン後に「準備中」画面を表示する。
+- **プロビジョニングの部分失敗対策**: 招待受諾時の「Auth作成 → app_users作成 → Notion自社担当者ページ作成」は複数システムにまたがり原子的でない。Auth作成後の`app_users`作成と招待の`accepted`遷移は`accept_invitation_and_provision` RPCで原子的に実行し、状態を`profile_created`とする。認証スパイク中は`profile_created`を暫定的に利用可能とする。Notion接続後は**再試行ジョブ(kind=`user_provisioning`)**が自社担当者ページを作成し、`notion_staff_page_id`保存と同時に`completed`へ遷移する。既存`profile_created`もバックフィル対象とする。`pending` / `auth_created` / `failed`は利用不可。
+- **未プロビジョニングAuthユーザー**: `auth.users`に存在して`app_users`に存在しないユーザーは管理画面で検知し、人間が確認する。初期版では自動削除せず、自動削除ジョブは別途承認なしに実装しない。
 
 ## 3. 検索インデックス(Notionキャッシュ)
 

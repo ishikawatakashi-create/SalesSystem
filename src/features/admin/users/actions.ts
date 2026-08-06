@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireUser, requirePermission, AuthError } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/auth/normalize-email";
+import { invitationExpiresAt } from "@/lib/auth/config";
 import { appUrl } from "@/lib/env";
 
 export type ActionResult =
@@ -52,7 +53,36 @@ export async function inviteUserAction(
 
   const admin = createAdminClient();
 
-  // 1) 招待レコード登録(pending一意制約が二重招待を防ぐ)
+  // Authリンクの期限切れ後に再招待できるよう、同じメールの期限超過pendingを
+  // expiredへ遷移する。Authユーザーは自動削除しない。
+  const now = new Date();
+  const { error: expireError } = await admin
+    .from("user_invitations")
+    .update({ status: "expired" })
+    .eq("normalized_email", normalized)
+    .eq("status", "pending")
+    .lt("expires_at", now.toISOString());
+
+  if (expireError) {
+    console.error("期限切れ招待の状態更新に失敗しました", expireError);
+    return {
+      ok: false,
+      message: "招待を開始できませんでした。時間をおいて再度お試しください。",
+    };
+  }
+
+  let expiresAt: string;
+  try {
+    expiresAt = invitationExpiresAt(now);
+  } catch (error) {
+    console.error("招待期限の設定が不正です", error);
+    return {
+      ok: false,
+      message: "招待期限のシステム設定が完了していません。管理者に確認してください。",
+    };
+  }
+
+  // 1) 招待レコード登録(pending一意制約が期限内の二重招待を防ぐ)
   const { data: invitation, error: insertError } = await admin
     .from("user_invitations")
     .insert({
@@ -61,6 +91,7 @@ export async function inviteUserAction(
       display_name: displayName,
       role,
       invited_by: user.id,
+      expires_at: expiresAt,
     })
     .select("id")
     .single();
@@ -72,7 +103,11 @@ export async function inviteUserAction(
         message: "このメールアドレスには有効な招待が既に存在します。",
       };
     }
-    return { ok: false, message: `招待の登録に失敗しました: ${insertError.message}` };
+    console.error("招待レコードの登録に失敗しました", insertError);
+    return {
+      ok: false,
+      message: "招待を登録できませんでした。時間をおいて再度お試しください。",
+    };
   }
 
   // 2) 招待メール送信(Auth側にユーザーを仮作成し、招待リンクを送る)
@@ -91,9 +126,10 @@ export async function inviteUserAction(
       .update({ status: "revoked", revoked_at: new Date().toISOString() })
       .eq("id", invitation.id)
       .eq("status", "pending");
+    console.error("Supabase Authの招待メール送信に失敗しました", inviteError);
     return {
       ok: false,
-      message: `招待メールの送信に失敗しました: ${inviteError.message}`,
+      message: "招待メールを送信できませんでした。設定を確認してください。",
     };
   }
 
@@ -131,7 +167,11 @@ export async function revokeInvitationAction(
     .select("id");
 
   if (error) {
-    return { ok: false, message: `取消に失敗しました: ${error.message}` };
+    console.error("招待の取消に失敗しました", error);
+    return {
+      ok: false,
+      message: "招待を取り消せませんでした。時間をおいて再度お試しください。",
+    };
   }
   if (!data || data.length === 0) {
     return { ok: false, message: "取消できる状態の招待が見つかりません。" };

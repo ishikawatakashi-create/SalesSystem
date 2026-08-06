@@ -109,11 +109,12 @@ await requirePermission(user, 'customer.edit'); // 権限外は403相当のエ�
 
 1. Supabaseダッシュボードで **メール・Google両方のサインアップを無効化**(Allow new users to sign up = OFF)。
 2. 管理者が管理画面からメールアドレス・氏名・ロールを入力して招待 → サーバーで `user_invitations` 行を作成し、`auth.admin.inviteUserByEmail()`(Secret key、サーバー専用)で招待メールを送信。
-3. **未招待ユーザーの作成拒否**: Supabase Authの **Before User Created Hook** で、作成対象のメール(正規化済み)を有効な `user_invitations` と照合し、一致しなければユーザー作成自体を拒否する。これによりGoogle OAuth経由の未招待アカウントも `auth.users` が作られない。Hookとメール招待フローの干渉有無は**Phase 1最初の技術スパイクで確認**する。
-4. 招待受諾(初回ログイン成立)後のプロビジョニング: `app_users` 行作成 → Notion自社担当者ページ作成。複数システムにまたがり原子的でないため、`app_users.provisioning_status` で進行を記録し、**部分失敗は再試行ジョブ(kind=`user_provisioning`)で完遂**する。`completed` になるまで利用者には「準備中」画面を表示する。
+3. **未招待ユーザーの作成拒否**: Supabase Authの **Before User Created Hook** で、公式ペイロードの `event.user.email` のみを正規化して有効な `user_invitations` と照合する。メールが欠落・空の場合はフォールバックせず拒否する(フェイルクローズ)。一致しなければユーザー作成自体を拒否し、Google OAuth経由でも未招待アカウントを `auth.users` に残さない。成功時は空JSONを返す。Hook関数は`SECURITY DEFINER set search_path=''`、参照先は`public.user_invitations`へスキーマ修飾し、EXECUTEは`supabase_auth_admin`だけに許可する。
+4. 招待受諾(初回ログイン成立)後のプロビジョニング: `app_users` 行作成 → Notion自社担当者ページ作成。複数システムにまたがり原子的でないため、`app_users.provisioning_status` で進行を記録し、**部分失敗は再試行ジョブ(kind=`user_provisioning`)で完遂**する。認証スパイク中はAuth+`app_users`作成済みの`profile_created`を暫定的に利用可能とし、Notion接続後は自社担当者ページ作成と`notion_staff_page_id`保存をもって`completed`へ遷移する。既存`profile_created`は同ジョブでバックフィルする。
 5. Googleログインは**招待済みメールアドレスと一致するユーザーのみ**成立する。auth callbackで `app_users` に存在しない・無効なユーザーはセッション破棄+エラー表示(多重防御)。
-6. 招待は `status`(pending / accepted / revoked / expired)で状態管理する。有効(pending)な招待はメールアドレスごとに1件のみ(部分ユニークインデックス)。有効期限(`expires_at`、既定7日)を過ぎた招待は日次ジョブが `expired` へ更新し、有効性判定は「pending かつ 期限内」の両条件で行う。期限切れ・取消済みは再招待(新しいpending行)が可能。招待の発行・取消は監査ログ対象。
+6. 招待は `status`(pending / accepted / revoked / expired)で状態管理する。有効(pending)な招待はメールアドレスごとに1件のみ(部分ユニークインデックス)。招待リンクの実期限はSupabase Authの **Email OTP Expiration** が決めるため、`user_invitations.expires_at`も実プロジェクトの同設定値から算出して発行時に明示する(独自の既定値を持たない)。有効性判定は「pending かつ 期限内」の両条件で行い、再招待時は期限超過pendingを`expired`へ遷移してから新しいpending行を作成する。取消済みも再招待可能。招待の発行・取消は監査ログ対象。
 7. 退職・利用停止は「無効化」(`is_active = false` + Supabase Authのban)。ハード削除しない(監査ログの actor 参照を保持)。
+8. Authに存在して`app_users`に存在しないユーザーは管理画面で検知し、人間が招待状態・Authログを確認する。初期版では自動削除しない。自動削除ジョブは人間の承認なしに実装しない。
 
 ### エラー表示(ログイン画面)
 

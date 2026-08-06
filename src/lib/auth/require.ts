@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { AppUserRow } from "@/types/database";
 import { hasPermission, type PermissionAction } from "@/lib/auth/permissions";
+import { isUsableProvisioningStatus } from "@/lib/auth/provisioning-status";
 
 export class AuthError extends Error {
   constructor(
@@ -19,7 +20,7 @@ export class AuthError extends Error {
 }
 
 /**
- * 認証済み・有効・プロビジョニング完了のアプリユーザーを取得する。
+ * 認証済み・有効・利用可能なプロビジョニング状態のアプリユーザーを取得する。
  * すべてのServer Action / Route Handlerの冒頭で必ず呼ぶこと。
  * getSession()は信用せず、getUser()でSupabaseに対して検証する。
  */
@@ -53,7 +54,7 @@ export async function requireUser(): Promise<AppUserRow> {
       "このアカウントは無効化されています。管理者にお問い合わせください。",
     );
   }
-  if (appUser.provisioning_status !== "completed") {
+  if (!isUsableProvisioningStatus(appUser.provisioning_status)) {
     throw new AuthError(
       "not_provisioned",
       "アカウントの準備中です。しばらくしてから再度お試しください。",

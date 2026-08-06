@@ -226,6 +226,7 @@ NEXT_PUBLIC_APP_URL=
 
 # サーバー専用(絶対にNEXT_PUBLIC_を付けない)
 SUPABASE_SECRET_KEY=                    # sb_secret_...(RLSバイパス。取り扱い注意)
+SUPABASE_EMAIL_OTP_EXPIRY_SECONDS=      # AuthのEmail OTP Expirationと同じ実設定秒数
 NOTION_TOKEN=
 NOTION_WEBHOOK_SECRET=
 CRON_SECRET=

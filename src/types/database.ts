@@ -68,6 +68,13 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      accept_invitation_and_provision: {
+        Args: {
+          p_user_id: string;
+          p_email: string;
+        };
+        Returns: AppUserRow;
+      };
       current_app_role: {
         Args: Record<string, never>;
         Returns: AppRole | null;
