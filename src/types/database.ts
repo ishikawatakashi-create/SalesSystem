@@ -186,6 +186,32 @@ export type CustomerIndexRow = {
   search_text_kana: string;
 };
 
+export type ContactIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  name_kana: string | null;
+  customer_page_id: string | null;
+  department: string | null;
+  title: string | null;
+  /** 表示用電話番号原文 */
+  phone: string | null;
+  /** 検索用(数字のみ) */
+  phone_normalized: string | null;
+  email: string | null;
+  contact_type_id: string | null;
+  note: string | null;
+  is_active: boolean;
+  search_text: string;
+};
+
 export type WriteOperationRow = {
   request_id: string;
   entity_type: string;
@@ -254,7 +280,7 @@ export type Database = {
         from_page_id: string;
         to_page_id: string;
       }>;
-      contact_index: TableDef<Record<string, unknown>>;
+      contact_index: TableDef<ContactIndexRow>;
       deal_index: TableDef<Record<string, unknown>>;
       activity_index: TableDef<Record<string, unknown>>;
       contract_index: TableDef<Record<string, unknown>>;

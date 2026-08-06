@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
+import { listContactsByCustomer } from "@/lib/contacts/read-list";
 import { getCustomerDetail } from "@/lib/customers/read-detail";
 import type { CustomerDetail } from "@/lib/customers/types";
 import { isCustomerSyncError } from "@/lib/sync/errors";
@@ -10,12 +11,22 @@ import {
   loadDetailLabelMaps,
   type DetailLabelMaps,
 } from "@/features/customers/list-data";
+import { loadListLabelMaps } from "@/features/contacts/list-data";
+import { formatOptional } from "@/features/contacts/format";
 import { formatDateTime, formatYen } from "@/features/customers/format";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type RawParams = Record<string, string | string[] | undefined>;
+
+function str(params: RawParams, key: string): string | undefined {
+  const v = params[key];
+  const s = Array.isArray(v) ? v[0] : v;
+  return s?.trim() ? s.trim() : undefined;
+}
 
 function Item({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -58,19 +69,25 @@ function masterLabels(labels: DetailLabelMaps, ids: string[]): React.ReactNode {
 
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<RawParams>;
 }) {
   let canEdit = false;
+  let canEditContact = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "customer.edit");
+    canEditContact = hasPermission(user.role, "contact.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
   }
 
   const { id } = await params;
+  const rawSearch = await searchParams;
+  const includeInactiveContacts = str(rawSearch, "contacts_inactive") === "1";
   if (!PAGE_ID_RE.test(id)) notFound();
 
   let detail: CustomerDetail;
@@ -119,6 +136,10 @@ export default async function CustomerDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
+  const contacts = await listContactsByCustomer(detail.notionPageId, {
+    includeInactive: includeInactiveContacts,
+  });
+  const contactLabels = await loadListLabelMaps(contacts);
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -279,6 +300,138 @@ export default async function CustomerDetailPage({
           )}
         </section>
       </div>
+
+      <section className="rounded border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
+          <h2 className="text-xs font-bold text-slate-700">先方担当者</h2>
+          <span className="text-xs text-slate-500">{contacts.length}件</span>
+          <label className="ml-2 flex items-center gap-1 text-xs text-slate-600">
+            {includeInactiveContacts ? (
+              <Link
+                href={`/customers/${detail.notionPageId}`}
+                className="text-primary underline"
+              >
+                有効のみ表示
+              </Link>
+            ) : (
+              <Link
+                href={`/customers/${detail.notionPageId}?contacts_inactive=1`}
+                className="text-primary underline"
+              >
+                無効も含める
+              </Link>
+            )}
+          </label>
+          {canEditContact && !detail.isArchived && (
+            <Link
+              href={`/customers/${detail.notionPageId}/contacts/new`}
+              className="ml-auto rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              担当者を追加
+            </Link>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full whitespace-nowrap text-xs">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-left text-slate-600">
+                <th className="px-2 py-1.5 font-medium">氏名</th>
+                <th className="px-2 py-1.5 font-medium">部署</th>
+                <th className="px-2 py-1.5 font-medium">役職</th>
+                <th className="px-2 py-1.5 font-medium">電話番号</th>
+                <th className="px-2 py-1.5 font-medium">メール</th>
+                <th className="px-2 py-1.5 font-medium">担当者区分</th>
+                <th className="px-2 py-1.5 font-medium">状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-3 py-6 text-center text-slate-500"
+                  >
+                    {includeInactiveContacts
+                      ? "担当者は登録されていません。"
+                      : "有効な担当者はいません。"}
+                    {canEditContact && !detail.isArchived && (
+                      <span className="ml-2">
+                        <Link
+                          href={`/customers/${detail.notionPageId}/contacts/new`}
+                          className="text-primary underline"
+                        >
+                          担当者を追加
+                        </Link>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )}
+              {contacts.map((row) => (
+                <tr
+                  key={row.notion_page_id}
+                  className="border-b border-slate-100 hover:bg-slate-50"
+                >
+                  <td className="max-w-40 truncate px-2 py-1.5 font-medium">
+                    <Link
+                      href={`/contacts/${row.notion_page_id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {row.name}
+                    </Link>
+                  </td>
+                  <td className="max-w-32 truncate px-2 py-1.5">
+                    {formatOptional(row.department)}
+                  </td>
+                  <td className="max-w-28 truncate px-2 py-1.5">
+                    {formatOptional(row.title)}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {row.phone ? (
+                      <a
+                        href={`tel:${row.phone}`}
+                        className="text-primary underline"
+                      >
+                        {row.phone}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="max-w-48 truncate px-2 py-1.5">
+                    {row.email ? (
+                      <a
+                        href={`mailto:${row.email}`}
+                        className="text-primary underline"
+                      >
+                        {row.email}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {row.contact_type_id
+                      ? (contactLabels.contactTypeNames.get(
+                          row.contact_type_id,
+                        ) ?? "—")
+                      : "—"}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {row.is_active ? (
+                      <span className="text-slate-400">有効</span>
+                    ) : (
+                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-slate-600">
+                        無効
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <p className="text-xs text-slate-400">
         作成日時: {formatDateTime(detail.createdTime)} / 更新日時:{" "}
