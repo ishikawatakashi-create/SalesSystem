@@ -705,18 +705,39 @@ export async function executeCustomerUpdate(
         error instanceof NotionHttpError &&
         (error.code === "write_ambiguous_failure" || error.status >= 500)
       ) {
+        // 存在確認だけでは成功にしない。期待content_hashと照合する。
         const { customer: after } = await loadCustomerPage(
           deps,
           command.notionPageId,
         );
-        if (hashCustomerDomain(after) !== recovery.expectedContentHash) {
-          await deps.writeOps.markFailed(
-            command.requestId,
-            "notion_update_ambiguous_failure",
-          );
+        const afterHash = hashCustomerDomain(after);
+        if (afterHash === recovery.expectedContentHash) {
+          deps.logger.warn({
+            request_id: command.requestId,
+            message: "update_ambiguous_recovered_by_content_hash",
+          });
+          // 反映済みとして後続へ進む
+        } else {
+          await deps.syncErrors.insert({
+            stage: "ambiguous_update",
+            entityType: "customer",
+            notionPageId: command.notionPageId,
+            externalId: command.externalId,
+            message:
+              "Notion更新結果が曖昧で期待content_hashと不一致。自動再更新しない",
+            detail: {
+              expected_hash_prefix: recovery.expectedContentHash.slice(0, 8),
+              actual_hash_prefix: afterHash.slice(0, 8),
+            },
+          });
+          deps.logger.error({
+            request_id: command.requestId,
+            message: "update_ambiguous_hash_mismatch",
+          });
           throw new CustomerSyncError(
             "ambiguous_write",
-            "Notion更新結果が曖昧です",
+            "Notion更新結果を判定できませんでした。管理者による確認が必要です",
+            { stage: "ambiguous_update" },
           );
         }
       } else {

@@ -44,7 +44,11 @@ function sanitize(fields: NotionLogFields): NotionLogFields {
       out[key] = "[redacted]";
       continue;
     }
-    if (typeof value === "string" && looksLikeSecret(value)) {
+    if (
+      typeof value === "string" &&
+      key !== "message" &&
+      looksLikeSecret(value)
+    ) {
       out[key] = "[redacted]";
       continue;
     }
