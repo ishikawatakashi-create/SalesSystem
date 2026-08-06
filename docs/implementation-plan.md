@@ -29,7 +29,7 @@
    - RPC: `claim_next_job`(リース回収+failed遷移込み)/ `heartbeat_job`・`complete_job`・`fail_job`(locked_by照合)/ `ingest_webhook_event` / `reserve_notion_slot` / `report_notion_rate_limited` / `current_app_role`
    - **RPC実行権限のREVOKE/GRANT**(システムRPCはバックエンドロールのみ。[supabase-schema.md §8](./supabase-schema.md#rpcdb関数の実行権限))、SECURITY DEFINERの `search_path=''` 規約
    - RLSポリシー一式、pg_trgm / pg_cron / pg_net拡張
-   - **2026-08-06**: マイグレーション `20260806120000_phase1_foundation.sql` 実装済み。**実`db push`前に`--dry-run`で停止**(適用は次ステップ)
+   - **2026-08-06**: マイグレーション `20260806120000_phase1_foundation.sql` をリモートへ適用済み。実DB結合テスト(`tests/phase1-remote.integration.test.ts`, `RUN_REMOTE_DB_TESTS=1`)通過。
 4. 認証・招待・権限
    - `@supabase/ssr` クライアント3種+middleware
    - ログイン画面(メール+パスワード / Google / パスワード再設定)、auth callback

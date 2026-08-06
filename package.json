@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:remote": "vitest run tests/phase1-remote.integration.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
