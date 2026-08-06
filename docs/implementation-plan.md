@@ -29,19 +29,22 @@
    - RPC: `claim_next_job`(リース回収+failed遷移込み)/ `heartbeat_job`・`complete_job`・`fail_job`(locked_by照合)/ `ingest_webhook_event` / `reserve_notion_slot` / `report_notion_rate_limited` / `current_app_role`
    - **RPC実行権限のREVOKE/GRANT**(システムRPCはバックエンドロールのみ。[supabase-schema.md §8](./supabase-schema.md#rpcdb関数の実行権限))、SECURITY DEFINERの `search_path=''` 規約
    - RLSポリシー一式、pg_trgm / pg_cron / pg_net拡張
+   - **2026-08-06**: マイグレーション `20260806120000_phase1_foundation.sql` 実装済み。**実`db push`前に`--dry-run`で停止**(適用は次ステップ)
 4. 認証・招待・権限
    - `@supabase/ssr` クライアント3種+middleware
    - ログイン画面(メール+パスワード / Google / パスワード再設定)、auth callback
    - 招待フロー(user_invitations+Before User Created Hook+`provisioning_status` と再試行ジョブ `user_provisioning`)
    - `lib/auth/permissions.ts` + `requireUser` / `requirePermission`
    - 管理画面: ユーザー招待・一覧・権限変更・無効化
+   - **認証スパイク暫定完了**(上記1)。Google OAuthブラウザE2Eは本番公開前
 5. **ジョブ基盤(Phase 4から前倒し)**
    - `lib/jobs/scheduler.ts`: JobScheduler抽象化
    - **SupabaseCronScheduler(初期採用)**: `pg_cron` + `pg_net` で毎分 `/api/jobs/run` を起動(CRON_SECRET検証)
    - VercelCronScheduler(Vercel Pro以上の場合の代替)を差し替え可能な形で用意
    - ワーカー: `claim_next_job` による排他取得、チャンク実行、heartbeat、リース切れ回収、`attempts`/バックオフ
+   - **2026-08-06**: JobScheduler / SupabaseCronScheduler / `/api/jobs/run` / 意味論テストまで実装。実DB適用後に結合確認
 6. Notion接続
-   - `lib/notion/rate-limiter.ts`: **分散レートリミッター**(reserve_notion_slot / report_notion_rate_limited経由。全リクエスト必須通過)
+   - `lib/notion/rate-limiter.ts`: **分散レートリミッター**(reserve_notion_slot / report_notion_rate_limited経由。全リクエスト必須通過。**API実接続なしで枠予約実装済み**)
    - `lib/notion/client.ts`: APIバージョン **`2026-03-11`**、429=Retry-After遵守+グローバル停止、500/502/503/504=一時障害リトライ、`in_trash` 対応
    - `scripts/setup-notion.ts`: **9DB作成(external_id等の必須プロパティ含む)**+初期マスタ(**semantic_key / semantic_tags付き**)投入+**標準ビュー作成**+**プロパティIDスナップショット生成・保存**(config JSON+system_settings)
    - `lib/notion/schema.ts` / `converters/`(顧客のみ先行。プロパティID参照、25件超リレーションのページネーション)

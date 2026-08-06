@@ -1,6 +1,6 @@
 /**
- * Supabaseテーブルの型定義(認証スパイク範囲)。
- * Phase 1のスキーマ確定後は `supabase gen types` による自動生成へ移行する。
+ * Supabaseテーブルの型定義。
+ * Phase 1基盤確定後は `supabase gen types` による自動生成へ移行する。
  */
 
 export type AppRole = "admin" | "a" | "b" | "viewer";
@@ -13,6 +13,34 @@ export type ProvisioningStatus =
   | "failed";
 
 export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export type SyncStatus =
+  | "synced"
+  | "pending"
+  | "error"
+  | "delete_pending"
+  | "excluded";
+
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+export type WriteOpStatus = "pending" | "notion_done" | "completed" | "failed";
+
+export type ImportRowStatus =
+  | "pending"
+  | "valid_new"
+  | "valid_update"
+  | "duplicate"
+  | "invalid"
+  | "skipped"
+  | "importing"
+  | "imported"
+  | "import_failed";
 
 // 注: supabase-jsの型制約(Record<string, unknown>)を満たすため、
 // interfaceではなくtypeエイリアスで定義すること。
@@ -45,26 +73,103 @@ export type UserInvitationRow = {
   created_at: string;
 };
 
+export type JobRow = {
+  id: string;
+  kind: string;
+  priority: number;
+  status: JobStatus;
+  payload: Record<string, unknown>;
+  progress_done: number;
+  progress_total: number | null;
+  cursor: Record<string, unknown> | null;
+  idempotency_key: string | null;
+  locked_by: string | null;
+  locked_at: string | null;
+  lease_expires_at: string | null;
+  heartbeat_at: string | null;
+  attempts: number;
+  max_attempts: number;
+  next_run_at: string;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+};
+
+export type NotionRateLimiterRow = {
+  id: number;
+  next_slot_at: string;
+  blocked_until: string | null;
+  min_interval_ms: number;
+};
+
+export type SystemSettingRow = {
+  key: string;
+  value: Record<string, unknown>;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+export type AuditLogRow = {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  action: string;
+  entity_type: string;
+  notion_page_id: string | null;
+  changed_fields: Record<string, unknown> | null;
+  operation_source: string | null;
+  request_id: string | null;
+  batch_id: string | null;
+  created_at: string;
+};
+
+type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
+
 export type Database = {
   public: {
     Tables: {
-      app_users: {
-        Row: AppUserRow;
-        Insert: Partial<AppUserRow> &
-          Pick<AppUserRow, "id" | "email" | "display_name" | "role">;
-        Update: Partial<AppUserRow>;
-        Relationships: [];
-      };
-      user_invitations: {
-        Row: UserInvitationRow;
-        Insert: Partial<UserInvitationRow> &
+      app_users: TableDef<
+        AppUserRow,
+        Partial<AppUserRow> &
+          Pick<AppUserRow, "id" | "email" | "display_name" | "role">
+      >;
+      user_invitations: TableDef<
+        UserInvitationRow,
+        Partial<UserInvitationRow> &
           Pick<
             UserInvitationRow,
             "email" | "normalized_email" | "display_name" | "role"
-          >;
-        Update: Partial<UserInvitationRow>;
-        Relationships: [];
-      };
+          >
+      >;
+      jobs: TableDef<JobRow>;
+      job_items: TableDef<Record<string, unknown>>;
+      audit_logs: TableDef<AuditLogRow>;
+      write_operations: TableDef<Record<string, unknown>>;
+      sync_errors: TableDef<Record<string, unknown>>;
+      webhook_events: TableDef<Record<string, unknown>>;
+      import_jobs: TableDef<Record<string, unknown>>;
+      import_rows: TableDef<Record<string, unknown>>;
+      saved_searches: TableDef<Record<string, unknown>>;
+      recent_views: TableDef<Record<string, unknown>>;
+      system_settings: TableDef<SystemSettingRow>;
+      notion_rate_limiter: TableDef<NotionRateLimiterRow>;
+      customer_index: TableDef<Record<string, unknown>>;
+      customer_relations: TableDef<Record<string, unknown>>;
+      contact_index: TableDef<Record<string, unknown>>;
+      deal_index: TableDef<Record<string, unknown>>;
+      activity_index: TableDef<Record<string, unknown>>;
+      contract_index: TableDef<Record<string, unknown>>;
+      complaint_index: TableDef<Record<string, unknown>>;
+      action_index: TableDef<Record<string, unknown>>;
+      masters_cache: TableDef<Record<string, unknown>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -79,11 +184,71 @@ export type Database = {
         Args: Record<string, never>;
         Returns: AppRole | null;
       };
+      claim_next_job: {
+        Args: {
+          p_worker_id: string;
+          p_lease_seconds?: number;
+        };
+        Returns: JobRow[];
+      };
+      heartbeat_job: {
+        Args: {
+          p_job_id: string;
+          p_worker_id: string;
+          p_lease_seconds?: number;
+        };
+        Returns: boolean;
+      };
+      complete_job: {
+        Args: {
+          p_job_id: string;
+          p_worker_id: string;
+          p_result?: Record<string, unknown> | null;
+        };
+        Returns: boolean;
+      };
+      fail_job: {
+        Args: {
+          p_job_id: string;
+          p_worker_id: string;
+          p_error_message?: string | null;
+          p_backoff_seconds?: number;
+        };
+        Returns: boolean;
+      };
+      ingest_webhook_event: {
+        Args: {
+          p_event_id: string;
+          p_event_type: string;
+          p_payload: Record<string, unknown>;
+        };
+        Returns: string;
+      };
+      reserve_notion_slot: {
+        Args: {
+          p_priority?: string;
+        };
+        Returns: string;
+      };
+      report_notion_rate_limited: {
+        Args: {
+          p_retry_after_seconds: number;
+        };
+        Returns: undefined;
+      };
+      get_notion_rate_limiter_state: {
+        Args: Record<string, never>;
+        Returns: NotionRateLimiterRow[];
+      };
     };
     Enums: {
       app_role: AppRole;
       provisioning_status: ProvisioningStatus;
       invitation_status: InvitationStatus;
+      sync_status: SyncStatus;
+      job_status: JobStatus;
+      write_op_status: WriteOpStatus;
+      import_row_status: ImportRowStatus;
     };
     CompositeTypes: Record<string, never>;
   };
