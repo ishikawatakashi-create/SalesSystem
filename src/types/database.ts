@@ -117,12 +117,80 @@ export type AuditLogRow = {
   actor_id: string | null;
   actor_name: string | null;
   action: string;
-  entity_type: string;
+  entity_type: string | null;
   notion_page_id: string | null;
   changed_fields: Record<string, unknown> | null;
   operation_source: string | null;
   request_id: string | null;
   batch_id: string | null;
+  created_at: string;
+};
+
+export type CustomerIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  display_name: string;
+  legal_name: string | null;
+  office_name: string | null;
+  postal_code: string | null;
+  prefecture: string | null;
+  city: string | null;
+  address_line: string | null;
+  /** 表示用電話番号原文 */
+  phone: string | null;
+  /** 検索用(数字のみ) */
+  phone_normalized: string | null;
+  email: string | null;
+  representative_name: string | null;
+  website: string | null;
+  business_category_ids: string[];
+  tag_ids: string[];
+  sales_status_id: string | null;
+  acquisition_route_id: string | null;
+  priority_id: string | null;
+  staff_user_ids: string[];
+  latest_activity_summary: string | null;
+  last_activity_at: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  expected_amount: number | null;
+  is_archived: boolean;
+  search_text: string;
+  search_text_kana: string;
+};
+
+export type WriteOperationRow = {
+  request_id: string;
+  entity_type: string;
+  operation: string;
+  external_id: string;
+  input_hash: string;
+  status: WriteOpStatus;
+  notion_page_id: string | null;
+  recovery_payload: Record<string, unknown> | null;
+  actor_id: string | null;
+  started_at: string;
+  completed_at: string | null;
+  error: string | null;
+};
+
+export type SyncErrorRow = {
+  id: string;
+  stage: string;
+  entity_type: string | null;
+  notion_page_id: string | null;
+  external_id: string | null;
+  message: string;
+  detail: Record<string, unknown> | null;
+  resolved_at: string | null;
+  ignored_at: string | null;
   created_at: string;
 };
 
@@ -152,8 +220,8 @@ export type Database = {
       jobs: TableDef<JobRow>;
       job_items: TableDef<Record<string, unknown>>;
       audit_logs: TableDef<AuditLogRow>;
-      write_operations: TableDef<Record<string, unknown>>;
-      sync_errors: TableDef<Record<string, unknown>>;
+      write_operations: TableDef<WriteOperationRow>;
+      sync_errors: TableDef<SyncErrorRow>;
       webhook_events: TableDef<Record<string, unknown>>;
       import_jobs: TableDef<Record<string, unknown>>;
       import_rows: TableDef<Record<string, unknown>>;
@@ -161,8 +229,11 @@ export type Database = {
       recent_views: TableDef<Record<string, unknown>>;
       system_settings: TableDef<SystemSettingRow>;
       notion_rate_limiter: TableDef<NotionRateLimiterRow>;
-      customer_index: TableDef<Record<string, unknown>>;
-      customer_relations: TableDef<Record<string, unknown>>;
+      customer_index: TableDef<CustomerIndexRow>;
+      customer_relations: TableDef<{
+        from_page_id: string;
+        to_page_id: string;
+      }>;
       contact_index: TableDef<Record<string, unknown>>;
       deal_index: TableDef<Record<string, unknown>>;
       activity_index: TableDef<Record<string, unknown>>;
