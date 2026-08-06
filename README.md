@@ -7,11 +7,17 @@
 
 ## 現在の状態
 
-**Phase 1 実装中。認証技術スパイクは暫定完了**([docs/auth-spike-results.md](./docs/auth-spike-results.md))。進行は [docs/implementation-plan.md](./docs/implementation-plan.md) に従う。
+**Phase 1 実装中。** 認証スパイク暫定完了 + Supabase基盤リモート適用済み。進行は [docs/implementation-plan.md](./docs/implementation-plan.md) に従う。
 
-- 実装済み: Next.jsプロジェクト基盤 / 認証基盤マイグレーション / Supabaseクライアント3種+proxy / 権限チェック / ログイン・招待・パスワード設定UI / 管理者のユーザー招待画面 / 実SupabaseでのA/B/D/E/F検証
-- 保留(本番公開前): Google OAuthブラウザE2E(未招待拒否・招待済みログイン)
-- 次: Supabase全スキーマ・ジョブ基盤・分散レートリミッター → Notion接続
+- 実装済み: 認証基盤 / Supabase全スキーマ・ジョブ・レートリミッター / 実DB結合テスト
+- Notion接続: クライアント・`setup-notion`(既定はplanのみ)・スキーマ定義を実装。**`--apply`による実作成は未実施**
+- 保留(本番公開前): Google OAuthブラウザE2E
+
+### Auth Admin APIの注意(実測)
+
+- `auth.admin.createUser` は Before User Created Hook を**迂回**する。公開 `signUp` では未招待が拒否されるが、Admin API直呼びでは作成できてしまう。
+- アプリコードは `src/lib/auth/admin-api.ts` 経由のみとし、作成前に管理者権限・pending招待・期限・メール一致を検証する。初回管理者bootstrapは active admin 0件かつ明示メールに限定する。
+- Secret key / 仮パスワード / トークンはログへ出さない。操作は `audit_logs` へ記録する。
 
 ## 設計文書
 
@@ -57,8 +63,9 @@ npm run build      # 本番ビルド
    - Authentication → Email Templates → Invite userのリンクを、`token_hash`と`type=invite`を`/auth/callback`へ渡すSSR用テンプレートに設定する。例: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`。実際のSite URL/許可済みRedirect URLと一致させる。
 6. **SMTP設定(推奨)**
    - 招待・パスワード再設定メールを確実に届けるため、本番運用前にカスタムSMTPを設定する(Supabase既定のメール送信はレート制限が厳しい)。
-7. **最初の管理者の招待**
-   - 招待は管理者権限が必要なため、最初の1人は期限を明示して招待レコードを投入した後、Supabase Dashboardまたはサーバー側Admin APIから同じメールへ招待メールを送る。DB行だけではAuthユーザーも招待リンクも作成されない。
+7. **最初の管理者の招待(bootstrap)**
+   - 通常の招待は管理者権限が必要。初回のみ `AUTH_BOOTSTRAP_ADMIN_EMAIL` に明示したメールかつ active admin が0件のとき、`src/lib/auth/admin-api.ts` のbootstrap経由で作成する。
+   - Dashboardの生Admin APIや `createUser` 直呼びは使わない(Hook迂回のため)。期限付きの `user_invitations` を先に用意する。
 
 ```sql
 insert into public.user_invitations (
@@ -81,4 +88,10 @@ values (
 - `completed`: Notion自社担当者ページ作成と`notion_staff_page_id`保存まで完了した最終状態。Notion接続時に`user_provisioning`ジョブで`profile_created`をバックフィルする。
 - Authに存在して`app_users`に存在しないユーザーは管理画面で検知する。初期版では自動削除せず、人間が招待状態と認証ログを確認する。削除機能・自動削除ジョブは別途承認なしに追加しない。
 
-Notionインテグレーション・9DB作成(`scripts/setup-notion.ts`)の手順は、Phase 1のNotion接続ステップ実装時に追記する。
+## Notionセットアップ(人間による作業)
+
+1. Notionで親ページ(例: 「営業管理システム」)を作成し、Internal Integrationを接続する。
+2. `.env.local` に `NOTION_TOKEN` と `NOTION_PARENT_PAGE_ID`(またはCLI引数)を設定する。トークンをコミットしない。
+3. **まずplanのみ**: `npx tsx scripts/setup-notion.ts`(`--apply`なし)。作成予定のDB・プロパティ・relation・初期マスタ・ビューを確認する。
+4. 合意後にのみ `npx tsx scripts/setup-notion.ts --apply` を実行する。同名DBの自動再利用や破壊的`--reset`は実装しない。
+5. 出力された `NOTION_DS_*` を `.env.local` へ反映する。プロパティIDスナップショットは `system_settings` とローカル生成ファイル(Git管理外)へ保存される。

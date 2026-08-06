@@ -40,6 +40,13 @@
 3. Google Cloud側のOAuthクライアント制限(許可済みリダイレクトURI)が本番URLでも正しいこと
 4. サインアップ無効(`Allow new users to sign up = OFF`)がメール・Google双方で維持されていること
 
+## 2.1 Auth Admin APIとHook(実測追記)
+
+- `auth.admin.createUser` は Before User Created Hook を**迂回**する。未招待ユーザーも作成可能になるため、アプリからの直接呼び出しを禁止する。
+- `inviteUserByEmail` / `createUser` は `src/lib/auth/admin-api.ts` に集約し、pending招待・期限・メール一致・権限をサーバー側で検証する。
+- 初回管理者bootstrapは active admin 0件かつ明示メールに限定する。
+- 操作は `audit_logs` へ記録し、Secret key・仮パスワード・トークンはログへ出さない。
+
 ## 3. テスト用ユーザーの後片付け
 
 スパイク検証で作成したAuth/`app_users`は自動削除しない。片付けは管理者が人手で行う。

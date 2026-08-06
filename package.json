@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:remote": "vitest run tests/phase1-remote.integration.test.ts"
+    "setup:notion": "tsx scripts/setup-notion.ts",
+    "setup:notion:apply": "tsx scripts/setup-notion.ts --apply"
   },
   "dependencies": {
+    "@notionhq/client": "^5.24.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.1",
     "next": "^16.3.0",
@@ -30,6 +32,7 @@
     "eslint-config-next": "^16.3.0",
     "postcss": "^8.5.25",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.8",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   }

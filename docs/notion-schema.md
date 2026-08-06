@@ -225,6 +225,20 @@ Notionが営業データの正本(SSoT)である。本書は**9つのNotionデ�
 
 **コードはこれらの値をロジックにハードコードせず、semantic_key / semantic_tags(masters_cache経由)で判定する。商談件数の集計は対応履歴分類のsemantic_tagsに `meeting` を含むかで判定する。**
 
+## 8.5 自社担当者 DB
+
+`app_users` と1:1で同期する社内ユーザーのNotionページ。`notion-schema.md` 改訂時点で独立節が薄かったため、Phase 1実装で以下を確定する。
+
+| プロパティ | 型 | 備考 |
+|---|---|---|
+| 氏名 | title | `app_users.display_name` |
+| external_id | rich_text | `uuidV5("staff:"+app_users.id)` 決定的 |
+| メールアドレス | email | |
+| ロール | rich_text | admin/a/b/viewer |
+| 所属・役割 | rich_text | |
+| 有効 | checkbox | `is_active` |
+| 作成日時 / 更新日時 | created_time / last_edited_time | |
+
 ## 9. 派生項目の再計算ルール(手作業で不整合にしない)
 
 以下の顧客・案件プロパティは**アプリが自動計算する導出値**であり、利用者が手作業で更新しない。Notion側で手編集された場合は整合性確認・dependency_reindexで再計算値に上書きし、警告を `sync_errors` に記録する。

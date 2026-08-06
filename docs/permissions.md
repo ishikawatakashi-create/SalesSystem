@@ -1,6 +1,6 @@
 # 権限設計
 
-改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。
+改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。2026-08-06 Auth Admin `createUser` がHookを迂回することを実測し、server-onlyラッパー集約方針を追記。
 
 ## 1. 権限の基本方針
 
@@ -115,6 +115,16 @@ await requirePermission(user, 'customer.edit'); // 権限外は403相当のエ�
 6. 招待は `status`(pending / accepted / revoked / expired)で状態管理する。有効(pending)な招待はメールアドレスごとに1件のみ(部分ユニークインデックス)。招待リンクの実期限はSupabase Authの **Email OTP Expiration** が決めるため、`user_invitations.expires_at`も実プロジェクトの同設定値から算出して発行時に明示する(独自の既定値を持たない)。有効性判定は「pending かつ 期限内」の両条件で行い、再招待時は期限超過pendingを`expired`へ遷移してから新しいpending行を作成する。取消済みも再招待可能。招待の発行・取消は監査ログ対象。
 7. 退職・利用停止は「無効化」(`is_active = false` + Supabase Authのban)。ハード削除しない(監査ログの actor 参照を保持)。
 8. Authに存在して`app_users`に存在しないユーザーは管理画面で検知し、人間が招待状態・Authログを確認する。初期版では自動削除しない。自動削除ジョブは人間の承認なしに実装しない。
+
+### Auth Admin APIとBefore User Created Hook(2026-08-06実測)
+
+- **公開経路**(`signUp` / Google OAuth等)では Before User Created Hook が発火し、未招待メールは403で拒否される。
+- **`auth.admin.createUser` は Hook を迂回する**(実測)。Admin APIで未招待ユーザーを作成できてしまうため、アプリから直接呼び出してはならない。
+- `auth.admin.createUser` / `inviteUserByEmail` / 同等のAdminユーザー作成APIは **`src/lib/auth/admin-api.ts` の server-only ラッパーへ集約**する。新規コードでの `admin.auth.admin.*` 直接呼び出しは禁止し、静的検査テストで検出する。
+- ラッパーは通常のユーザー作成前に、**呼び出し元が管理者権限を持つこと**、**pendingかつ期限内の招待が存在すること**、**メールが一致すること**をサーバー側で検証する。検証を通らない場合はAuth APIを呼ばない。
+- **初回管理者bootstrap**だけ例外: `app_users` に `is_active` な admin が0件であり、かつ環境変数等で**明示された管理者メール**と一致する場合に限り許可する。それ以外のbootstrapは拒否する。
+- 招待・bootstrap・Admin経由のユーザー作成は `audit_logs` へ記録する(`user.invite` / `user.bootstrap` 等)。
+- Secret key、仮パスワード、トークン、Authorizationヘッダー、個人情報をログへ出力しない。
 
 ### エラー表示(ログイン画面)
 

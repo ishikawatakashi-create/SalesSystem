@@ -6,7 +6,7 @@ import { requireUser, requirePermission, AuthError } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/auth/normalize-email";
 import { invitationExpiresAt } from "@/lib/auth/config";
-import { appUrl } from "@/lib/env";
+import { inviteUserByEmailSafe } from "@/lib/auth/admin-api";
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -110,26 +110,28 @@ export async function inviteUserAction(
     };
   }
 
-  // 2) 招待メール送信(Auth側にユーザーを仮作成し、招待リンクを送る)
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    normalized,
-    {
-      data: { display_name: displayName },
-      redirectTo: `${appUrl()}/auth/callback`,
+  // 2) 招待メール送信(Auth Adminはserver-onlyラッパー経由。Hook迂回対策の検証込み)
+  const inviteResult = await inviteUserByEmailSafe({
+    actor: {
+      id: user.id,
+      role: user.role,
+      is_active: user.is_active,
     },
-  );
+    email: normalized,
+    displayName,
+    role,
+    invitationId: invitation.id,
+  });
 
-  if (inviteError) {
-    // メール送信に失敗した場合は招待レコードを取り消して整合を保つ
+  if (!inviteResult.ok) {
     await admin
       .from("user_invitations")
       .update({ status: "revoked", revoked_at: new Date().toISOString() })
       .eq("id", invitation.id)
       .eq("status", "pending");
-    console.error("Supabase Authの招待メール送信に失敗しました", inviteError);
     return {
       ok: false,
-      message: "招待メールを送信できませんでした。設定を確認してください。",
+      message: inviteResult.message,
     };
   }
 

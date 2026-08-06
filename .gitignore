@@ -12,6 +12,10 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# Notion環境固有スナップショット(生成物。Git管理外)
+config/notion-schema.generated.json
+config/notion-setup.local.json
+
 # misc
 *.tsbuildinfo
 .DS_Store
