@@ -7,10 +7,11 @@
 
 ## 現在の状態
 
-**Phase 1 実装中(認証技術スパイクのローカル実装まで完了)。** 進行は [docs/implementation-plan.md](./docs/implementation-plan.md) に従う。
+**Phase 1 実装中。認証技術スパイクは暫定完了**([docs/auth-spike-results.md](./docs/auth-spike-results.md))。進行は [docs/implementation-plan.md](./docs/implementation-plan.md) に従う。
 
-- 実装済み: Next.jsプロジェクト基盤 / 認証基盤マイグレーション(`supabase/migrations/`)/ Supabaseクライアント3種+proxy / 権限チェック(`requireUser` / `requirePermission`)/ ログイン・招待・パスワード設定UI / 管理者のユーザー招待画面 / 単体テスト
-- 未完了: 実SupabaseプロジェクトとGoogle OAuthの接続確認(下記セットアップが必要)、Notion接続、ジョブ基盤
+- 実装済み: Next.jsプロジェクト基盤 / 認証基盤マイグレーション / Supabaseクライアント3種+proxy / 権限チェック / ログイン・招待・パスワード設定UI / 管理者のユーザー招待画面 / 実SupabaseでのA/B/D/E/F検証
+- 保留(本番公開前): Google OAuthブラウザE2E(未招待拒否・招待済みログイン)
+- 次: Supabase全スキーマ・ジョブ基盤・分散レートリミッター → Notion接続
 
 ## 設計文書
 
@@ -23,6 +24,7 @@
 | [docs/notion-schema.md](./docs/notion-schema.md) | Notionデータベース設計(9DB・プロパティ・リレーション・初期データ) |
 | [docs/supabase-schema.md](./docs/supabase-schema.md) | Supabaseテーブル・検索インデックス・正規化規則・RLS |
 | [docs/permissions.md](./docs/permissions.md) | 認証設計・4権限(管理者/A/B/閲覧専用)のマトリクス |
+| [docs/auth-spike-results.md](./docs/auth-spike-results.md) | 認証技術スパイク結果・本番公開前確認事項・テストユーザー片付け |
 | [docs/sync-design.md](./docs/sync-design.md) | Notion/Supabase同期(書込パイプライン・Webhook・削除確認・整合性確認) |
 | [docs/csv-import-design.md](./docs/csv-import-design.md) | CSVインポート(10ステップ・重複判定・ジョブ)・エクスポート |
 | [docs/ui-guidelines.md](./docs/ui-guidelines.md) | デザイントークン・UI原則・禁止パターン・画面別ワイヤーフレーム |

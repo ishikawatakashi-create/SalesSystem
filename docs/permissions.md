@@ -1,6 +1,6 @@
 # 権限設計
 
-改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。
+改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。
 
 ## 1. 権限の基本方針
 

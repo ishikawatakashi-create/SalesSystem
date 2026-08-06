@@ -19,7 +19,8 @@
    - **Before User Created Hook** で未招待ユーザーの作成を拒否できること(メール招待フローと干渉しないこと)
    - 実プロジェクトのEmail OTP Expirationと`user_invitations.expires_at`を一致させ、期限切れ後に再招待できること
    - 認証スパイク中は`profile_created`を暫定利用可能とし、未プロビジョニングAuthユーザーは自動削除せず管理者が検知・確認できること
-   - 結果を `docs/permissions.md` の認証設計へ反映(想定と異なる場合は設計修正)
+   - 結果を `docs/permissions.md` の認証設計および [auth-spike-results.md](./auth-spike-results.md) へ反映(想定と異なる場合は設計修正)
+   - **2026-08-06 暫定完了**: A/B/D/E/F成功。C(Google OAuthブラウザE2E)は本番公開前の確認事項として保留(開発非ブロック)
 2. プロジェクト初期化
    - Next.js(App Router, TypeScript strict)+ Tailwind + shadcn/ui、ESLint/Prettier
    - `.env.example`(新APIキー・NOTION_DS_ACTIONS含む)、`README.md` 更新、`server-only` 境界
