@@ -7,12 +7,15 @@ import { getDealDetail } from "@/lib/deals/read-detail";
 import type { DealDetail } from "@/lib/deals/types";
 import { listActivities } from "@/lib/activities/read-list";
 import { listActions } from "@/lib/actions/read-list";
+import { listContactsByCustomer } from "@/lib/contacts/read-list";
 import { listContractsByDeal } from "@/lib/contracts/read-list";
 import { listComplaintsByDeal } from "@/lib/complaints/read-list";
+import { listMasters } from "@/lib/masters/read";
 import { isDealSyncError } from "@/lib/sync/errors";
 import { DealDetailView } from "@/features/deals/deal-detail-view";
 import { loadDetailLabelMaps } from "@/features/deals/list-data";
 import { DealRelatedSection } from "@/features/activities/deal-related-section";
+import { QuickActivityComposer } from "@/features/activities/quick-activity-composer";
 import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
 import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
 import { DealContractsSection } from "@/features/contracts/deal-related-section";
@@ -107,23 +110,33 @@ export default async function DealDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const [activitiesResult, actionsResult, contracts, complaints] =
-    await Promise.all([
-      listActivities({
-        dealPageId: detail.notionPageId,
-        sort: "activity_at",
-        sortDir: "desc",
-        limit: 50,
-      }),
-      listActions({
-        dealPageId: detail.notionPageId,
-        sort: "due_date",
-        sortDir: "asc",
-        limit: 50,
-      }),
-      listContractsByDeal(detail.notionPageId),
-      listComplaintsByDeal(detail.notionPageId),
-    ]);
+  const [
+    activitiesResult,
+    actionsResult,
+    contracts,
+    complaints,
+    customerContacts,
+    activityCategories,
+  ] = await Promise.all([
+    listActivities({
+      dealPageId: detail.notionPageId,
+      sort: "activity_at",
+      sortDir: "desc",
+      limit: 50,
+    }),
+    listActions({
+      dealPageId: detail.notionPageId,
+      sort: "due_date",
+      sortDir: "asc",
+      limit: 50,
+    }),
+    listContractsByDeal(detail.notionPageId),
+    listComplaintsByDeal(detail.notionPageId),
+    detail.customerPageId
+      ? listContactsByCustomer(detail.customerPageId)
+      : Promise.resolve([]),
+    listMasters({ types: ["対応履歴分類"] }).catch(() => []),
+  ]);
   const [activityLabels, actionLabels, contractLabels, complaintLabels] =
     await Promise.all([
       loadActivityListLabelMaps(activitiesResult.rows),
@@ -131,6 +144,17 @@ export default async function DealDetailPage({
       loadContractListLabelMaps(contracts),
       loadComplaintListLabelMaps(complaints),
     ]);
+
+  const contactOptions = customerContacts
+    .filter((c) => c.is_active)
+    .map((c) => ({
+      id: c.notion_page_id,
+      label: c.name || "(無題)",
+    }));
+  const categoryOptions = activityCategories.map((m) => ({
+    id: m.notion_page_id,
+    label: m.name,
+  }));
 
   return (
     <div className="space-y-3">
@@ -141,6 +165,15 @@ export default async function DealDetailPage({
         savedNote={savedNote}
       />
       <div className="mx-auto max-w-4xl space-y-3">
+        {canEditActivity && detail.customerPageId && (
+          <QuickActivityComposer
+            customerPageId={detail.customerPageId}
+            dealPageId={detail.notionPageId}
+            contactOptions={contactOptions}
+            categoryOptions={categoryOptions}
+            detailNewHref={`/deals/${detail.notionPageId}/activities/new`}
+          />
+        )}
         <DealRelatedSection
           dealPageId={detail.notionPageId}
           customerPageId={detail.customerPageId}

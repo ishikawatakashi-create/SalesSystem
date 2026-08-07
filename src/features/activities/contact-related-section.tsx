@@ -52,12 +52,12 @@ export function ContactRelatedSection({
             この担当者の対応履歴
           </h2>
           <span className="text-xs text-slate-500">{activities.length}件</span>
-          {canEditActivity && customerPageId && (
+          {canEditActivity && customerPageId && activities.length > 0 && (
             <Link
               href={`/contacts/${contactPageId}/activities/new`}
-              className="ml-auto rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-hover"
+              className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
             >
-              履歴を追加
+              詳細登録
             </Link>
           )}
         </div>

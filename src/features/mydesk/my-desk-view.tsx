@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { EmptyState } from "@/components/ui/state-messages";
 import { CompleteActionButton } from "@/features/actions/complete-button";
 import { formatDate, formatDateTime } from "@/features/customers/format";
@@ -12,6 +13,26 @@ const STATUS_LABEL: Record<string, string> = {
   on_hold: "保留",
   won: "受注",
   lost: "失注",
+};
+
+type TodoBadge = "overdue" | "today" | "upcoming";
+
+const TODO_BADGE: Record<
+  TodoBadge,
+  { label: string; className: string }
+> = {
+  overdue: {
+    label: "期限超過",
+    className: "bg-red-100 text-red-700",
+  },
+  today: {
+    label: "今日",
+    className: "bg-amber-100 text-amber-800",
+  },
+  upcoming: {
+    label: "今後",
+    className: "bg-slate-100 text-slate-600",
+  },
 };
 
 function statusLabel(semantic: string | null): string {
@@ -39,111 +60,117 @@ function Section({
   );
 }
 
-function ActionTable({
+function TodoActionTable({
   rows,
   canEditActions,
-  emptyLabel,
-  emphasizeOverdue,
 }: {
-  rows: MyDeskActionItem[];
+  rows: Array<MyDeskActionItem & { badge: TodoBadge }>;
   canEditActions: boolean;
-  emptyLabel: string;
-  emphasizeOverdue?: boolean;
 }) {
   if (rows.length === 0) {
-    return <EmptyState title={emptyLabel} />;
+    return (
+      <CompactEmptyState
+        message="今日やることはありません。"
+        actionHref="/actions"
+        actionLabel="すべて見る"
+      />
+    );
   }
   return (
     <div className="overflow-x-auto rounded border border-slate-200 bg-white">
       <table className="w-full whitespace-nowrap text-xs">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+            <th className="px-2 py-1.5 font-medium">区分</th>
             <th className="px-2 py-1.5 font-medium">期限</th>
-            <th className="px-2 py-1.5 font-medium">超過</th>
             <th className="px-2 py-1.5 font-medium">内容</th>
             <th className="px-2 py-1.5 font-medium">顧客</th>
             <th className="px-2 py-1.5 font-medium">案件</th>
-            <th className="px-2 py-1.5 font-medium">状態</th>
             {canEditActions && (
               <th className="px-2 py-1.5 font-medium">操作</th>
             )}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.pageId}
-              className="border-b border-slate-100 last:border-0"
-            >
-              <td
-                className={`px-2 py-1.5 ${
-                  emphasizeOverdue && row.overdueDays != null
-                    ? "font-medium text-red-700"
-                    : ""
-                }`}
+          {rows.map((row) => {
+            const badge = TODO_BADGE[row.badge];
+            return (
+              <tr
+                key={row.pageId}
+                className="border-b border-slate-100 last:border-0"
               >
-                {formatDate(row.dueDate)}
-              </td>
-              <td
-                className={`px-2 py-1.5 ${
-                  row.overdueDays != null ? "text-red-700" : "text-slate-400"
-                }`}
-              >
-                {row.overdueDays != null ? `${row.overdueDays}日` : "—"}
-              </td>
-              <td className="max-w-48 truncate px-2 py-1.5 font-medium">
-                <Link
-                  href={`/actions/${row.pageId}`}
-                  className="text-primary hover:underline"
-                >
-                  {row.title}
-                </Link>
-              </td>
-              <td className="max-w-36 truncate px-2 py-1.5">
-                {row.customerPageId ? (
-                  <Link
-                    href={`/customers/${row.customerPageId}`}
-                    className="text-primary hover:underline"
-                  >
-                    {row.customerName ?? "(不明)"}
-                  </Link>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="max-w-36 truncate px-2 py-1.5">
-                {row.dealPageId ? (
-                  <Link
-                    href={`/deals/${row.dealPageId}`}
-                    className="text-primary hover:underline"
-                  >
-                    {row.dealTitle ?? "(不明)"}
-                  </Link>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="px-2 py-1.5">
-                {row.isOpen ? "未完了" : "—"}
-              </td>
-              {canEditActions && (
                 <td className="px-2 py-1.5">
-                  {row.isOpen &&
-                  row.externalId &&
-                  row.lastEditedTime ? (
-                    <CompleteActionButton
-                      notionPageId={row.pageId}
-                      externalId={row.externalId}
-                      lastEditedTime={row.lastEditedTime}
-                      compact
-                    />
+                  <span
+                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${badge.className}`}
+                  >
+                    {badge.label}
+                  </span>
+                </td>
+                <td
+                  className={`px-2 py-1.5 ${
+                    row.badge === "overdue"
+                      ? "font-medium text-red-700"
+                      : ""
+                  }`}
+                >
+                  {formatDate(row.dueDate)}
+                  {row.overdueDays != null && (
+                    <span className="ml-1 text-[10px] text-red-600">
+                      (+{row.overdueDays}日)
+                    </span>
+                  )}
+                </td>
+                <td className="max-w-48 truncate px-2 py-1.5 font-medium">
+                  <Link
+                    href={`/actions/${row.pageId}`}
+                    className="text-primary hover:underline"
+                  >
+                    {row.title}
+                  </Link>
+                </td>
+                <td className="max-w-36 truncate px-2 py-1.5">
+                  {row.customerPageId ? (
+                    <Link
+                      href={`/customers/${row.customerPageId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {row.customerName ?? "(不明)"}
+                    </Link>
                   ) : (
                     "—"
                   )}
                 </td>
-              )}
-            </tr>
-          ))}
+                <td className="max-w-36 truncate px-2 py-1.5">
+                  {row.dealPageId ? (
+                    <Link
+                      href={`/deals/${row.dealPageId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {row.dealTitle ?? "(不明)"}
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                {canEditActions && (
+                  <td className="px-2 py-1.5">
+                    {row.isOpen &&
+                    row.externalId &&
+                    row.lastEditedTime ? (
+                      <CompleteActionButton
+                        notionPageId={row.pageId}
+                        externalId={row.externalId}
+                        lastEditedTime={row.lastEditedTime}
+                        compact
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -209,6 +236,15 @@ export function MyDeskView({
     1,
   );
 
+  const todoRows: Array<MyDeskActionItem & { badge: TodoBadge }> = [
+    ...snapshot.overdueActions.map((r) => ({ ...r, badge: "overdue" as const })),
+    ...snapshot.todayActions.map((r) => ({ ...r, badge: "today" as const })),
+    ...snapshot.upcomingActions.map((r) => ({
+      ...r,
+      badge: "upcoming" as const,
+    })),
+  ];
+
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -234,13 +270,8 @@ export function MyDeskView({
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-        <Kpi
-          label="未完了"
-          value={kpis.openActions}
-          href={`/actions?view=all&assignee=${user.id}&open=1`}
-        />
+      {/* Primary KPI */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Kpi
           label="期限超過"
           value={kpis.overdueActions}
@@ -248,7 +279,7 @@ export function MyDeskView({
           danger={kpis.overdueActions > 0}
         />
         <Kpi
-          label="本日"
+          label="本日期限"
           value={kpis.todayActions}
           href={`/actions?view=today-overdue&assignee=${user.id}`}
         />
@@ -256,11 +287,6 @@ export function MyDeskView({
           label="進行中案件"
           value={kpis.activeDeals}
           href="/deals?semantic=active"
-        />
-        <Kpi
-          label="保留案件"
-          value={kpis.onHoldDeals}
-          href="/deals?semantic=on_hold"
         />
         <Kpi
           label="見込み金額"
@@ -272,13 +298,27 @@ export function MyDeskView({
               : undefined
           }
         />
-        <Kpi
+      </div>
+
+      {/* Secondary KPI */}
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <KpiSecondary
+          label="未完了"
+          value={kpis.openActions}
+          href={`/actions?view=all&assignee=${user.id}&open=1`}
+        />
+        <KpiSecondary
+          label="保留案件"
+          value={kpis.onHoldDeals}
+          href="/deals?semantic=on_hold"
+        />
+        <KpiSecondary
           label="未解決クレーム"
           value={kpis.openComplaints}
           href="/complaints"
           danger={kpis.openComplaints > 0}
         />
-        <Kpi
+        <KpiSecondary
           label="7日対応"
           value={kpis.recentActivityCount}
           href="/activities"
@@ -289,46 +329,14 @@ export function MyDeskView({
         title="今日やること"
         action={
           <Link
-            href={`/actions?view=today-overdue&assignee=${user.id}`}
+            href="/actions"
             className="text-xs text-primary hover:underline"
           >
-            一覧へ
+            すべて見る
           </Link>
         }
       >
-        <div className="space-y-3">
-          <div>
-            <h3 className="mb-1 text-xs font-medium text-red-700">
-              期限超過({snapshot.overdueActions.length})
-            </h3>
-            <ActionTable
-              rows={snapshot.overdueActions}
-              canEditActions={canEditActions}
-              emptyLabel="期限超過はありません"
-              emphasizeOverdue
-            />
-          </div>
-          <div>
-            <h3 className="mb-1 text-xs font-medium text-slate-700">
-              本日({snapshot.todayActions.length})
-            </h3>
-            <ActionTable
-              rows={snapshot.todayActions}
-              canEditActions={canEditActions}
-              emptyLabel="本日のアクションはありません"
-            />
-          </div>
-          <div>
-            <h3 className="mb-1 text-xs font-medium text-slate-700">
-              今後({snapshot.upcomingActions.length})
-            </h3>
-            <ActionTable
-              rows={snapshot.upcomingActions}
-              canEditActions={canEditActions}
-              emptyLabel="今後のアクションはありません"
-            />
-          </div>
-        </div>
+        <TodoActionTable rows={todoRows} canEditActions={canEditActions} />
       </Section>
 
       <Section
@@ -643,6 +651,34 @@ function Kpi({
       {hint && (
         <div className="mt-0.5 text-[10px] text-slate-400">{hint}</div>
       )}
+    </Link>
+  );
+}
+
+function KpiSecondary({
+  label,
+  value,
+  href,
+  danger,
+}: {
+  label: string;
+  value: number | string;
+  href: string;
+  danger?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded border border-slate-100 bg-slate-50/80 px-2 py-1.5 hover:bg-slate-100"
+    >
+      <div className="text-[10px] text-slate-400">{label}</div>
+      <div
+        className={`mt-0.5 text-sm font-medium tabular-nums leading-tight ${
+          danger ? "text-red-600" : "text-slate-600"
+        }`}
+      >
+        {value}
+      </div>
     </Link>
   );
 }

@@ -8,6 +8,8 @@ import { getContactDetail } from "@/lib/contacts/read-detail";
 import type { ContactDetail } from "@/lib/contacts/types";
 import { listActivities } from "@/lib/activities/read-list";
 import { listActions } from "@/lib/actions/read-list";
+import { listDealsByCustomer } from "@/lib/deals/read-list";
+import { listMasters } from "@/lib/masters/read";
 import { isContactSyncError } from "@/lib/sync/errors";
 import { loadDetailLabelMaps } from "@/features/contacts/list-data";
 import {
@@ -15,6 +17,7 @@ import {
   formatOptional,
 } from "@/features/contacts/format";
 import { ContactRelatedSection } from "@/features/activities/contact-related-section";
+import { QuickActivityComposer } from "@/features/activities/quick-activity-composer";
 import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
 import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
 
@@ -98,27 +101,41 @@ export default async function ContactDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const [activitiesResult, openActionsResult] = await Promise.all([
-    listActivities({
-      contactPageId: detail.notionPageId,
-      sort: "activity_at",
-      sortDir: "desc",
-      limit: 50,
-    }),
-    detail.customerPageId
-      ? listActions({
-          customerPageId: detail.customerPageId,
-          isOpen: true,
-          sort: "due_date",
-          sortDir: "asc",
-          limit: 50,
-        })
-      : Promise.resolve({ rows: [], count: 0 }),
-  ]);
+  const [activitiesResult, openActionsResult, customerDeals, activityCategories] =
+    await Promise.all([
+      listActivities({
+        contactPageId: detail.notionPageId,
+        sort: "activity_at",
+        sortDir: "desc",
+        limit: 50,
+      }),
+      detail.customerPageId
+        ? listActions({
+            customerPageId: detail.customerPageId,
+            isOpen: true,
+            sort: "due_date",
+            sortDir: "asc",
+            limit: 50,
+          })
+        : Promise.resolve({ rows: [], count: 0 }),
+      detail.customerPageId
+        ? listDealsByCustomer(detail.customerPageId)
+        : Promise.resolve([]),
+      listMasters({ types: ["対応履歴分類"] }).catch(() => []),
+    ]);
   const [activityLabels, actionLabels] = await Promise.all([
     loadActivityListLabelMaps(activitiesResult.rows),
     loadActionListLabelMaps(openActionsResult.rows),
   ]);
+
+  const dealOptions = customerDeals.map((d) => ({
+    id: d.notion_page_id,
+    label: d.title || "(無題)",
+  }));
+  const categoryOptions = activityCategories.map((m) => ({
+    id: m.notion_page_id,
+    label: m.name,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -136,14 +153,6 @@ export default async function ContactDetailPage({
           </span>
         )}
         <div className="ml-auto flex items-center gap-2 text-xs">
-          {canEditActivity && detail.customerPageId && (
-            <Link
-              href={`/contacts/${detail.notionPageId}/activities/new`}
-              className="rounded border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50"
-            >
-              履歴追加
-            </Link>
-          )}
           {canEdit && (
             <Link
               href={`/contacts/${detail.notionPageId}/edit`}
@@ -255,6 +264,16 @@ export default async function ContactDetailPage({
           </p>
         </section>
       </div>
+
+      {canEditActivity && detail.customerPageId && (
+        <QuickActivityComposer
+          customerPageId={detail.customerPageId}
+          contactPageId={detail.notionPageId}
+          dealOptions={dealOptions}
+          categoryOptions={categoryOptions}
+          detailNewHref={`/contacts/${detail.notionPageId}/activities/new`}
+        />
+      )}
 
       <ContactRelatedSection
         contactPageId={detail.notionPageId}

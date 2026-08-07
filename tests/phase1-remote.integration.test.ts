@@ -48,7 +48,7 @@ const CUSTOMER_PAGE_ID = `${TEST_PREFIX}_customer_page`;
 
 type AnyClient = SupabaseClient<Database>;
 
-describeRemote("Phase 1 リモートDB結合", () => {
+describeRemote("Phase 1 リモートDB結合", { timeout: 30_000 }, () => {
   let admin: AnyClient;
   let anon: AnyClient;
   let viewerUserId: string | null = null;

@@ -56,7 +56,7 @@ export function DealRelatedSection({
     <div className="space-y-3">
       <section className="rounded border border-slate-200 bg-white p-3">
         <h2 className="mb-1 text-xs font-bold text-slate-700">
-          次回アクション(導出)
+          最近の対応・次回予定
         </h2>
         <dl className="divide-y divide-slate-100">
           <div className="flex gap-2 py-1">
@@ -64,7 +64,7 @@ export function DealRelatedSection({
             <dd className="text-xs">
               {formatOptional(derivedNext.nextAction)}
               <span className="ml-2 text-[10px] text-slate-400">
-                案件に紐づく未完了の最短期限から自動導出
+                案件に紐づく未完了の最短期限から算出
               </span>
             </dd>
           </div>
@@ -83,12 +83,12 @@ export function DealRelatedSection({
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
           <h2 className="text-xs font-bold text-slate-700">対応履歴</h2>
           <span className="text-xs text-slate-500">{activities.length}件</span>
-          {canEditActivity && customerPageId && (
+          {canEditActivity && customerPageId && activities.length > 0 && (
             <Link
               href={`/deals/${dealPageId}/activities/new`}
-              className="ml-auto rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-hover"
+              className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
             >
-              履歴を追加
+              詳細登録
             </Link>
           )}
         </div>

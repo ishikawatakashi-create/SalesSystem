@@ -64,15 +64,21 @@ export function ContractDetailView({
 
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">{detail.title || "(無題)"}</h1>
-        <div className="ml-auto flex items-center gap-2 text-xs">
-          {canEdit && (
-            <Link
-              href={`/contracts/${detail.notionPageId}/edit`}
-              className="rounded bg-primary px-3 py-1.5 font-medium text-white hover:bg-primary-hover"
-            >
-              編集
-            </Link>
-          )}
+        {/* 契約詳細の操作領域。将来の請求書作成等は primaryActions へ追加する */}
+        <div
+          className="ml-auto flex flex-wrap items-center gap-2 text-xs"
+          data-contract-actions
+        >
+          <div className="flex flex-wrap items-center gap-2" data-primary-actions>
+            {canEdit && (
+              <Link
+                href={`/contracts/${detail.notionPageId}/edit`}
+                className="rounded bg-primary px-3 py-1.5 font-medium text-white hover:bg-primary-hover"
+              >
+                編集
+              </Link>
+            )}
+          </div>
           <Link
             href="/contracts"
             className="rounded border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50"

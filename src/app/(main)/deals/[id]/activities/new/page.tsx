@@ -12,10 +12,25 @@ export const dynamic = "force-dynamic";
 const PAGE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type RawParams = Record<string, string | string[] | undefined>;
+
+function str(params: RawParams, key: string): string | undefined {
+  const v = params[key];
+  const s = Array.isArray(v) ? v[0] : v;
+  return s?.trim() ? s.trim() : undefined;
+}
+
+function pageIdOrNull(v: string | undefined): string | null {
+  if (!v || !PAGE_ID_RE.test(v)) return null;
+  return v;
+}
+
 export default async function DealActivityNewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<RawParams>;
 }) {
   try {
     const user = await requireUser();
@@ -29,6 +44,11 @@ export default async function DealActivityNewPage({
 
   const { id } = await params;
   if (!PAGE_ID_RE.test(id)) notFound();
+
+  const rawSearch = await searchParams;
+  const bodyPrefill = str(rawSearch, "body")?.slice(0, 2000);
+  const contactPageId = pageIdOrNull(str(rawSearch, "contact"));
+  const categoryPageId = pageIdOrNull(str(rawSearch, "category"));
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -49,6 +69,8 @@ export default async function DealActivityNewPage({
   const options = await loadActivityFormOptions({
     currentCustomerPageId: deal.customer_page_id,
     currentDealPageId: deal.notion_page_id,
+    currentContactPageIds: contactPageId ? [contactPageId] : undefined,
+    currentCategoryPageIds: categoryPageId ? [categoryPageId] : undefined,
   });
 
   return (
@@ -72,6 +94,9 @@ export default async function DealActivityNewPage({
         initial={{
           customerPageId: deal.customer_page_id,
           dealPageId: deal.notion_page_id,
+          body: bodyPrefill,
+          contactPageIds: contactPageId ? [contactPageId] : undefined,
+          categoryPageIds: categoryPageId ? [categoryPageId] : undefined,
         }}
       />
     </div>
