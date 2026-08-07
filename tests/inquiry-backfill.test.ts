@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { looksLikeStrikinglyNotification } from "@/lib/inquiries/parser-strikingly";
+import { toIso8601FromDateLike } from "@/lib/inquiries/apps-script-date";
 import { isInquiryBadgeEligible } from "@/lib/inquiries/types";
 import {
   applyBackfillPageResult,
@@ -50,6 +51,18 @@ function signedRequest(bodyObj: unknown): Request {
     body: rawBody,
   });
 }
+
+describe("Apps Script received_at conversion", () => {
+  it("getTime だけの Date-like（Java Date 相当）から ISO8601 を作る", () => {
+    const javaLike = { getTime: () => Date.parse("2024-06-01T12:34:56.000Z") };
+    expect(toIso8601FromDateLike(javaLike)).toBe("2024-06-01T12:34:56.000Z");
+  });
+
+  it("ネイティブ Date でも同様", () => {
+    const d = new Date("2024-01-15T03:00:00.000Z");
+    expect(toIso8601FromDateLike(d)).toBe("2024-01-15T03:00:00.000Z");
+  });
+});
 
 describe("Strikingly candidate detection (backfill)", () => {
   it("日本語通知フレーズを検出する（From 非依存）", () => {

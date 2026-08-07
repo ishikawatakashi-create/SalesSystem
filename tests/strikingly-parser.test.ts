@@ -71,6 +71,32 @@ describe("parseStrikinglyNotificationMail", () => {
     ).toBe(true);
   });
 
+  it("実形式に近い日本語カスタムフォーム（架空fixture）を解析する", () => {
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "架空花子 はあなたのサイトにコメントしました",
+      from: "'架空花子' via sales",
+      plainText: [
+        "カスタムフォーム",
+        "お問い合わせ種別: 資料請求",
+        "名: 架空花子",
+        "フリガナ: カクウハナコ",
+        "会社名: 架空商事株式会社",
+        "部署名: 企画部",
+        "メールアドレス: hanako.kakou@example.test",
+        "お問い合わせ内容:",
+        "デモを希望します。",
+      ].join("\n"),
+    });
+    expect(parsed.parseWarningCode).not.toBe("unknown_template");
+    expect(parsed.senderName).toBe("架空花子");
+    expect(parsed.senderEmail).toBe("hanako.kakou@example.test");
+    expect(parsed.companyName).toBe("架空商事株式会社");
+    expect(parsed.formName).toBe("資料請求");
+    expect(parsed.messageText).toContain("デモを希望");
+    expect(parsed.formFields["フリガナ"]).toBe("カクウハナコ");
+    expect(parsed.formFields["部署名"]).toBe("企画部");
+  });
+
   it("長い本文を truncate する", () => {
     const long = "あ".repeat(25_000);
     const parsed = parseStrikinglyNotificationMail({

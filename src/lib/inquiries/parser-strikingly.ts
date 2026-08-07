@@ -27,11 +27,12 @@ export type StrikinglyParseInput = {
 const FIELD_PATTERNS: Array<{ key: string; labels: RegExp }> = [
   {
     key: "name",
-    labels: /^(名前|お名前|氏名|Name|Your\s*Name)\s*[:：]/i,
+    // 「名」は実 Strikingly カスタムフォームで使用。長いラベルを先に置く
+    labels: /^(名前|お名前|氏名|名|Name|Your\s*Name)\s*[:：]/i,
   },
   {
     key: "email",
-    labels: /^(メール|メールアドレス|Email|E-?mail)\s*[:：]/i,
+    labels: /^(メールアドレス|メール|Email|E-?mail)\s*[:：]/i,
   },
   {
     key: "phone",
@@ -39,15 +40,16 @@ const FIELD_PATTERNS: Array<{ key: string; labels: RegExp }> = [
   },
   {
     key: "company",
-    labels: /^(会社|会社名|組織|Company|Organization)\s*[:：]/i,
+    labels: /^(会社名|会社|組織|Company|Organization)\s*[:：]/i,
   },
   {
     key: "message",
-    labels: /^(お問い合わせ内容|問い合わせ内容|内容|メッセージ|Message|Comments?)\s*[:：]/i,
+    labels:
+      /^(お問い合わせ内容|問い合わせ内容|内容|メッセージ|Message|Comments?)\s*[:：]/i,
   },
   {
     key: "form",
-    labels: /^(フォーム|フォーム名|Form)\s*[:：]/i,
+    labels: /^(お問い合わせ種別|フォーム名|フォーム|Form)\s*[:：]/i,
   },
 ];
 

@@ -107,10 +107,12 @@ Strikingly 解析・候補・割当・顧客化は SalesSystem 側（既存 Phas
 | 症状 | 対応 |
 |---|---|
 | heartbeat 遅延 | Apps Script trigger / 実行ログ確認 |
-| 401 | secret 不一致・端末時刻 |
+| 401 `invalid_signature` / `stale_timestamp` | secret 不一致・端末時刻・古い Code.gs |
+| 400 `invalid_payload` | ペイロード shape |
 | 503 | Vercel secret 未設定 |
 | label_missing | Gmail label 作成 |
 | duplicate | 正常（no-op） |
+| Apps Script `local_throw` | 多くは `getDate().toISOString` 不備。最新 Code.gs の `toIso8601_` を使用 |
 
 ## 環境変数（名前のみ）
 

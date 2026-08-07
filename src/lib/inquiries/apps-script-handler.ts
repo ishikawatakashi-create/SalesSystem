@@ -45,9 +45,10 @@ const messageSchema = z.object({
   gmail_message_id: z.string().min(1).max(200),
   gmail_thread_id: z.string().max(200).nullable().optional(),
   received_at: z.string().min(1).max(64),
-  from: z.string().max(500).nullable().optional(),
-  reply_to: z.string().max(500).nullable().optional(),
-  subject: z.string().max(1000).nullable().optional(),
+  // Gmail From ヘッダは表示名が長くなり得る
+  from: z.string().max(2000).nullable().optional(),
+  reply_to: z.string().max(2000).nullable().optional(),
+  subject: z.string().max(2000).nullable().optional(),
   plain_body: z.string().max(MAX_PLAIN_CHARS).nullable().optional(),
   /** 過去 backfill。true のとき badge 対象外 */
   historical_import: z.boolean().optional(),
@@ -59,7 +60,7 @@ const heartbeatSchema = z.object({
 });
 
 const batchSchema = z.object({
-  type: z.literal("batch").optional(),
+  type: z.literal("batch"),
   items: z.array(messageSchema).min(1).max(MAX_BATCH),
 });
 
@@ -154,7 +155,17 @@ export async function handleAppsScriptIngestPost(
     secret,
   });
   if (!verified.ok) {
-    return { status: 401, body: { error: "unauthorized" } };
+    const authError =
+      verified.reason === "bad_signature"
+        ? "invalid_signature"
+        : verified.reason === "stale_timestamp"
+          ? "stale_timestamp"
+          : verified.reason === "missing_signature"
+            ? "missing_signature"
+            : verified.reason === "missing_timestamp"
+              ? "missing_timestamp"
+              : "unauthorized";
+    return { status: 401, body: { error: authError } };
   }
 
   let json: unknown;
@@ -183,8 +194,8 @@ export async function handleAppsScriptIngestPost(
         results.push(await handleOneMessage(item));
       }
     } catch {
-      await recordIngestError("ingest_failed");
-      return { status: 500, body: { error: "ingest_failed" } };
+      await recordIngestError("db_insert_failed");
+      return { status: 500, body: { error: "db_insert_failed" } };
     }
     return {
       status: 200,
@@ -200,16 +211,16 @@ export async function handleAppsScriptIngestPost(
   // single inquiry
   const single = messageSchema.safeParse(json);
   if (!single.success) {
-    await recordIngestError("validation");
-    return { status: 400, body: { error: "validation" } };
+    await recordIngestError("invalid_payload");
+    return { status: 400, body: { error: "invalid_payload" } };
   }
 
   try {
     const result = await handleOneMessage(single.data);
     return { status: 200, body: { status: result } };
   } catch {
-    await recordIngestError("ingest_failed");
-    return { status: 500, body: { error: "ingest_failed" } };
+    await recordIngestError("db_insert_failed");
+    return { status: 500, body: { error: "db_insert_failed" } };
   }
 }
 

@@ -110,6 +110,9 @@ label 内の非 Strikingly メールは候補判定で skip（server でも最�
 | heartbeat 遅延 | trigger が止まっていないか Apps Script 実行数上限 |
 | backfill が進まない | `failed` 増加 → 429/5xx。時間をおいて再実行 |
 | badge が増えすぎ | 過去取込は badge 除外。通常 new のみ対象 |
+| `failed>0` かつ `local_throw>0` | `Code.gs` が古い（`received_at` の Date 変換不備）の可能性。最新版へ貼り替え |
+| `http_401` | secret / 時刻ずれ。secret をむやみに変えず、まず最新 Code.gs を確認 |
+| `http_400` / `invalid_payload` | ペイロード shape。最新 Code.gs と Production の整合 |
 
 ## ログ方針
 

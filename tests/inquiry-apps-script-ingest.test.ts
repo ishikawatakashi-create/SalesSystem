@@ -113,7 +113,7 @@ describe("handleAppsScriptIngestPost", () => {
     expect(res.body.status).toBe("duplicate");
   });
 
-  it("署名なしは 401", async () => {
+  it("署名なしは 401 missing_signature/timestamp", async () => {
     const res = await handleAppsScriptIngestPost(
       new Request("https://example.test/api", {
         method: "POST",
@@ -121,6 +121,7 @@ describe("handleAppsScriptIngestPost", () => {
       }),
     );
     expect(res.status).toBe(401);
+    expect(res.body.error).toBe("missing_timestamp");
   });
 
   it("secret 未設定は 503", async () => {
@@ -131,10 +132,11 @@ describe("handleAppsScriptIngestPost", () => {
     expect(res.status).toBe(503);
   });
 
-  it("validation failure は 400", async () => {
+  it("validation failure は 400 invalid_payload", async () => {
     const res = await handleAppsScriptIngestPost(
       signedRequest({ gmail_message_id: "" }),
     );
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe("invalid_payload");
   });
 });

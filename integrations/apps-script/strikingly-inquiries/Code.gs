@@ -33,20 +33,45 @@ function getProps_() {
 }
 
 function toHex_(bytes) {
-  return bytes
-    .map(function (b) {
-      var v = b < 0 ? b + 256 : b;
-      return ("0" + v.toString(16)).slice(-2);
-    })
-    .join("");
+  var out = [];
+  for (var i = 0; i < bytes.length; i++) {
+    var v = bytes[i];
+    if (v < 0) v += 256;
+    var h = v.toString(16);
+    out.push(h.length === 1 ? "0" + h : h);
+  }
+  return out.join("");
+}
+
+/**
+ * GmailApp.getDate() は Java Date のことがあり、toISOString が無い。
+ * 必ず JS Date 経由で ISO8601 にする（heartbeat の new Date() と同系統）。
+ */
+function toIso8601_(dateValue) {
+  var ms =
+    dateValue && typeof dateValue.getTime === "function"
+      ? dateValue.getTime()
+      : new Date(dateValue).getTime();
+  if (!isFinite(ms)) {
+    throw new Error("invalid_received_at");
+  }
+  return new Date(ms).toISOString();
 }
 
 function signRequest_(timestamp, rawBody, secret) {
+  // UTF-8 を明示（日本語本文でも Node createHmac utf8 と揃える）
   var sig = Utilities.computeHmacSha256Signature(
     timestamp + "." + rawBody,
     secret,
+    Utilities.Charset.UTF_8,
   );
   return toHex_(sig);
+}
+
+function safeErrorCode_(body) {
+  if (!body) return null;
+  var m = body.match(/"error"\s*:\s*"([a-z0-9_]+)"/);
+  return m ? m[1] : null;
 }
 
 function postJson_(payload) {
@@ -57,19 +82,23 @@ function postJson_(payload) {
   var rawBody = JSON.stringify(payload);
   var timestamp = String(Date.now());
   var signature = signRequest_(timestamp, rawBody, props.secret);
+  // 文字列と同一 UTF-8 バイトを送る（署名対象と送信 body を一致させる）
+  var payloadBytes = Utilities.newBlob(rawBody, "application/json").getBytes();
   var res = UrlFetchApp.fetch(props.endpoint, {
     method: "post",
-    contentType: "application/json",
-    payload: rawBody,
+    contentType: "application/json; charset=UTF-8",
+    payload: payloadBytes,
     headers: {
       "X-SalesSystem-Timestamp": timestamp,
       "X-SalesSystem-Signature": signature,
     },
     muteHttpExceptions: true,
   });
+  var text = res.getContentText() || "";
   return {
     code: res.getResponseCode(),
-    body: res.getContentText() || "",
+    body: text,
+    error: safeErrorCode_(text),
   };
 }
 
@@ -96,9 +125,9 @@ function isStrikinglyCandidate_(subject, from, body) {
 function buildInquiryPayload_(msg, historical) {
   return {
     source: "strikingly_email",
-    gmail_message_id: msg.getId(),
-    gmail_thread_id: msg.getThread().getId(),
-    received_at: msg.getDate().toISOString(),
+    gmail_message_id: String(msg.getId()),
+    gmail_thread_id: String(msg.getThread().getId()),
+    received_at: toIso8601_(msg.getDate()),
     from: msg.getFrom() || null,
     reply_to: msg.getReplyTo() || null,
     subject: msg.getSubject() || null,
@@ -111,10 +140,67 @@ function classifyResponse_(code, body) {
   if (code >= 200 && code < 300) {
     if (body.indexOf('"skipped"') !== -1) return "skipped";
     if (body.indexOf('"duplicate"') !== -1) return "duplicate";
+    if (body.indexOf('"accepted"') !== -1) return "accepted";
     return "accepted";
   }
   if (code === 400) return "failed_validation";
   return "failed_retryable";
+}
+
+function emptyHttpCounters_() {
+  return {
+    http_2xx: 0,
+    http_400: 0,
+    http_401: 0,
+    http_429: 0,
+    http_5xx: 0,
+    http_other: 0,
+    local_throw: 0,
+    last_error: null,
+  };
+}
+
+function noteHttp_(counters, code, errorCode) {
+  if (code >= 200 && code < 300) counters.http_2xx++;
+  else if (code === 400) counters.http_400++;
+  else if (code === 401) counters.http_401++;
+  else if (code === 429) counters.http_429++;
+  else if (code >= 500 && code < 600) counters.http_5xx++;
+  else counters.http_other++;
+  if (errorCode) counters.last_error = errorCode;
+}
+
+function logPollSummary_(mode, processed, success, duplicate, skipped, failed, counters) {
+  Logger.log(
+    "mode=" +
+      mode +
+      " processed=" +
+      processed +
+      " success=" +
+      success +
+      " duplicate=" +
+      duplicate +
+      " skipped=" +
+      skipped +
+      " failed=" +
+      failed +
+      " http_2xx=" +
+      counters.http_2xx +
+      " http_400=" +
+      counters.http_400 +
+      " http_401=" +
+      counters.http_401 +
+      " http_429=" +
+      counters.http_429 +
+      " http_5xx=" +
+      counters.http_5xx +
+      " http_other=" +
+      counters.http_other +
+      " local_throw=" +
+      counters.local_throw +
+      " reason=" +
+      (counters.last_error || "none"),
+  );
 }
 
 /**
@@ -143,6 +229,7 @@ function syncStrikinglyInquiries() {
   var duplicate = 0;
   var skipped = 0;
   var failed = 0;
+  var counters = emptyHttpCounters_();
 
   for (var i = 0; i < threads.length; i++) {
     var messages = threads[i].getMessages();
@@ -151,7 +238,15 @@ function syncStrikinglyInquiries() {
       processed++;
       var subject = msg.getSubject() || "";
       var from = msg.getFrom() || "";
-      var body = msg.getPlainBody() || "";
+      var body = "";
+      try {
+        body = msg.getPlainBody() || "";
+      } catch (bodyErr) {
+        failed++;
+        counters.local_throw++;
+        counters.last_error = "plain_body_read_failed";
+        continue;
+      }
       if (!isStrikinglyCandidate_(subject, from, body)) {
         skipped++;
         continue;
@@ -159,6 +254,7 @@ function syncStrikinglyInquiries() {
 
       try {
         var res = postJson_(buildInquiryPayload_(msg, false));
+        noteHttp_(counters, res.code, res.error);
         var kind = classifyResponse_(res.code, res.body);
         if (kind === "accepted") success++;
         else if (kind === "duplicate") duplicate++;
@@ -166,21 +262,20 @@ function syncStrikinglyInquiries() {
         else failed++;
       } catch (e) {
         failed++;
+        counters.local_throw++;
+        counters.last_error = "local_throw";
       }
     }
   }
 
-  Logger.log(
-    "mode=poll processed=" +
-      processed +
-      " success=" +
-      success +
-      " duplicate=" +
-      duplicate +
-      " skipped=" +
-      skipped +
-      " failed=" +
-      failed,
+  logPollSummary_(
+    "poll",
+    processed,
+    success,
+    duplicate,
+    skipped,
+    failed,
+    counters,
   );
 
   try {
