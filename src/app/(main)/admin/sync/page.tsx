@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { requireUser, AuthError } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getSyncDashboardMetrics } from "@/lib/webhooks/sync-dashboard";
+import { getAppsScriptHealthSummary } from "@/lib/inquiries/apps-script-handler";
+import { AppsScriptHealthPanel } from "@/features/admin/inquiry-ingest/apps-script-health-panel";
 import { SyncMetricsPanel } from "./sync-metrics-panel";
 import { WebhookSetupPanel } from "./webhook-setup-panel";
 
@@ -15,6 +17,14 @@ function webhookEndpointUrl(): string {
     return `${configured}/api/webhooks/notion`;
   }
   return "https://sales-system-weld.vercel.app/api/webhooks/notion";
+}
+
+function inquiryAppsScriptEndpointUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) {
+    return `${configured}/api/integrations/inquiries/apps-script`;
+  }
+  return "https://sales-system-weld.vercel.app/api/integrations/inquiries/apps-script";
 }
 
 export default async function AdminSyncPage() {
@@ -33,6 +43,7 @@ export default async function AdminSyncPage() {
   // トークンはSSRに載せない。状態メタデータと件数のみ取得する。
   const metrics = await getSyncDashboardMetrics();
   const endpointUrl = webhookEndpointUrl();
+  const inquiryHealth = await getAppsScriptHealthSummary();
 
   return (
     <div className="space-y-6">
@@ -46,6 +57,10 @@ export default async function AdminSyncPage() {
       <WebhookSetupPanel
         status={metrics.setupStatus}
         endpointUrl={endpointUrl}
+      />
+      <AppsScriptHealthPanel
+        {...inquiryHealth}
+        endpointUrl={inquiryAppsScriptEndpointUrl()}
       />
     </div>
   );

@@ -2,8 +2,6 @@ import "server-only";
 
 import { enqueueJob } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isWatchExpiringSoon } from "@/lib/integrations/gmail/watch";
-import { getGmailSettings } from "@/lib/integrations/gmail/settings";
 
 const SETTINGS_KEY = "daily_maintenance";
 
@@ -12,7 +10,9 @@ type DailyMaintenanceSettings = {
   lastStorageCleanupFinishedAt?: string;
   lastStorageCleanupCleaned?: number;
   lastStorageCleanupFailed?: number;
+  /** @deprecated Phase11 Pub/Sub 方式。Apps Script 移行後は未使用 */
   lastGmailWatchRenewEnqueueDate?: string;
+  /** @deprecated Phase11 Pub/Sub 方式。Apps Script 移行後は未使用 */
   lastGmailReconciliationEnqueueDate?: string;
 };
 
@@ -25,22 +25,12 @@ export function storageCleanupIdempotencyKey(date: string): string {
   return `storage_cleanup:${date}`;
 }
 
-export function gmailWatchRenewIdempotencyKey(date: string): string {
-  return `gmail_watch_renew:${date}`;
-}
-
-export function gmailReconciliationIdempotencyKey(date: string): string {
-  return `gmail_reconciliation:${date}`;
-}
-
 /**
  * ワーカー起動時に呼ぶ日次メンテナンス。
- * storage_cleanup / gmail watch renew / reconciliation を1日1回 enqueue。
+ * storage_cleanup を1日1回だけ enqueue（idempotency_key で多重防止）。
  */
 export async function ensureDailyMaintenanceJobs(): Promise<{
   enqueuedStorageCleanup: boolean;
-  enqueuedGmailWatchRenew: boolean;
-  enqueuedGmailReconciliation: boolean;
 }> {
   const admin = createAdminClient();
   const today = utcDateString();
@@ -52,79 +42,29 @@ export async function ensureDailyMaintenanceJobs(): Promise<{
     .maybeSingle();
 
   const current = (row?.value ?? {}) as DailyMaintenanceSettings;
-  let enqueuedStorageCleanup = false;
-  let enqueuedGmailWatchRenew = false;
-  let enqueuedGmailReconciliation = false;
-  const next: DailyMaintenanceSettings = { ...current };
-
-  if (current.lastStorageCleanupEnqueueDate !== today) {
-    await enqueueJob({
-      kind: "storage_cleanup",
-      payload: { scheduledDate: today, reason: "daily_maintenance" },
-      idempotencyKey: storageCleanupIdempotencyKey(today),
-      priority: 80,
-    });
-    next.lastStorageCleanupEnqueueDate = today;
-    enqueuedStorageCleanup = true;
+  if (current.lastStorageCleanupEnqueueDate === today) {
+    return { enqueuedStorageCleanup: false };
   }
 
-  if (current.lastGmailWatchRenewEnqueueDate !== today) {
-    await enqueueJob({
-      kind: "gmail_watch_renew",
-      payload: { scheduledDate: today, reason: "daily_maintenance" },
-      idempotencyKey: gmailWatchRenewIdempotencyKey(today),
-      priority: 70,
-    });
-    next.lastGmailWatchRenewEnqueueDate = today;
-    enqueuedGmailWatchRenew = true;
-  } else {
-    try {
-      const gmail = await getGmailSettings();
-      if (
-        gmail.ingestion_enabled &&
-        gmail.label_id &&
-        isWatchExpiringSoon(gmail.watch_expiration, 36 * 60 * 60 * 1000)
-      ) {
-        await enqueueJob({
-          kind: "gmail_watch_renew",
-          payload: { scheduledDate: today, reason: "expiring_soon" },
-          idempotencyKey: `${gmailWatchRenewIdempotencyKey(today)}:expiring`,
-          priority: 60,
-        });
-      }
-    } catch {
-      // settings 読取失敗は無視
-    }
-  }
+  const idempotencyKey = storageCleanupIdempotencyKey(today);
+  await enqueueJob({
+    kind: "storage_cleanup",
+    payload: { scheduledDate: today, reason: "daily_maintenance" },
+    idempotencyKey,
+    priority: 80,
+  });
 
-  if (current.lastGmailReconciliationEnqueueDate !== today) {
-    await enqueueJob({
-      kind: "gmail_reconciliation",
-      payload: { scheduledDate: today, reason: "daily_maintenance" },
-      idempotencyKey: gmailReconciliationIdempotencyKey(today),
-      priority: 85,
-    });
-    next.lastGmailReconciliationEnqueueDate = today;
-    enqueuedGmailReconciliation = true;
-  }
-
-  if (
-    enqueuedStorageCleanup ||
-    enqueuedGmailWatchRenew ||
-    enqueuedGmailReconciliation
-  ) {
-    await admin.from("system_settings").upsert({
-      key: SETTINGS_KEY,
-      value: next,
-      updated_at: new Date().toISOString(),
-    });
-  }
-
-  return {
-    enqueuedStorageCleanup,
-    enqueuedGmailWatchRenew,
-    enqueuedGmailReconciliation,
+  const next: DailyMaintenanceSettings = {
+    ...current,
+    lastStorageCleanupEnqueueDate: today,
   };
+  await admin.from("system_settings").upsert({
+    key: SETTINGS_KEY,
+    value: next,
+    updated_at: new Date().toISOString(),
+  });
+
+  return { enqueuedStorageCleanup: true };
 }
 
 /** storage_cleanup 完了後に管理画面向け件数を記録（本文・path詳細は保存しない） */

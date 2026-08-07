@@ -7,11 +7,12 @@
 
 ## 現在の状態
 
-**Phase 11(お問い合わせ受信箱 / Gmail)実装済み。** Google Cloud / Gmail 本番接続は人間設定後。詳細は [docs/inquiry-integration.md](./docs/inquiry-integration.md)。
+**Phase 11(お問い合わせ受信箱 / Apps Script 取込)実装済み。** Gmail label + Apps Script 設定は人間操作後。詳細は [docs/inquiry-integration.md](./docs/inquiry-integration.md)。
 
 - Production: `https://sales-system-weld.vercel.app`
-- 主要URL: `/` / `/inquiries` / `/customers` / `/deals` / `/admin/integrations/gmail` / `/admin/sync` / `/admin/imports`
-- Webhook: `/api/webhooks/notion` / `/api/webhooks/gmail`
+- 主要URL: `/` / `/inquiries` / `/customers` / `/deals` / `/admin/sync` / `/admin/imports`
+- 取込: `POST /api/integrations/inquiries/apps-script`（HMAC）
+- Apps Script: `integrations/apps-script/strikingly-inquiries/`
 - 実装済み: Phase 1〜11（請求・返信送信・AIは非対象）
 - 運用: [docs/operations-runbook.md](./docs/operations-runbook.md) / [docs/release-checklist.md](./docs/release-checklist.md)
 

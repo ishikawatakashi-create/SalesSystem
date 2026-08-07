@@ -10,9 +10,6 @@ import { syncRepairHandler } from "@/lib/jobs/handlers/sync-repair";
 import { webhookSyncHandler } from "@/lib/jobs/handlers/webhook-sync";
 import { csvImportHandler } from "@/lib/jobs/handlers/csv-import";
 import { storageCleanupHandler } from "@/lib/jobs/handlers/storage-cleanup";
-import { gmailHistorySyncHandler } from "@/lib/jobs/handlers/gmail-history-sync";
-import { gmailWatchRenewHandler } from "@/lib/jobs/handlers/gmail-watch-renew";
-import { gmailReconciliationHandler } from "@/lib/jobs/handlers/gmail-reconciliation";
 
 /**
  * kindごとのハンドラー登録。
@@ -33,9 +30,6 @@ export const noopJobHandler: JobHandler = async () => ({ status: "succeeded" });
 
 registerJobHandler("dependency_reindex", noopJobHandler);
 registerJobHandler("storage_cleanup", storageCleanupHandler);
-registerJobHandler("gmail_history_sync", gmailHistorySyncHandler);
-registerJobHandler("gmail_watch_renew", gmailWatchRenewHandler);
-registerJobHandler("gmail_reconciliation", gmailReconciliationHandler);
 registerJobHandler("csv_import", csvImportHandler);
 registerJobHandler("webhook_sync", webhookSyncHandler);
 registerJobHandler("reconciliation", reconciliationHandler);

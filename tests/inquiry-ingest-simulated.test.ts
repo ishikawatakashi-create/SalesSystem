@@ -1,49 +1,72 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { parseStrikinglyNotificationMail } from "@/lib/inquiries/parser-strikingly";
-import { parsePubSubPushBody } from "@/lib/integrations/gmail/pubsub-envelope";
+import {
+  signInquiryRequest,
+  verifyInquiryHmac,
+} from "@/lib/inquiries/apps-script-hmac";
+import { heartbeatHealth } from "@/lib/inquiries/apps-script-health";
 import { titleFromActivityBody } from "@/lib/activities/quick-title";
 
 /**
- * 実Gmail接続前の simulated フロー（parser / envelope / activity title / dedupe key）。
- * DB/API はモックせず純関数中心で完走確認する。
+ * Apps Script transport 相当の simulated フロー（HMAC / parser / dedupe / health）。
  */
-describe("Phase 11 simulated inquiry flow", () => {
-  it("Pub/Sub → historyId → Strikingly parse → activity prefill", () => {
-    const data = Buffer.from(
-      JSON.stringify({ historyId: "999001", emailAddress: "box@example.com" }),
-    ).toString("base64");
-    const envelope = parsePubSubPushBody({
-      message: { data, messageId: "pubsub-1" },
-    });
-    expect(envelope.ok).toBe(true);
-    if (!envelope.ok) return;
-
-    const parsed = parseStrikinglyNotificationMail({
-      subject: "New Form Submission from Strikingly",
+describe("Phase 11 simulated inquiry flow (Apps Script)", () => {
+  it("signed Apps Script payload → Strikingly parse → activity prefill", () => {
+    const payload = {
+      source: "strikingly_email",
+      gmail_message_id: "gmail-msg-abc",
+      gmail_thread_id: "thread-1",
+      received_at: new Date().toISOString(),
       from: "Strikingly <noreply@strikingly.com>",
-      replyTo: "佐藤花子 <sato@example.test>",
-      plainText: [
+      reply_to: "佐藤花子 <sato@example.test>",
+      subject: "New Form Submission from Strikingly",
+      plain_body: [
         "名前: 佐藤花子",
         "メール: sato@example.test",
         "会社: 架空商事",
         "お問い合わせ内容: デモ希望です。",
       ].join("\n"),
+    };
+    const raw = JSON.stringify(payload);
+    const ts = String(Date.now());
+    const secret = "sim-secret-16chars";
+    const sig = signInquiryRequest(ts, raw, secret);
+    expect(
+      verifyInquiryHmac({
+        timestamp: ts,
+        signature: sig,
+        rawBody: raw,
+        secret,
+      }).ok,
+    ).toBe(true);
+
+    const parsed = parseStrikinglyNotificationMail({
+      subject: payload.subject,
+      from: payload.from,
+      replyTo: payload.reply_to,
+      plainText: payload.plain_body,
     });
 
     expect(parsed.senderEmail).toBe("sato@example.test");
     expect(parsed.companyName).toBe("架空商事");
     expect(parsed.parseStatus).toBe("ok");
 
-    const sourceMessageId = "gmail-msg-abc";
-    const dedupeKey = sourceMessageId;
-    const again = sourceMessageId;
-    expect(dedupeKey).toBe(again);
+    const dedupeKey = payload.gmail_message_id;
+    expect(dedupeKey).toBe("gmail-msg-abc");
 
     const activityTitle = `Webお問い合わせ：${parsed.subject}`.slice(0, 80);
     expect(activityTitle.startsWith("Webお問い合わせ：")).toBe(true);
     const bodyTitle = titleFromActivityBody(parsed.messageText ?? "");
     expect(bodyTitle.length).toBeGreaterThan(0);
+  });
+
+  it("heartbeat health: unknown / ok / delayed", () => {
+    expect(heartbeatHealth(null)).toBe("unknown");
+    expect(heartbeatHealth(new Date().toISOString())).toBe("ok");
+    expect(
+      heartbeatHealth(new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
+    ).toBe("delayed");
   });
 
   it("assignment status transition new → in_progress を表現できる", () => {

@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
 
 import {
-  handleGmailPubSubPost,
+  handleAppsScriptIngestPost,
   methodNotAllowed,
-} from "@/lib/webhooks/gmail-pubsub-handler";
+} from "@/lib/inquiries/apps-script-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const result = await handleGmailPubSubPost(request);
-  if (result.status === 204) {
-    return new NextResponse(null, { status: 204 });
-  }
+  const result = await handleAppsScriptIngestPost(request);
   return NextResponse.json(result.body, { status: result.status });
 }
 

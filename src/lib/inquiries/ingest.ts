@@ -95,7 +95,7 @@ export async function ingestInquiryFromMail(
       source: "strikingly_email",
       // 本文は入れない
     },
-    operation_source: "gmail_ingest",
+    operation_source: "apps_script_ingest",
     request_id: null,
     batch_id: null,
   });

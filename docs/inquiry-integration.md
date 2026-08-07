@@ -1,24 +1,40 @@
 # お問い合わせ連携（Phase 11）
 
-改訂: 2026-08-08
+改訂: 2026-08-08（Apps Script polling へ変更）
 
 ## 概要
 
-Strikingly の問い合わせフォームは変更せず、通知メールを Gmail / Google Workspace 経由で受け取り、SalesSystem の「お問い合わせ受信箱」へ取り込む。
+Strikingly の問い合わせフォームは変更せず、通知メールを Gmail label 経由で受け取り、**Google Apps Script の 5 分ポーリング**で SalesSystem へ取り込みます。
 
 ```
 Strikingly フォーム
   → 通知メール
   → Gmail（専用 label）
-  → Gmail API users.watch
-  → Google Cloud Pub/Sub
-  → POST /api/webhooks/gmail
-  → durable ingest（jobs）
-  → history.list / messages.get
+  → Google Apps Script（5分ごと）
+  → POST /api/integrations/inquiries/apps-script（HMAC）
+  → Strikingly parser
   → inquiries（Supabase）
 ```
 
 お問い合わせは顧客になる前の入口キューであり、Notion 業務 DB には追加しない。正式な顧客・担当者・対応履歴へ昇格するときだけ既存 write pipeline を使う。
+
+## 採用しなかった設計
+
+初期実装では Gmail API + Google Cloud Pub/Sub + 専用 OAuth を検討したが、**1 日数件規模には過剰**なため採用しない。
+
+廃止（コード削除済み / DB は破壊せず残置）:
+
+- Pub/Sub push / OIDC
+- Gmail `users.watch` / history.list / reconciliation ジョブ
+- Gmail 専用 OAuth Client / refresh token Vault 利用経路
+- `GMAIL_PUBSUB_*` / `GCP_PROJECT_ID` / `GMAIL_OAUTH_*` 環境変数
+
+残置（破壊的削除しない）:
+
+- `gmail_oauth_states` テーブル
+- Vault RPC（`store/read/clear_gmail_oauth_refresh_token`）
+- `system_settings.gmail_integration`（`deprecated_transport` 注記）
+- `ingest_gmail_pubsub_event` RPC
 
 ## 権限
 
@@ -26,42 +42,45 @@ Strikingly フォーム
 |---|:-:|:-:|:-:|:-:|
 | inquiry.view | ○ | ○ | ○ | ○ |
 | inquiry.edit | ○ | ○ | ○ | × |
-| Gmail 連携設定（settings.manage） | ○ | × | × | × |
+| 取込設定表示（settings.manage / sync.manage） | ○ | × | × | × |
 
-## OAuth / scopes
+## Apps Script transport
 
-- CRM ログイン用 Supabase Google OAuth とは **別 integration**
-- scope: `https://www.googleapis.com/auth/gmail.readonly` のみ
-- アプリはメールの削除・既読化・移動・label 変更・返信を行わない
-- refresh token は Supabase Vault（`gmail_oauth_refresh_token`）
-- `system_settings.gmail_integration` にはメタデータのみ（平文トークン禁止）
+- 成果物: `integrations/apps-script/strikingly-inquiries/`
+- label 既定: `SalesSystem/お問い合わせ`
+- 検索 window: `newer_than:2d`（重複は server dedupe）
+- Gmail 変更操作はコード上使用しない（既読・削除・label 変更禁止）
+- ログは件数のみ（本文・PII・secret 禁止）
 
-## label / filter
+### 認証（HMAC）
 
-1. 人間が Gmail UI で label（例: `SalesSystem/お問い合わせ`）を作成
-2. Strikingly 通知をその label へ付けるフィルタを作成
-3. `/admin/integrations/gmail` で label を選択してから取り込み開始
+Script Properties:
 
-label 未選択のまま全メール取り込みはしない。
+- `SALES_SYSTEM_ENDPOINT`
+- `SALES_SYSTEM_INGEST_SECRET`
 
-## watch / reconciliation
+Request headers:
 
-- `users.watch` の historyId / expiration を保存
-- 日次メンテで `gmail_watch_renew` / `gmail_reconciliation` を enqueue
-- historyId 失効時は label 付きメッセージの期間限定再走査（full mailbox 禁止）
+- `X-SalesSystem-Timestamp`
+- `X-SalesSystem-Signature` = hex(HMAC-SHA256(timestamp + "." + rawBody, secret))
 
-## Pub/Sub
+Server:
 
-- endpoint: `POST /api/webhooks/gmail`
-- authenticated push の OIDC JWT を検証（iss / aud / email / email_verified）
-- JWT・メール本文はログしない
-- request 内では Gmail messages.get を大量実行しない（job へ移譲）
+- env `INQUIRY_APPS_SCRIPT_SECRET`
+- timestamp 許容 ±5 分
+- constant-time 比較
+- secret / signature / 本文をログしない
 
-## parser
+### Heartbeat
 
-- Reply-To / From / Subject / plain / HTML
-- 未知テンプレートは破棄せず `parse_status=warning` で受信箱へ
-- raw MIME 全文は DB 保存しない
+各 poll で `{ "type": "heartbeat" }` を POST。  
+`system_settings.inquiry_apps_script.last_heartbeat_at` を更新。  
+`/admin/sync` で正常 / 遅延を表示。
+
+## Parser / business
+
+Apps Script は transport のみ。  
+Strikingly 解析・候補・割当・顧客化は SalesSystem 側（既存 Phase 11）。
 
 ## status
 
@@ -72,34 +91,17 @@ label 未選択のまま全メール取り込みはしない。
 | done | 対応済 |
 | no_action | 対応不要 |
 
-表示名比較で判定しない。
-
-## triage / 変換
-
-- 担当割当（new → in_progress 可）
-- 対応不要（削除しない・reopen 可）
-- 既存顧客候補提示（自動 link 禁止）
-- 新規顧客 / 先方担当者 / 対応履歴化は既存 pipeline + 明示操作
-
 ## 障害復旧
 
 | 症状 | 対応 |
 |---|---|
-| refresh token invalid | 管理画面で再接続 |
-| watch expired | 警告 + renew 再試行 |
-| history invalid | reconciliation |
-| Pub/Sub 失敗 | sync_errors |
-| message fetch 一時失敗 | job retry |
-| parse warning | 問い合わせは受信済み |
-
-## secret rotation
-
-1. Google Cloud で OAuth client secret をローテーション
-2. Vercel Production の `GMAIL_OAUTH_CLIENT_*` を更新（値はチャットに貼らない）
-3. 必要なら Gmail を再接続して refresh token を再保存
+| heartbeat 遅延 | Apps Script trigger / 実行ログ確認 |
+| 401 | secret 不一致・端末時刻 |
+| 503 | Vercel secret 未設定 |
+| label_missing | Gmail label 作成 |
+| duplicate | 正常（no-op） |
 
 ## 環境変数（名前のみ）
 
-`GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` / `GMAIL_OAUTH_REDIRECT_URI` /
-`GCP_PROJECT_ID` / `GMAIL_PUBSUB_TOPIC` / `GMAIL_PUBSUB_AUDIENCE` /
-`GMAIL_PUBSUB_SERVICE_ACCOUNT` / `NEXT_PUBLIC_APP_URL`
+- `INQUIRY_APPS_SCRIPT_SECRET`（server-only）
+- `NEXT_PUBLIC_APP_URL`（endpoint 組み立て用・任意）

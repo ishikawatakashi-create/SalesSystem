@@ -41,7 +41,7 @@ export function AppHeader({
   if (showGmail) {
     adminItems.push({
       href: "/admin/integrations/gmail",
-      label: "Gmail連携",
+      label: "お問い合わせ取込",
     });
   }
 

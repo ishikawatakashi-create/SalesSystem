@@ -10,7 +10,7 @@ const PUBLIC_PATHS = [
   "/auth",
   "/api/webhooks",
   "/api/jobs",
-  "/api/integrations/gmail/oauth/callback",
+  "/api/integrations/inquiries/apps-script",
 ];
 
 function isPublicPath(pathname: string): boolean {
