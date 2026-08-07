@@ -97,6 +97,30 @@ function isAlreadySynced(
   return false;
 }
 
+/** delete_pending / undeleted 等はスキップせず必ず synced へ戻す */
+function shouldSkipUnchanged(input: {
+  existing: { row: Record<string, unknown> } | null | undefined;
+  lastEdited: string | null;
+  contentHash: string;
+  eventType?: string;
+}): boolean {
+  if (!input.existing) return false;
+  const status = input.existing.row.sync_status as string | undefined;
+  if (status === "delete_pending" || status === "error") return false;
+  if (
+    input.eventType === "page.undeleted" ||
+    input.eventType === "page.created"
+  ) {
+    return false;
+  }
+  return isAlreadySynced(
+    input.existing.row.notion_last_edited_at as string | null,
+    input.lastEdited,
+    input.existing.row.content_hash as string | null,
+    input.contentHash,
+  );
+}
+
 async function resolveStaffUserIds(
   admin: Admin,
   staffPageIds: string[],
@@ -374,13 +398,12 @@ export async function syncPageFromNotion(input: {
       propertiesByName,
     });
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
-        row.content_hash ?? "",
-      )
+        contentHash: row.content_hash ?? "",
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -414,13 +437,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashCustomerDomain(customer);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -467,13 +489,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashContactDomain(contact);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -517,13 +538,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashDealDomain(deal);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -579,13 +599,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashActivityDomain(activity);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -636,13 +655,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashContractDomain(contract);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -694,13 +712,12 @@ export async function syncPageFromNotion(input: {
     });
     const contentHash = hashComplaintDomain(complaint);
     if (
-      existing &&
-      isAlreadySynced(
-        existing.row.notion_last_edited_at as string | null,
+      shouldSkipUnchanged({
+        existing,
         lastEdited,
-        existing.row.content_hash as string | null,
         contentHash,
-      )
+        eventType: input.eventType,
+      })
     ) {
       return {
         status: "synced",
@@ -751,13 +768,12 @@ export async function syncPageFromNotion(input: {
   });
   const contentHash = hashActionDomain(action);
   if (
-    existing &&
-    isAlreadySynced(
-      existing.row.notion_last_edited_at as string | null,
+    shouldSkipUnchanged({
+      existing,
       lastEdited,
-      existing.row.content_hash as string | null,
       contentHash,
-    )
+      eventType: input.eventType,
+    })
   ) {
     return {
       status: "synced",
