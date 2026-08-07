@@ -18,12 +18,22 @@ import {
 } from "@/lib/sync/schema-drift";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const SAMPLE_PAGE_SIZE = 20;
+/** Vercel maxDuration 内に収めるため、1実行あたり1 DS × 少数ページ */
+const SAMPLE_PAGE_SIZE = 5;
 
 type QueryPage = {
   id: string;
   in_trash?: boolean;
   last_edited_time?: string;
+};
+
+type ReconCursor = {
+  entityIndex: number;
+  driftDone?: boolean;
+  checked?: number;
+  repaired?: number;
+  deletePending?: number;
+  driftCount?: number;
 };
 
 function indexTableFor(entity: SyncEntityKey): string {
@@ -32,98 +42,192 @@ function indexTableFor(entity: SyncEntityKey): string {
 }
 
 /**
- * 日次整合性確認の最小実装。
- * - 各 NOTION_DS_* から最近編集ページをサンプル取得し hash / trash を照合
- * - スキーマドリフト検知
+ * 日次整合性確認(チャンク実行)。
+ * - 初回: スキーマドリフト検知
+ * - 以降: DSごとに最近編集ページを少量同期し、cursor で継続
  */
-export const reconciliationHandler: JobHandler = async (job) => {
+export const reconciliationHandler: JobHandler = async (job, ctx) => {
   const admin = createAdminClient();
   const notion = createDefaultNotionClient();
   const envMap = loadDataSourceEnvMap();
-  const entities = Object.keys(envMap) as SyncEntityKey[];
+  const entities = (Object.keys(envMap) as SyncEntityKey[]).filter(
+    (k) => Boolean(envMap[k]),
+  );
 
-  let checked = 0;
-  let repaired = 0;
-  let deletePending = 0;
-  let driftCount = 0;
+  const cursor = (job.cursor ?? {}) as ReconCursor;
+  let entityIndex = cursor.entityIndex ?? 0;
+  let checked = cursor.checked ?? 0;
+  let repaired = cursor.repaired ?? 0;
+  let deletePending = cursor.deletePending ?? 0;
+  let driftCount = cursor.driftCount ?? 0;
+  let driftDone = cursor.driftDone ?? false;
 
   try {
-    const findings = await detectSchemaDrift({ notion, admin, entities });
-    driftCount = await recordSchemaDriftFindings({
-      findings,
-      admin,
-      source: "reconciliation",
-    });
+    if (!driftDone) {
+      const alive = await ctx.heartbeat();
+      if (!alive) {
+        return {
+          status: "retry",
+          errorMessage: "lease_lost_before_drift",
+          backoffSeconds: 30,
+        };
+      }
+      const findings = await detectSchemaDrift({ notion, admin, entities });
+      driftCount = await recordSchemaDriftFindings({
+        findings,
+        admin,
+        source: "reconciliation",
+      });
+      driftDone = true;
 
-    for (const entity of entities) {
-      const dataSourceId = envMap[entity];
-      if (!dataSourceId) continue;
-      const indexTable = indexTableFor(entity);
+      // 次チャンクへ
+      await admin
+        .from("jobs")
+        .update({
+          cursor: {
+            entityIndex: 0,
+            driftDone: true,
+            checked,
+            repaired,
+            deletePending,
+            driftCount,
+          },
+          progress_done: 1,
+          progress_total: entities.length + 1,
+        } as never)
+        .eq("id", job.id);
 
-      const res = (await notion.dataSources.query({
-        data_source_id: dataSourceId,
-        page_size: SAMPLE_PAGE_SIZE,
-        sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
-      } as never)) as { results: QueryPage[] };
+      return {
+        status: "retry",
+        errorMessage: "reconciliation_continue_after_drift",
+        backoffSeconds: 1,
+      };
+    }
 
-      for (const page of res.results ?? []) {
-        checked += 1;
-        if (page.in_trash) {
-          const { data: row } = await admin
+    if (entityIndex >= entities.length) {
+      await admin.from("audit_logs").insert({
+        actor_id: null,
+        actor_name: null,
+        action: "sync.reconciliation",
+        entity_type: null,
+        notion_page_id: null,
+        changed_fields: {
+          checked,
+          repaired,
+          deletePending,
+          driftCount,
+          jobId: job.id,
+        },
+        operation_source: "reconciliation",
+        request_id: null,
+      } as never);
+
+      return {
+        status: "succeeded",
+        result: { checked, repaired, deletePending, driftCount },
+      };
+    }
+
+    const entity = entities[entityIndex]!;
+    const dataSourceId = envMap[entity]!;
+    const indexTable = indexTableFor(entity);
+
+    const alive = await ctx.heartbeat();
+    if (!alive) {
+      return {
+        status: "retry",
+        errorMessage: "lease_lost",
+        backoffSeconds: 30,
+      };
+    }
+
+    const res = (await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      page_size: SAMPLE_PAGE_SIZE,
+      sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+    } as never)) as { results: QueryPage[] };
+
+    for (const page of res.results ?? []) {
+      checked += 1;
+      if (page.in_trash) {
+        const { data: row } = await admin
+          .from(indexTable as "customer_index")
+          .select("sync_status")
+          .eq("notion_page_id", page.id)
+          .maybeSingle();
+        if (
+          row &&
+          row.sync_status !== "delete_pending" &&
+          row.sync_status !== "excluded"
+        ) {
+          await admin
             .from(indexTable as "customer_index")
-            .select("sync_status")
-            .eq("notion_page_id", page.id)
-            .maybeSingle();
-          if (
-            row &&
-            row.sync_status !== "delete_pending" &&
-            row.sync_status !== "excluded"
-          ) {
-            await admin
-              .from(indexTable as "customer_index")
-              .update({
-                sync_status: "delete_pending",
-                sync_error_message: "reconciliation: in_trash",
-              } as never)
-              .eq("notion_page_id", page.id);
-            deletePending += 1;
-          }
-          continue;
+            .update({
+              sync_status: "delete_pending",
+              sync_error_message: "reconciliation: in_trash",
+            } as never)
+            .eq("notion_page_id", page.id);
+          deletePending += 1;
         }
+        continue;
+      }
 
-        const result = await syncPageFromNotion({
-          pageId: page.id,
-          notion,
-          admin,
-          hintedDataSourceId: dataSourceId,
-          eventType: "reconciliation",
-        });
-        if (result.status === "synced" && !result.skipped) {
-          repaired += 1;
-        }
+      const result = await syncPageFromNotion({
+        pageId: page.id,
+        notion,
+        admin,
+        hintedDataSourceId: dataSourceId,
+        eventType: "reconciliation",
+      });
+      if (result.status === "synced" && !result.skipped) {
+        repaired += 1;
       }
     }
 
-    await admin.from("audit_logs").insert({
-      actor_id: null,
-      actor_name: null,
-      action: "sync.reconciliation",
-      entity_type: null,
-      notion_page_id: null,
-      changed_fields: {
-        checked,
-        repaired,
-        deletePending,
-        driftCount,
-        jobId: job.id,
-      },
-      operation_source: "reconciliation",
-      request_id: null,
-    } as never);
+    entityIndex += 1;
+    await admin
+      .from("jobs")
+      .update({
+        cursor: {
+          entityIndex,
+          driftDone: true,
+          checked,
+          repaired,
+          deletePending,
+          driftCount,
+        },
+        progress_done: entityIndex + 1,
+        progress_total: entities.length + 1,
+      } as never)
+      .eq("id", job.id);
+
+    if (entityIndex >= entities.length) {
+      await admin.from("audit_logs").insert({
+        actor_id: null,
+        actor_name: null,
+        action: "sync.reconciliation",
+        entity_type: null,
+        notion_page_id: null,
+        changed_fields: {
+          checked,
+          repaired,
+          deletePending,
+          driftCount,
+          jobId: job.id,
+        },
+        operation_source: "reconciliation",
+        request_id: null,
+      } as never);
+      return {
+        status: "succeeded",
+        result: { checked, repaired, deletePending, driftCount },
+      };
+    }
 
     return {
-      status: "succeeded",
-      result: { checked, repaired, deletePending, driftCount },
+      status: "retry",
+      errorMessage: "reconciliation_continue",
+      backoffSeconds: 1,
     };
   } catch (error) {
     if (isRetryableNotionError(error)) {
