@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import type { ActivityDetail } from "@/lib/activities/types";
 import {
   formatDate,
@@ -30,6 +31,12 @@ export function ActivityDetailView({
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "対応履歴一覧", href: "/activities" },
+          { label: detail.title || "(無題)" },
+        ]}
+      />
       {savedNote && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           保存しました。

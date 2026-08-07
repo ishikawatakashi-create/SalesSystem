@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { listContactsByCustomer } from "@/lib/contacts/read-list";
 import { getCustomerDetail } from "@/lib/customers/read-detail";
 import type { CustomerDetail } from "@/lib/customers/types";
+import { touchRecentView } from "@/lib/mydesk/recent-views";
 import { listDealsByCustomer } from "@/lib/deals/read-list";
 import { listActivitiesByCustomer } from "@/lib/activities/read-list";
 import { listActions } from "@/lib/actions/read-list";
@@ -95,8 +97,10 @@ export default async function CustomerDetailPage({
   let canEditAction = false;
   let canEditContract = false;
   let canEditComplaint = false;
+  let viewerUserId: string | null = null;
   try {
     const user = await requireUser();
+    viewerUserId = user.id;
     canEdit = hasPermission(user.role, "customer.edit");
     canEditContact = hasPermission(user.role, "contact.edit");
     canEditDeal = hasPermission(user.role, "deal.edit");
@@ -117,6 +121,9 @@ export default async function CustomerDetailPage({
   let detail: CustomerDetail;
   try {
     detail = await getCustomerDetail({ notionPageId: id });
+    if (viewerUserId) {
+      await touchRecentView(viewerUserId, id);
+    }
   } catch (error) {
     if (isCustomerSyncError(error)) {
       if (error.code === "not_found") notFound();
@@ -202,6 +209,12 @@ export default async function CustomerDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "顧客一覧", href: "/customers" },
+          { label: detail.displayName || "(無題)" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">{detail.displayName}</h1>
         <span className="text-xs">

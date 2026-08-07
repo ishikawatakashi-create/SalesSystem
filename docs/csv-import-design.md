@@ -2,7 +2,7 @@
 
 既存データ(Excel / Googleスプレッドシート由来、1,000〜10,000件想定)の移行手段であり、初期版の必須機能。権限は管理者+A権限のみ([permissions.md](./permissions.md))。
 
-改訂履歴: 2026-08-05 設計レビュー反映(Storage直接アップロード、原本管理、決定的external_id、エクスポート2方式)。2026-08-07 Phase 8実装反映(7エンティティCSV取込、Vault不要のprivate storage、ジョブチャンク、partial success)。
+改訂履歴: 2026-08-05 設計レビュー反映(Storage直接アップロード、原本管理、決定的external_id、エクスポート2方式)。2026-08-07 Phase 8実装反映(7エンティティCSV取込、Vault不要のprivate storage、ジョブチャンク、partial success)。2026-08-07 日次 `storage_cleanup` enqueue(`/api/jobs/run` → daily_maintenance)を追記。
 
 ## 0. Phase 8 実装サマリ
 
@@ -39,6 +39,7 @@ sequenceDiagram
 
 - `import_jobs` に `storage_path` / `file_size` / `sha256` / `expires_at`(作成から30日)/ `deleted_at` を記録([supabase-schema.md §9](./supabase-schema.md#9-その他のテーブル))。
 - **30日後の原本削除**: 定期ジョブ(kind=`storage_cleanup`)が `expires_at` 超過かつ `deleted_at` がnullの原本をStorageから削除し、`deleted_at` を記録する。**削除失敗は `sync_errors`(stage=`storage_cleanup_failed`)に記録して管理画面で監視**し、放置しない。
+- **日次enqueue**: `/api/jobs/run` ワーカー起動時に `ensureDailyMaintenanceJobs()` が走り、UTC日付キー `storage_cleanup:YYYY-MM-DD` で1日1回だけ `storage_cleanup` を enqueue する(`system_settings.key=daily_maintenance` で最終enqueue日を記録)。
 - **アクセス権限と監査**: bucketはprivate。ブラウザからの直接読み取りは不可。原本のダウンロードは「管理者またはインポート作成者本人(A権限以上)」のみ、サーバー経由の署名付きダウンロードURL(短寿命)で行い、発行を監査ログ(`csv.file_access`)へ記録する。アップロード用署名URLも権限確認後にのみ発行する。
 
 ## 2. インポートフロー(10ステップ)

@@ -10,6 +10,7 @@
 - 2026-08-07 Notion Webhook受信・Vault検証基盤と admin `/admin/sync` セットアップUIを追加(作業呼称Phase 7)。
 - 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を完了。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion`。次工程はCSV・ダッシュボード。
 - 2026-08-07 Phase 8 CSV取込・既存データ移行を実装完了。次工程はダッシュボード・全体仕上げ。
+- 2026-08-07 Phase 9(マイデスク・検索・retention・UI/運用仕上げ)を完了。運用ランブック・リリースチェックリストを追加。
 
 ## Phase 0: 設計(完了)
 
@@ -71,8 +72,8 @@
 5. 顧客詳細(ヘッダー・基礎情報枠・営業枠、Notion正本取得+短時間キャッシュ) — **完了**
 6. 関連アカウント(customer_relations+双方向表示) — **完了**(登録・編集でのrelation検証込み)
 7. **先方担当者(=Notion顧客担当者DB / contact_index)**: 登録・編集・無効化・一覧・顧客詳細組込み+氏名変更時のcustomer_index.search_text再構築 — **2026-08-07 完了**(作業呼称Phase 3)
-8. 保存済み検索・最近閲覧 — 未着手
-9. マイデスク(担当顧客・最近閲覧/更新・新規登録導線。KPI・アクション枠は後続) — 未着手
+8. 保存済み検索・最近閲覧 — 最近閲覧は Phase 9 でマイデスク組込済み。保存済み検索は後続可
+9. マイデスク(担当顧客・最近閲覧/更新・新規登録導線。KPI・アクション枠) — **Phase 9 完了**
 10. E2E: 顧客検索 / 詳細 / 登録 / 編集 / 表記揺れ検索 — **完了**(表記揺れの網羅は継続改善)
 
 ## Phase 3: 営業活動
@@ -90,7 +91,7 @@
 5. 契約(専用セクション。契約書URL/ファイル別プロパティ) — **2026-08-07 完了**(作業呼称Phase 6。ファイルuploadは後続可)
 6. クレーム(専用セクション。詳細本文は見出し付きページ本文) — **2026-08-07 完了**(作業呼称Phase 6)
 7. **顧客詳細「全活動」タイムライン**(対応履歴・案件受注・契約作成・クレーム発生/解決を表示上のみ統合。[ui-guidelines.md](./ui-guidelines.md)) — 未着手
-8. マイデスクKPI完成(semantic_keyベースの集計、クリックで条件付き一覧へ) — 未着手
+8. マイデスクKPI完成(semantic_keyベースの集計、クリックで条件付き一覧へ) — **Phase 9 完了**
 9. ユーザープロフィール画面 — 未着手
 10. E2E: 履歴登録 / 複数分類 / 一括登録 / アクション完了 / 案件 — **対応履歴・一括・アクション分は完了**。契約・クレームは未着手
 
@@ -110,17 +111,28 @@
 10. システム設定(スキーマスナップショット表示・書込一時停止等) — 未着手
 11. テスト: 重複判定 / idempotency / 同期再試行 / レートリミッター / claim競合、E2E: インポート / エクスポート / 同期エラー再実行 / Notion更新→インデックス反映 — Phase 8でCSV単体・synthetic 10k含む
 
+## Phase 9: マイデスク・検索・retention・仕上げ(完了)
+
+**ゴール: 日常利用の起点(マイデスク/検索)と運用ドキュメント、CSV retention の日次起動を揃える。**
+
+1. マイデスク(`/`): KPI・今日やること・自分の案件・最近の対応・要確認・最近閲覧 — **完了**
+2. グローバル検索(`/search` + ヘッダー検索) — **完了**
+3. CSV原本 retention: `/api/jobs/run` → `ensureDailyMaintenanceJobs` → 日次 `storage_cleanup` enqueue — **完了**
+4. UI polish: パンくず・ナビ管理グループ・Empty/Error ヘルパー — **完了**
+5. 運用ドキュメント: [operations-runbook.md](./operations-runbook.md) / [release-checklist.md](./release-checklist.md) — **完了**
+6. AI連携 — **非対象**(初期版に含めない)
+
 ## Phase 5: 品質改善
 
 **ゴール: 完了条件([requirements.md §11](./requirements.md#11-完了条件初期版))をすべて満たす。**
 
 1. E2E全シナリオ(権限ごとの操作制限・閲覧専用の編集拒否を含む)
 2. パフォーマンス(10,000件規模の検索応答、N+1排除)
-3. UI調整(密度・導線の実データ確認、空データ・エラー状態)
+3. UI調整(密度・導線の実データ確認、空データ・エラー状態) — Phase 9 で EmptyState/パンくず等を一部完了。実データ確認は継続
 4. アクセシビリティ(キーボード・フォーカス・コントラスト)
 5. 同期リカバリー運用テスト(Webhook停止→整合性確認で回復、部分失敗→再実行、ワーカークラッシュ→リース回収)
 6. セキュリティ最終確認(Secret key非露出、RLS、監査トリガー、Webhook署名、CSVインジェクション、Storage統制)
-7. 運用ドキュメント(README / docs/operations.md: 招待・マスタ・同期エラー・原本削除失敗・監査ログ保持の運用)
+7. 運用ドキュメント — **Phase 9 で [operations-runbook.md](./operations-runbook.md) / [release-checklist.md](./release-checklist.md) を追加**
 
 ## 進め方の原則
 

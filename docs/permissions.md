@@ -1,6 +1,6 @@
 # 権限設計
 
-改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。2026-08-06 Auth Admin `createUser` がHookを迂回することを実測し、server-onlyラッパー集約方針を追記。
+改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。2026-08-06 Auth Admin `createUser` がHookを迂回することを実測し、server-onlyラッパー集約方針を追記。2026-08-07 マイデスク/検索の全ロール利用と「自分の案件」=`deal_index.staff_user_ids` 含む `app_users.id` を追記。
 
 ## 1. 権限の基本方針
 
@@ -50,6 +50,8 @@
 - 「複数顧客への対応履歴一括登録」は通常の履歴登録の延長としてB権限にも許可する(9.3の一括登録要件)。「一括更新」(既存データの一括変更)とは区別する。
 - 対応履歴の**削除は管理者を含む全ロールで不可**(アプリに削除機能を実装しない)。
 - 無効化されたユーザー(`is_active = false`)はロールに関わらず全操作を拒否し、ログイン後は案内画面のみ表示する。
+- **マイデスク(`/`)・グローバル検索(`/search`)**: `customer.view` 相当で全ロール(admin/a/b/viewer)が利用可能。ナビ・Server側とも閲覧系権限に従う。
+- **マイデスク「自分の案件」**: `deal_index.staff_user_ids` にログイン中ユーザーの `app_users.id` が含まれる進行中・保留案件。Notion自社担当者ページIDではなくアプリユーザーIDで判定する。
 
 ## 3. 実装仕様
 

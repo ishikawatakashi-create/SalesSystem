@@ -13,6 +13,7 @@ import {
   failJob,
   heartbeatJob,
 } from "@/lib/jobs/queue";
+import { ensureDailyMaintenanceJobs } from "@/lib/jobs/daily-maintenance";
 import { detectStuckJobs } from "@/lib/jobs/stuck";
 import type { JobRow } from "@/lib/jobs/types";
 import { createWorkerId } from "@/lib/jobs/worker-id";
@@ -73,6 +74,16 @@ export async function runJobWorker(options?: {
   } catch (error) {
     result.errors.push(
       error instanceof Error ? error.message : "滞留ジョブ検知に失敗",
+    );
+  }
+
+  try {
+    await ensureDailyMaintenanceJobs();
+  } catch (error) {
+    result.errors.push(
+      error instanceof Error
+        ? error.message
+        : "日次メンテナンスenqueueに失敗",
     );
   }
 

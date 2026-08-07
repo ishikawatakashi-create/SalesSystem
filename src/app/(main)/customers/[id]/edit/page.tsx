@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCustomerDetail } from "@/lib/customers/read-detail";
@@ -83,6 +84,16 @@ export default async function CustomerEditPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "顧客一覧", href: "/customers" },
+          {
+            label: detail.displayName || "(無題)",
+            href: `/customers/${detail.notionPageId}`,
+          },
+          { label: "編集" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">顧客編集: {detail.displayName}</h1>
         <Link

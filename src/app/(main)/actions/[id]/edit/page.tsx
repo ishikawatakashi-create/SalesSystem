@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getActionDetail } from "@/lib/actions/read-detail";
@@ -78,6 +79,16 @@ export default async function ActionEditPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "次回アクション一覧", href: "/actions" },
+          {
+            label: detail.title || "(無題)",
+            href: `/actions/${detail.notionPageId}`,
+          },
+          { label: "編集" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">
           次回アクション編集: {detail.title || "(無題)"}

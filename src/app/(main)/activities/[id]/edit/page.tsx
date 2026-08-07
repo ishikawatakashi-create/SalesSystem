@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getActivityDetail } from "@/lib/activities/read-detail";
@@ -76,6 +77,16 @@ export default async function ActivityEditPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "対応履歴一覧", href: "/activities" },
+          {
+            label: detail.title || "(無題)",
+            href: `/activities/${detail.notionPageId}`,
+          },
+          { label: "編集" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">
           対応履歴編集: {detail.title || "(無題)"}

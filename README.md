@@ -7,13 +7,15 @@
 
 ## 現在の状態
 
-**Phase 8(CSV取込)完了。** 次工程はダッシュボード・全体仕上げ([docs/implementation-plan.md](./docs/implementation-plan.md))。
+**Phase 9(マイデスク・検索・retention・運用仕上げ)完了。** 詳細は [docs/implementation-plan.md](./docs/implementation-plan.md)。
 
 - Production: `https://sales-system-weld.vercel.app`
+- 主要URL: `/`(マイデスク) / `/search` / `/customers` / `/deals` / `/admin/sync` / `/admin/imports` / `/admin/users`
 - Webhook: `/api/webhooks/notion`（subscription verified）
 - CSV取込: `/admin/imports`（`csv.import` = admin + A）
-- 実装済み: 認証〜契約/クレーム、Webhook、CSV取込(7エンティティ)
-- 未着手: ダッシュボード / マイデスクKPI改修 / 全面CSV export / AI連携
+- 実装済み: 認証〜契約/クレーム、Webhook、CSV取込、マイデスク、グローバル検索、日次 `storage_cleanup`
+- 運用: [docs/operations-runbook.md](./docs/operations-runbook.md) / [docs/release-checklist.md](./docs/release-checklist.md)
+- 後続可: 全面CSV export / 保存済み検索の高度化 / ユーザープロフィール / AI連携(非対象)
 - 保留(本番公開前): Google OAuthブラウザE2E
 
 ### Auth Admin APIの注意(実測)
@@ -37,7 +39,9 @@
 | [docs/sync-design.md](./docs/sync-design.md) | Notion/Supabase同期(書込パイプライン・Webhook・削除確認・整合性確認) |
 | [docs/csv-import-design.md](./docs/csv-import-design.md) | CSVインポート(10ステップ・重複判定・ジョブ)・エクスポート |
 | [docs/ui-guidelines.md](./docs/ui-guidelines.md) | デザイントークン・UI原則・禁止パターン・画面別ワイヤーフレーム |
-| [docs/implementation-plan.md](./docs/implementation-plan.md) | Phase 1〜5の実装タスク分解と完了基準 |
+| [docs/implementation-plan.md](./docs/implementation-plan.md) | Phase 1〜5 / Phase 9 の実装タスク分解と完了基準 |
+| [docs/operations-runbook.md](./docs/operations-runbook.md) | 日次運用・招待・同期・CSV・秘密ローテーション手順 |
+| [docs/release-checklist.md](./docs/release-checklist.md) | リリース前・直後の確認項目 |
 
 ## 開発コマンド
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import type { ActionDetail } from "@/lib/actions/types";
 import { isActionOpenSemantic } from "@/lib/actions/types";
 import {
@@ -54,6 +55,12 @@ export function ActionDetailView({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "次回アクション一覧", href: "/actions" },
+          { label: detail.title || "(無題)" },
+        ]}
+      />
       {savedNote && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           保存しました。顧客・案件の次回アクション表示は再計算される場合があります。

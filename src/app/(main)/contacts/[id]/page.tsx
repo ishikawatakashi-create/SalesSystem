@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getContactDetail } from "@/lib/contacts/read-detail";
@@ -121,6 +122,12 @@ export default async function ContactDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "担当者一覧", href: "/contacts" },
+          { label: detail.name || "(無題)" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">{detail.name}</h1>
         {!detail.isActive && (

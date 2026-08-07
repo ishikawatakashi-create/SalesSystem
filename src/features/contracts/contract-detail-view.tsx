@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import type { ContractDetail } from "@/lib/contracts/types";
 import {
   formatDate,
@@ -49,6 +50,12 @@ export function ContractDetailView({
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "契約一覧", href: "/contracts" },
+          { label: detail.title || "(無題)" },
+        ]}
+      />
       {savedNote && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           保存しました。

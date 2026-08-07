@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, AuthError } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
+import { GlobalSearchBox } from "@/features/search/global-search-box";
 import type { AppUserRow } from "@/types/database";
 
 const ROLE_LABELS: Record<AppUserRow["role"], string> = {
@@ -28,6 +29,11 @@ export default async function MainLayout({
     throw e;
   }
 
+  const showCsv = hasPermission(user.role, "csv.import");
+  const showUsers = hasPermission(user.role, "user.manage");
+  const showSync = hasPermission(user.role, "sync.manage");
+  const showAdminGroup = showCsv || showUsers || showSync;
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
@@ -35,7 +41,10 @@ export default async function MainLayout({
           <Link href="/" className="text-sm font-bold">
             営業管理システム
           </Link>
-          <nav className="flex items-center gap-4 text-xs text-slate-600">
+          <nav
+            aria-label="メインナビゲーション"
+            className="flex items-center gap-4 text-xs text-slate-600"
+          >
             <Link href="/" className="hover:text-slate-900">
               マイデスク
             </Link>
@@ -60,23 +69,37 @@ export default async function MainLayout({
             <Link href="/complaints" className="hover:text-slate-900">
               クレーム
             </Link>
-            {hasPermission(user.role, "csv.import") && (
-              <Link href="/admin/imports" className="hover:text-slate-900">
-                CSV取込
-              </Link>
-            )}
-            {hasPermission(user.role, "user.manage") && (
-              <Link href="/admin/users" className="hover:text-slate-900">
-                ユーザー管理
-              </Link>
-            )}
-            {hasPermission(user.role, "sync.manage") && (
-              <Link href="/admin/sync" className="hover:text-slate-900">
-                同期管理
-              </Link>
+            {showAdminGroup && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="text-slate-300"
+                >
+                  |
+                </span>
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                  管理
+                </span>
+                {showCsv && (
+                  <Link href="/admin/imports" className="hover:text-slate-900">
+                    CSV取込
+                  </Link>
+                )}
+                {showUsers && (
+                  <Link href="/admin/users" className="hover:text-slate-900">
+                    ユーザー管理
+                  </Link>
+                )}
+                {showSync && (
+                  <Link href="/admin/sync" className="hover:text-slate-900">
+                    同期管理
+                  </Link>
+                )}
+              </>
             )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs">
+            <GlobalSearchBox />
             <span className="text-slate-500">
               {user.display_name}({ROLE_LABELS[user.role]})
             </span>

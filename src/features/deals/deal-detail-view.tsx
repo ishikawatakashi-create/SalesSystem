@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import type { DealDetail } from "@/lib/deals/types";
 import {
   formatDate,
@@ -49,6 +50,12 @@ export function DealDetailView({
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "案件一覧", href: "/deals" },
+          { label: detail.title || "(無題)" },
+        ]}
+      />
       {savedNote && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           保存しました。顧客の見込み金額は進行中・保留案件から再集計される場合があります。

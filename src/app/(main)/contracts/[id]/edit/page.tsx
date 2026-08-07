@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getContractDetail } from "@/lib/contracts/read-detail";
@@ -78,6 +79,16 @@ export default async function ContractEditPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
+      <Breadcrumbs
+        items={[
+          { label: "契約一覧", href: "/contracts" },
+          {
+            label: detail.title || "(無題)",
+            href: `/contracts/${detail.notionPageId}`,
+          },
+          { label: "編集" },
+        ]}
+      />
       <div className="flex items-center gap-3">
         <h1 className="text-base font-bold">
           契約編集: {detail.title || "(無題)"}

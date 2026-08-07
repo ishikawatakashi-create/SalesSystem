@@ -27,6 +27,14 @@ export function SyncMetricsPanel({ metrics }: Props) {
       value: formatTs(metrics.lastWebhookSyncFinishedAt),
     },
     {
+      label: "pending/processing webhook",
+      value: String(metrics.pendingWebhookEvents),
+    },
+    {
+      label: "failed webhook events",
+      value: String(metrics.failedWebhookEvents),
+    },
+    {
       label: "待機中の Webhook 関連ジョブ",
       value: String(metrics.pendingWebhookRelatedJobs),
     },
@@ -46,17 +54,47 @@ export function SyncMetricsPanel({ metrics }: Props) {
       label: "未解決 sync_errors",
       value: String(metrics.unresolvedSyncErrors),
     },
+    {
+      label: "jobs queued / running / failed",
+      value: `${metrics.jobsQueued} / ${metrics.jobsRunning} / ${metrics.jobsFailed}`,
+    },
+    {
+      label: "import running / failed",
+      value: `${metrics.importJobsRunning} / ${metrics.importJobsFailed}`,
+    },
+    {
+      label: "Storage cleanup 最終成功",
+      value: formatTs(metrics.storageCleanupLastFinishedAt),
+    },
+    {
+      label: "Storage cleanup 削除件数(最終)",
+      value:
+        metrics.storageCleanupLastCleaned == null
+          ? "—"
+          : String(metrics.storageCleanupLastCleaned),
+    },
+    {
+      label: "Storage cleanup 失敗件数(最終)",
+      value:
+        metrics.storageCleanupLastFailed == null
+          ? "—"
+          : String(metrics.storageCleanupLastFailed),
+    },
+    {
+      label: "storage_cleanup_failed(未解決)",
+      value: String(metrics.storageCleanupFailedErrors),
+    },
   ];
 
   return (
-    <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div className="space-y-4 rounded border border-slate-200 bg-white p-4">
       <div>
-        <h2 className="mb-1 text-sm font-bold">同期状況メトリクス</h2>
+        <h2 className="mb-1 text-sm font-bold">同期・運用メトリクス</h2>
         <p className="text-xs text-slate-500">
           シークレット・payload・個人情報は表示しません。件数と時刻のみです。
         </p>
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((row) => (
           <div key={row.label} className="space-y-1">
             <dt className="text-xs font-medium text-slate-500">{row.label}</dt>

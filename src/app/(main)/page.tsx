@@ -1,14 +1,34 @@
-export default function MyDeskPage() {
+import { redirect } from "next/navigation";
+
+import { MyDeskView } from "@/features/mydesk/my-desk-view";
+import { AuthError, requireUser } from "@/lib/auth/require";
+import { hasPermission } from "@/lib/auth/permissions";
+import { loadMyDesk } from "@/lib/mydesk/load";
+
+export const dynamic = "force-dynamic";
+
+export default async function MyDeskPage() {
+  let user;
+  try {
+    user = await requireUser();
+  } catch (e) {
+    if (e instanceof AuthError && e.code === "unauthenticated") {
+      redirect("/login");
+    }
+    if (e instanceof AuthError) {
+      redirect(`/auth/signout?error=${e.code}`);
+    }
+    throw e;
+  }
+
+  const snapshot = await loadMyDesk(user);
+  const canEditActions = hasPermission(user.role, "action.edit");
+
   return (
-    <div>
-      <h1 className="mb-4 text-base font-bold">マイデスク</h1>
-      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
-        <p>ログインに成功しました(認証スパイク確認用画面)。</p>
-        <p className="mt-2">
-          自分の担当顧客・今後のアクション・期限超過の表示は、Phase
-          2以降で実装されます。
-        </p>
-      </div>
-    </div>
+    <MyDeskView
+      snapshot={snapshot}
+      user={user}
+      canEditActions={canEditActions}
+    />
   );
 }
