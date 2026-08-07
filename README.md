@@ -7,12 +7,13 @@
 
 ## 現在の状態
 
-**Phase 7(Notion Webhook Production)完了。** 次工程は CSV・ダッシュボード([docs/implementation-plan.md](./docs/implementation-plan.md))。
+**Phase 8(CSV取込)完了。** 次工程はダッシュボード・全体仕上げ([docs/implementation-plan.md](./docs/implementation-plan.md))。
 
 - Production: `https://sales-system-weld.vercel.app`
-- Webhook: `/api/webhooks/notion`（subscription verified、Vault 管理）
-- 管理画面: `/admin/sync`
-- 実装済み: 認証〜契約/クレーム、実 Notion Webhook inbound、reconciliation、schema drift 検知
+- Webhook: `/api/webhooks/notion`（subscription verified）
+- CSV取込: `/admin/imports`（`csv.import` = admin + A）
+- 実装済み: 認証〜契約/クレーム、Webhook、CSV取込(7エンティティ)
+- 未着手: ダッシュボード / マイデスクKPI改修 / 全面CSV export / AI連携
 - 保留(本番公開前): Google OAuthブラウザE2E
 
 ### Auth Admin APIの注意(実測)

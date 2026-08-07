@@ -60,6 +60,11 @@ export default async function MainLayout({
             <Link href="/complaints" className="hover:text-slate-900">
               クレーム
             </Link>
+            {hasPermission(user.role, "csv.import") && (
+              <Link href="/admin/imports" className="hover:text-slate-900">
+                CSV取込
+              </Link>
+            )}
             {hasPermission(user.role, "user.manage") && (
               <Link href="/admin/users" className="hover:text-slate-900">
                 ユーザー管理

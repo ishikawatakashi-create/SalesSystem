@@ -9,6 +9,7 @@
 - 2026-08-07 契約・クレーム管理を完了(作業呼称Phase 6)。Webhook・CSV・ダッシュボードは後続。
 - 2026-08-07 Notion Webhook受信・Vault検証基盤と admin `/admin/sync` セットアップUIを追加(作業呼称Phase 7)。
 - 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を完了。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion`。次工程はCSV・ダッシュボード。
+- 2026-08-07 Phase 8 CSV取込・既存データ移行を実装完了。次工程はダッシュボード・全体仕上げ。
 
 ## Phase 0: 設計(完了)
 
@@ -98,16 +99,16 @@
 **ゴール: マスタ・監査ログ・同期管理・CSVが管理画面で完結する。**
 
 1. マスタ管理(種別タブ・追加・編集・並び替え・色・無効化・semantic_key管理は管理者のみ表示。種別自体の追加はコード対応である旨をUIに明記)
-2. Notion Webhook(署名検証+**1トランザクションenqueue**(ingest_webhook_event)+後続同期ジョブ+自書込スキップ) — **Production検証済み**(作業呼称Phase 7: Vault保存・`/admin/sync` で verification/メトリクス・実Notion inbound E2E。削除確認UI・CSVは後続)
-3. Notion削除確認フロー(in_trash検知→delete_pending→管理者確認→除外/復旧)
-4. 定期整合性確認(日次差分・週次全件+**スキーマ変更検知・派生値再計算検証**)
-5. dependency_reindexジョブ(**大量波及の非同期化**: マスタ名変更・自社担当者名変更等の関連インデックス一括再構築)+管理画面からの**手動再実行**。Phase 2・3で実装済みの同期ハンドラーをジョブからも呼べる形に統合
-6. 同期状況・同期エラー画面(再実行・ジョブ滞留監視・スキーマ警告)
-7. 監査ログ画面(絞り込み・差分表示・Notion側変更の制約注記)
-8. CSVインポート(**Storage直接アップロード**+10ステップ+重複判定+決定的external_idのジョブ実行+再開+**原本30日削除ジョブと削除失敗監視**)
-9. CSVエクスポート(**高速=インデックス / 完全=Notion正本の2方式**、列選択、BOM、インジェクション対策、署名付きダウンロード)
-10. システム設定(スキーマスナップショット表示・書込一時停止等)
-11. テスト: 重複判定 / idempotency / 同期再試行 / レートリミッター / claim競合、E2E: インポート / エクスポート / 同期エラー再実行 / Notion更新→インデックス反映
+2. Notion Webhook(署名検証+**1トランザクションenqueue**(ingest_webhook_event)+後続同期ジョブ+自書込スキップ) — **Production検証済み**(作業呼称Phase 7)
+3. Notion削除確認フロー(in_trash検知→delete_pending→管理者確認→除外/復旧) — Webhook経路はPhase 7で実装。管理UI確認フローは後続可
+4. 定期整合性確認(日次差分・週次全件+**スキーマ変更検知・派生値再計算検証**) — Phase 7で実装
+5. dependency_reindexジョブ(**大量波及の非同期化**) — 案件見込み金額等はPhase 4〜7で実装
+6. 同期状況・同期エラー画面 — `/admin/sync` Phase 7
+7. 監査ログ画面(絞り込み・差分表示・Notion側変更の制約注記) — 未着手
+8. CSVインポート(**Storage直接アップロード**+マッピング+検証+ジョブ実行+再開+**原本30日削除**) — **2026-08-07 完了**(作業呼称Phase 8。`/admin/imports`)
+9. CSVエクスポート(**高速=インデックス / 完全=Notion正本の2方式**) — エラーCSVのみPhase 8。全面exportは後続
+10. システム設定(スキーマスナップショット表示・書込一時停止等) — 未着手
+11. テスト: 重複判定 / idempotency / 同期再試行 / レートリミッター / claim競合、E2E: インポート / エクスポート / 同期エラー再実行 / Notion更新→インデックス反映 — Phase 8でCSV単体・synthetic 10k含む
 
 ## Phase 5: 品質改善
 

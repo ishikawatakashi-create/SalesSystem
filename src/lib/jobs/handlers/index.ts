@@ -8,6 +8,8 @@ import {
 import { reconciliationHandler } from "@/lib/jobs/handlers/reconciliation";
 import { syncRepairHandler } from "@/lib/jobs/handlers/sync-repair";
 import { webhookSyncHandler } from "@/lib/jobs/handlers/webhook-sync";
+import { csvImportHandler } from "@/lib/jobs/handlers/csv-import";
+import { storageCleanupHandler } from "@/lib/jobs/handlers/storage-cleanup";
 
 /**
  * kindごとのハンドラー登録。
@@ -26,8 +28,9 @@ export function getJobHandler(kind: string): JobHandler | undefined {
 /** 基盤検証・滞留検知用のnoopハンドラー */
 export const noopJobHandler: JobHandler = async () => ({ status: "succeeded" });
 
-registerJobHandler("storage_cleanup", noopJobHandler);
 registerJobHandler("dependency_reindex", noopJobHandler);
+registerJobHandler("storage_cleanup", storageCleanupHandler);
+registerJobHandler("csv_import", csvImportHandler);
 registerJobHandler("webhook_sync", webhookSyncHandler);
 registerJobHandler("reconciliation", reconciliationHandler);
 registerJobHandler("sync_repair", syncRepairHandler);

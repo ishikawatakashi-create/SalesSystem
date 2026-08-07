@@ -2,7 +2,19 @@
 
 既存データ(Excel / Googleスプレッドシート由来、1,000〜10,000件想定)の移行手段であり、初期版の必須機能。権限は管理者+A権限のみ([permissions.md](./permissions.md))。
 
-改訂履歴: 2026-08-05 設計レビュー反映(Storage直接アップロード、原本管理、決定的external_id、エクスポート2方式)。
+改訂履歴: 2026-08-05 設計レビュー反映(Storage直接アップロード、原本管理、決定的external_id、エクスポート2方式)。2026-08-07 Phase 8実装反映(7エンティティCSV取込、Vault不要のprivate storage、ジョブチャンク、partial success)。
+
+## 0. Phase 8 実装サマリ
+
+- 管理画面: `/admin/imports`（権限 `csv.import` = admin + A）
+- 対象: 顧客 / 顧客担当者 / 案件 / 対応履歴 / 次回アクション / 契約 / クレーム
+- 非対象: 営業マスタ・自社担当者（semantic_key / Auth identity のため専用管理）
+- 推奨順: 顧客 → 担当者 → 案件 → 対応履歴 → アクション → 契約 → クレーム（途中entityのみ追加import可）
+- 原本: private bucket `imports`、30日期限、`storage_cleanup` で削除
+- 実行: `jobs.kind=csv_import` チャンク処理（HTTP内で大量処理しない）
+- 冪等: source key / 決定的 external_id + write_operations
+- 結果: partial success（成功行はrollbackしない）。cancelは未処理のみ停止
+- 個人情報: raw CSVをログ/auditに出さない。`import_rows.staged` は最小payload
 
 ## 1. ファイルアップロード(Supabase Storage直接)
 

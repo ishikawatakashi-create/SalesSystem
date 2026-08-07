@@ -42,6 +42,69 @@ export type ImportRowStatus =
   | "imported"
   | "import_failed";
 
+export type ImportJobStatus =
+  | "pending"
+  | "uploaded"
+  | "analyzing"
+  | "mapping_required"
+  | "validating"
+  | "validation_completed"
+  | "ready"
+  | "importing"
+  | "partially_completed"
+  | "completed"
+  | "cancelled"
+  | "failed";
+
+export type ImportJobRow = {
+  id: string;
+  job_id: string | null;
+  file_name: string | null;
+  storage_path: string;
+  file_size: number | null;
+  sha256: string | null;
+  expires_at: string;
+  deleted_at: string | null;
+  encoding: string | null;
+  row_count: number | null;
+  column_mapping: Record<string, unknown> | null;
+  status: string;
+  summary: Record<string, unknown> | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  entity_type: string | null;
+  import_mode: string | null;
+  source_key_field: string | null;
+  source_system: string | null;
+  detected_encoding: string | null;
+  cancel_requested_at: string | null;
+  last_processed_at: string | null;
+  preview_summary: Record<string, unknown> | null;
+  default_decision: string | null;
+  mapping_aliases: Record<string, unknown> | null;
+};
+
+export type ImportRowRow = {
+  id: string;
+  import_job_id: string;
+  row_number: number;
+  external_id: string | null;
+  status: ImportRowStatus;
+  raw: Record<string, unknown> | null;
+  normalized: Record<string, unknown> | null;
+  match_reason: string | null;
+  matched_page_id: string | null;
+  error_message: string | null;
+  source_key: string | null;
+  source_key_hash: string | null;
+  reason_codes: Record<string, unknown>;
+  decision: string | null;
+  retry_count: number;
+  notion_page_id: string | null;
+  staged: Record<string, unknown> | null;
+};
+
 // 注: supabase-jsの型制約(Record<string, unknown>)を満たすため、
 // interfaceではなくtypeエイリアスで定義すること。
 export type AppUserRow = {
@@ -414,8 +477,8 @@ export type Database = {
       write_operations: TableDef<WriteOperationRow>;
       sync_errors: TableDef<SyncErrorRow>;
       webhook_events: TableDef<Record<string, unknown>>;
-      import_jobs: TableDef<Record<string, unknown>>;
-      import_rows: TableDef<Record<string, unknown>>;
+      import_jobs: TableDef<ImportJobRow>;
+      import_rows: TableDef<ImportRowRow>;
       saved_searches: TableDef<Record<string, unknown>>;
       recent_views: TableDef<Record<string, unknown>>;
       system_settings: TableDef<SystemSettingRow>;
