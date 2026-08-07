@@ -13,12 +13,23 @@ describe("権限マトリクス(docs/permissions.mdと一致すること)", () =
 
   it("viewerは閲覧のみ可能(書込・管理系はすべて不可)", () => {
     expect(hasPermission("viewer", "customer.view")).toBe(true);
+    expect(hasPermission("viewer", "inquiry.view")).toBe(true);
     for (const action of Object.keys(PERMISSIONS) as (keyof typeof PERMISSIONS)[]) {
-      if (action === "customer.view") continue;
+      if (action === "customer.view" || action === "inquiry.view") continue;
       expect(hasPermission("viewer", action), `viewerは${action}不可のはず`).toBe(
         false,
       );
     }
+  });
+
+  it("お問い合わせは閲覧が全ロール、編集はadmin/a/b", () => {
+    for (const role of ALL_ROLES) {
+      expect(hasPermission(role, "inquiry.view")).toBe(true);
+    }
+    expect(hasPermission("admin", "inquiry.edit")).toBe(true);
+    expect(hasPermission("a", "inquiry.edit")).toBe(true);
+    expect(hasPermission("b", "inquiry.edit")).toBe(true);
+    expect(hasPermission("viewer", "inquiry.edit")).toBe(false);
   });
 
   it("次回アクションの登録・編集はadmin/a/bのみ可能で、viewerは不可", () => {

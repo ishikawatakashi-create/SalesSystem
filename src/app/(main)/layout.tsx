@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireUser, AuthError } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { AppUserRow } from "@/types/database";
+import { countNewInquiries } from "@/lib/inquiries/read-list";
 
 const ROLE_LABELS: Record<AppUserRow["role"], string> = {
   admin: "管理者",
@@ -27,6 +28,16 @@ export default async function MainLayout({
     throw e;
   }
 
+  const showInquiries = hasPermission(user.role, "inquiry.view");
+  let inquiryNewCount = 0;
+  if (showInquiries) {
+    try {
+      inquiryNewCount = await countNewInquiries();
+    } catch {
+      inquiryNewCount = 0;
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <AppHeader
@@ -35,6 +46,9 @@ export default async function MainLayout({
         showCsv={hasPermission(user.role, "csv.import")}
         showUsers={hasPermission(user.role, "user.manage")}
         showSync={hasPermission(user.role, "sync.manage")}
+        showGmail={hasPermission(user.role, "settings.manage")}
+        showInquiries={showInquiries}
+        inquiryNewCount={inquiryNewCount}
       />
       <main className="mx-auto max-w-7xl p-4">{children}</main>
     </div>

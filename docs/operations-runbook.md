@@ -9,6 +9,8 @@
 ## 1. 日次オペレーションチェックリスト
 
 - [ ] `/admin/sync` で Webhook 受信・ジョブ失敗・`sync_errors` 未解決件を確認
+- [ ] `/admin/integrations/gmail` で watch 期限・最終 sync・再接続要否を確認
+- [ ] `/inquiries` で未確認問い合わせの滞留を確認
 - [ ] `storage_cleanup_failed` が残っていないか確認(CSV原本削除失敗)
 - [ ] 期限超過アクション / 未解決クレームが異常に増えていないか(マイデスクKPI)
 - [ ] Notion / Vercel / Supabase の障害・メンテナンス告知がないか確認
@@ -95,9 +97,12 @@
 
 ## 10. Storage クリーンアップ(原本30日削除)
 
-- ワーカー(`/api/jobs/run`)起動時に `ensureDailyMaintenanceJobs()` が日次で `storage_cleanup` を enqueue
-- idempotency_key: `storage_cleanup:YYYY-MM-DD`(UTC日付)
-- 失敗は `sync_errors.stage=storage_cleanup_failed`。放置禁止
+- ワーカー(`/api/jobs/run`)起動時に `ensureDailyMaintenanceJobs()` が日次で enqueue:
+  - `storage_cleanup`（`storage_cleanup:YYYY-MM-DD`）
+  - `gmail_watch_renew`（`gmail_watch_renew:YYYY-MM-DD`）
+  - `gmail_reconciliation`（`gmail_reconciliation:YYYY-MM-DD`）
+- 失敗は `sync_errors`（`storage_cleanup_failed` / `gmail.*`）。放置禁止
+- Gmail 詳細: [inquiry-integration.md](./inquiry-integration.md)
 - CSV本文・storage path 詳細を監査ログに出さない方針を守る
 
 ---

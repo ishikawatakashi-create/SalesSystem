@@ -1,0 +1,71 @@
+import { describe, expect, it } from "vitest";
+
+import { parseStrikinglyNotificationMail } from "@/lib/inquiries/parser-strikingly";
+import { htmlToPlainText } from "@/lib/inquiries/html-text";
+
+describe("parseStrikinglyNotificationMail", () => {
+  it("Reply-To とラベル付き本文を解析する", () => {
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "New Form Submission",
+      from: "Strikingly <noreply@strikingly.com>",
+      replyTo: "山田太郎 <yamada@example.test>",
+      plainText: [
+        "名前: 山田太郎",
+        "メール: yamada@example.test",
+        "電話: 090-1111-2222",
+        "会社: 株式会社テスト",
+        "お問い合わせ内容:",
+        "資料請求したいです。",
+      ].join("\n"),
+    });
+    expect(parsed.senderEmail).toBe("yamada@example.test");
+    expect(parsed.senderName).toBe("山田太郎");
+    expect(parsed.phone).toBe("090-1111-2222");
+    expect(parsed.companyName).toBe("株式会社テスト");
+    expect(parsed.messageText).toContain("資料請求");
+    expect(parsed.parseStatus).toBe("ok");
+    expect(parsed.sourceConfidence).toBe("high");
+  });
+
+  it("未知テンプレートでも破棄せず warning で本文を残す", () => {
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "Hello",
+      from: "someone@example.test",
+      plainText: "ただの本文です",
+    });
+    expect(parsed.parseStatus).toBe("warning");
+    expect(parsed.parseWarningCode).toBe("unknown_template");
+    expect(parsed.messageText).toContain("ただの本文");
+  });
+
+  it("custom fields を form_fields に保持する", () => {
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "Form submission from Strikingly",
+      from: "noreply@strikingly.com",
+      replyTo: "a@example.test",
+      plainText: ["部署: 営業部", "お問い合わせ内容: 見積希望"].join("\n"),
+    });
+    expect(parsed.formFields["部署"]).toBe("営業部");
+    expect(parsed.messageText).toContain("見積希望");
+  });
+
+  it("HTML を sanitization して plain 化する", () => {
+    const text = htmlToPlainText(
+      "<html><script>alert(1)</script><style>b{}</style><p>こんにちは<br>世界</p>",
+    );
+    expect(text).toContain("こんにちは");
+    expect(text).not.toContain("script");
+    expect(text).not.toContain("alert");
+  });
+
+  it("長い本文を truncate する", () => {
+    const long = "あ".repeat(25_000);
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "New contact form submission",
+      from: "strikingly@example.com",
+      plainText: long,
+    });
+    expect((parsed.messageText ?? "").length).toBeLessThan(25_000);
+    expect(parsed.messageText).toContain("省略");
+  });
+});

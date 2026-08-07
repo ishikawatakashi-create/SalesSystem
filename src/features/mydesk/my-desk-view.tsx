@@ -325,6 +325,27 @@ export function MyDeskView({
         />
       </div>
 
+      {(snapshot.inquiries.newCount > 0 ||
+        snapshot.inquiries.unassignedNewCount > 0) && (
+        <Section title="新着お問い合わせ">
+          <div className="flex flex-wrap items-center gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-xs">
+            <Link
+              href="/inquiries?status=new"
+              className="text-primary hover:underline"
+            >
+              未確認 {snapshot.inquiries.newCount}件
+            </Link>
+            <span className="text-slate-400">·</span>
+            <Link
+              href="/inquiries?tab=new&assigned=__unassigned__"
+              className="text-slate-700 hover:underline"
+            >
+              未割当 {snapshot.inquiries.unassignedNewCount}件
+            </Link>
+          </div>
+        </Section>
+      )}
+
       <Section
         title="今日やること"
         action={

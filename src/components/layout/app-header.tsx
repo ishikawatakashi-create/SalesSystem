@@ -17,21 +17,41 @@ export function AppHeader({
   showCsv,
   showUsers,
   showSync,
+  showGmail,
+  showInquiries,
+  inquiryNewCount = 0,
 }: {
   displayName: string;
   roleLabel: string;
   showCsv: boolean;
   showUsers: boolean;
   showSync: boolean;
+  showGmail?: boolean;
+  showInquiries?: boolean;
+  inquiryNewCount?: number;
 }) {
   const pathname = usePathname() || "/";
   const group = resolveNavGroup(pathname);
-  const showAdmin = showCsv || showUsers || showSync;
+  const showAdmin = showCsv || showUsers || showSync || showGmail;
 
   const adminItems: Array<{ href: string; label: string }> = [];
   if (showCsv) adminItems.push({ href: "/admin/imports", label: "CSV取込" });
   if (showUsers) adminItems.push({ href: "/admin/users", label: "ユーザー管理" });
   if (showSync) adminItems.push({ href: "/admin/sync", label: "同期管理" });
+  if (showGmail) {
+    adminItems.push({
+      href: "/admin/integrations/gmail",
+      label: "Gmail連携",
+    });
+  }
+
+  const activityItems = [
+    ...(showInquiries
+      ? [{ href: "/inquiries", label: "お問い合わせ" }]
+      : []),
+    { href: "/activities", label: "対応履歴" },
+    { href: "/actions", label: "次回アクション" },
+  ];
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -60,10 +80,8 @@ export function AppHeader({
           <NavDropdown
             label="対応"
             active={group === "activities"}
-            items={[
-              { href: "/activities", label: "対応履歴" },
-              { href: "/actions", label: "次回アクション" },
-            ]}
+            badgeCount={showInquiries ? inquiryNewCount : 0}
+            items={activityItems}
           />
           <NavDropdown
             label="契約・クレーム"

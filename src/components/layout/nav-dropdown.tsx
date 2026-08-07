@@ -17,10 +17,13 @@ export function NavDropdown({
   label,
   items,
   active,
+  badgeCount,
 }: {
   label: string;
   items: NavMenuItem[];
   active: boolean;
+  /** 0 または未指定なら非表示 */
+  badgeCount?: number;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -59,6 +62,14 @@ export function NavDropdown({
         }}
       >
         {label}
+        {badgeCount != null && badgeCount > 0 && (
+          <span
+            className="ml-0.5 rounded bg-slate-200 px-1 text-[10px] font-semibold text-slate-800"
+            aria-label={`未確認 ${badgeCount} 件`}
+          >
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </span>
+        )}
         <span aria-hidden className="text-[9px] text-slate-400">
           ▼
         </span>

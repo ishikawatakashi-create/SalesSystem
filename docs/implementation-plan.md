@@ -11,6 +11,7 @@
 - 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を完了。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion`。次工程はCSV・ダッシュボード。
 - 2026-08-07 Phase 8 CSV取込・既存データ移行を実装完了。次工程はダッシュボード・全体仕上げ。
 - 2026-08-07 Phase 9(マイデスク・検索・retention・UI/運用仕上げ)を完了。運用ランブック・リリースチェックリストを追加。
+- 2026-08-08 Phase 10(日常営業向けUI/UX再整理)完了後、Phase 11(お問い合わせ受信箱 / Gmail Pub/Sub)を実装。詳細は [inquiry-integration.md](./inquiry-integration.md)。
 
 ## Phase 0: 設計(完了)
 
@@ -121,6 +122,23 @@
 4. UI polish: パンくず・ナビ管理グループ・Empty/Error ヘルパー — **完了**
 5. 運用ドキュメント: [operations-runbook.md](./operations-runbook.md) / [release-checklist.md](./release-checklist.md) — **完了**
 6. AI連携 — **非対象**(初期版に含めない)
+
+## Phase 10: 日常営業向けUI/UX再整理(完了)
+
+ナビ再編・QuickActivity・顧客詳細情報設計・filter 開示・Empty 圧縮・マイデスク優先度。
+
+## Phase 11: お問い合わせ受信箱 / Gmail(実装完了・本番接続は人間設定後)
+
+**ゴール: Strikingly 通知メールを Gmail API + Pub/Sub で取り込み、受信箱で振分け・顧客/履歴化できる。**
+
+1. Supabase `inquiries` + Vault refresh token + Pub/Sub durable ingest — **完了**
+2. `/inquiries` `/admin/integrations/gmail` — **完了**
+3. Strikingly parser / candidates / assignment / no_action / 顧客・担当・履歴化 — **完了**
+4. watch renew / reconciliation（日次メンテ） — **完了**
+5. Google Cloud / Gmail 人間設定・実E2E — **checkpoint（運用側）**
+6. 返信送信・AI分類 — **非対象**
+
+詳細: [inquiry-integration.md](./inquiry-integration.md)
 
 ## Phase 5: 品質改善
 

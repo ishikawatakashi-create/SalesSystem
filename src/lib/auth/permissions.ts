@@ -14,6 +14,8 @@ export const PERMISSIONS = {
   "action.edit": ["admin", "a", "b"],
   "contract.edit": ["admin", "a", "b"],
   "complaint.edit": ["admin", "a", "b"],
+  "inquiry.view": ["admin", "a", "b", "viewer"],
+  "inquiry.edit": ["admin", "a", "b"],
   "bulk.update": ["admin", "a"],
   "csv.import": ["admin", "a"],
   "csv.export": ["admin", "a"],

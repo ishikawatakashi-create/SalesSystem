@@ -93,6 +93,11 @@ export type AdminCompanyStats = {
   openComplaints: number;
 };
 
+export type MyDeskInquirySummary = {
+  newCount: number;
+  unassignedNewCount: number;
+};
+
 export type MyDeskSnapshot = {
   today: string;
   kpis: MyDeskKpis;
@@ -104,4 +109,5 @@ export type MyDeskSnapshot = {
   alerts: MyDeskAlertItem[];
   recentViews: MyDeskRecentViewItem[];
   adminCompanyStats: AdminCompanyStats | null;
+  inquiries: MyDeskInquirySummary;
 };

@@ -20,11 +20,13 @@ describe("resolveNavGroup", () => {
     expect(resolveNavGroup("/deals/abc")).toBe("deals");
   });
 
-  it("対応履歴・次回アクションは activities", () => {
+  it("対応履歴・次回アクション・お問い合わせは activities", () => {
     expect(resolveNavGroup("/activities")).toBe("activities");
     expect(resolveNavGroup("/activities/new")).toBe("activities");
     expect(resolveNavGroup("/actions")).toBe("activities");
     expect(resolveNavGroup("/actions/abc")).toBe("activities");
+    expect(resolveNavGroup("/inquiries")).toBe("activities");
+    expect(resolveNavGroup("/inquiries/abc")).toBe("activities");
   });
 
   it("契約・クレームは contracts", () => {

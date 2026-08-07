@@ -12,6 +12,7 @@ import {
   updateCustomerAction,
   type CustomerActionResult,
 } from "@/features/customers/actions";
+import { linkInquiryCustomerAction } from "@/features/inquiries/actions";
 import type { CustomerFormOptions } from "@/features/customers/options";
 import { PREFECTURES } from "@/features/customers/format";
 
@@ -21,7 +22,7 @@ type ParsedValues = z.output<typeof customerWriteSchema>;
 export type CustomerFormInitial = Partial<FormValues>;
 
 export type CustomerFormMeta =
-  | { mode: "create" }
+  | { mode: "create"; fromInquiryId?: string; successRedirect?: string }
   | {
       mode: "edit";
       notionPageId: string;
@@ -230,7 +231,20 @@ export function CustomerForm({
       if (result.warning) {
         // 部分失敗(検索反映遅延)は遷移して問題ない
       }
-      router.push(`/customers/${result.notionPageId}`);
+      if (meta.mode === "create" && meta.fromInquiryId) {
+        await linkInquiryCustomerAction({
+          inquiryId: meta.fromInquiryId,
+          customerPageId: result.notionPageId,
+        });
+        router.push(`/inquiries/${meta.fromInquiryId}`);
+        router.refresh();
+        return;
+      }
+      const dest =
+        meta.mode === "create" && meta.successRedirect
+          ? meta.successRedirect
+          : `/customers/${result.notionPageId}`;
+      router.push(dest);
       router.refresh();
       return;
     }

@@ -448,6 +448,46 @@ export type SyncErrorRow = {
   created_at: string;
 };
 
+export type InquiryStatus = "new" | "in_progress" | "done" | "no_action";
+
+export type InquiryRow = {
+  id: string;
+  source: string;
+  source_message_id: string;
+  source_thread_id: string | null;
+  received_at: string;
+  subject: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  reply_to_email: string | null;
+  phone: string | null;
+  phone_normalized: string | null;
+  company_name: string | null;
+  form_name: string | null;
+  message_text: string | null;
+  form_fields: Record<string, unknown>;
+  attachment_meta: Array<Record<string, unknown>>;
+  status: InquiryStatus;
+  assigned_user_id: string | null;
+  linked_customer_page_id: string | null;
+  linked_contact_page_id: string | null;
+  linked_activity_page_id: string | null;
+  handled_at: string | null;
+  no_action_reason: string | null;
+  parse_status: string;
+  parse_warning_code: string | null;
+  source_confidence: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GmailOauthStateRow = {
+  state: string;
+  created_by: string;
+  expires_at: string;
+  created_at: string;
+};
+
 type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -495,6 +535,8 @@ export type Database = {
       complaint_index: TableDef<ComplaintIndexRow>;
       action_index: TableDef<ActionIndexRow>;
       masters_cache: TableDef<MastersCacheRow>;
+      inquiries: TableDef<InquiryRow>;
+      gmail_oauth_states: TableDef<GmailOauthStateRow>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -562,6 +604,27 @@ export type Database = {
       mark_notion_webhook_verified: {
         Args: Record<string, never>;
         Returns: Record<string, unknown>;
+      };
+      store_gmail_oauth_refresh_token: {
+        Args: { p_token: string };
+        Returns: Record<string, unknown>;
+      };
+      read_gmail_oauth_refresh_token: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      clear_gmail_oauth_refresh_token: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>;
+      };
+      ingest_gmail_pubsub_event: {
+        Args: {
+          p_event_id: string;
+          p_email_address: string | null;
+          p_history_id: string;
+          p_payload: Record<string, unknown>;
+        };
+        Returns: string;
       };
       reserve_notion_slot: {
         Args: {

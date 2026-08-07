@@ -6,16 +6,29 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadContactFormOptions } from "@/features/contacts/options";
 import { ContactForm } from "@/features/contacts/contact-form";
+import { getInquiryById } from "@/lib/inquiries/read-list";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type RawParams = Record<string, string | string[] | undefined>;
+
+function str(params: RawParams, key: string): string | undefined {
+  const v = params[key];
+  const s = Array.isArray(v) ? v[0] : v;
+  return s?.trim() ? s.trim() : undefined;
+}
 
 export default async function CustomerContactNewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<RawParams>;
 }) {
   try {
     const user = await requireUser();
@@ -29,6 +42,8 @@ export default async function CustomerContactNewPage({
 
   const { id } = await params;
   if (!PAGE_ID_RE.test(id)) notFound();
+  const raw = await searchParams;
+  const fromInquiry = str(raw, "fromInquiry");
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -51,9 +66,6 @@ export default async function CustomerContactNewPage({
         <p className="text-sm font-medium text-slate-900">
           アーカイブ済みの顧客には担当者を新規登録できません
         </p>
-        <p className="mt-1 text-xs text-slate-500">
-          顧客を有効に戻してから登録してください。
-        </p>
         <Link
           href={`/customers/${id}`}
           className="mt-4 inline-block text-xs text-primary underline"
@@ -68,6 +80,25 @@ export default async function CustomerContactNewPage({
     currentCustomerPageId: customer.notion_page_id,
   });
 
+  let initial: {
+    customerPageId: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  } = { customerPageId: customer.notion_page_id };
+
+  if (fromInquiry && UUID_RE.test(fromInquiry)) {
+    const inquiry = await getInquiryById(fromInquiry);
+    if (inquiry) {
+      initial = {
+        ...initial,
+        name: inquiry.sender_name || undefined,
+        email: inquiry.sender_email || inquiry.reply_to_email || undefined,
+        phone: inquiry.phone || undefined,
+      };
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-3">
       <div className="flex items-center gap-3">
@@ -75,20 +106,24 @@ export default async function CustomerContactNewPage({
           先方担当者登録: {customer.display_name}
         </h1>
         <Link
-          href={`/customers/${id}`}
+          href={
+            fromInquiry ? `/inquiries/${fromInquiry}` : `/customers/${id}`
+          }
           className="ml-auto text-xs text-slate-500 hover:text-slate-900"
         >
-          顧客詳細へ戻る
+          {fromInquiry ? "お問い合わせへ戻る" : "顧客詳細へ戻る"}
         </Link>
       </div>
       <ContactForm
         meta={{
           mode: "create",
           successRedirect: `/customers/${id}`,
+          fromInquiryId:
+            fromInquiry && UUID_RE.test(fromInquiry) ? fromInquiry : undefined,
         }}
         options={options}
         lockedCustomerPageId={customer.notion_page_id}
-        initial={{ customerPageId: customer.notion_page_id }}
+        initial={initial}
       />
     </div>
   );

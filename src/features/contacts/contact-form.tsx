@@ -12,6 +12,7 @@ import {
   updateContactAction,
   type ContactActionResult,
 } from "@/features/contacts/actions";
+import { linkInquiryCustomerAction } from "@/features/inquiries/actions";
 import type { ContactFormOptions } from "@/features/contacts/options";
 
 type FormValues = z.input<typeof contactWriteSchema>;
@@ -20,7 +21,7 @@ type ParsedValues = z.output<typeof contactWriteSchema>;
 export type ContactFormInitial = Partial<FormValues>;
 
 export type ContactFormMeta =
-  | { mode: "create"; successRedirect?: string }
+  | { mode: "create"; successRedirect?: string; fromInquiryId?: string }
   | {
       mode: "edit";
       notionPageId: string;
@@ -142,6 +143,16 @@ export function ContactForm({
     }
 
     if (result.ok) {
+      if (meta.mode === "create" && meta.fromInquiryId) {
+        await linkInquiryCustomerAction({
+          inquiryId: meta.fromInquiryId,
+          customerPageId: String(lockedId ?? payload.customerPageId),
+          contactPageId: result.notionPageId,
+        });
+        router.push(`/inquiries/${meta.fromInquiryId}`);
+        router.refresh();
+        return;
+      }
       const dest =
         meta.successRedirect ?? `/contacts/${result.notionPageId}`;
       router.push(dest);

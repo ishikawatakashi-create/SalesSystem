@@ -432,6 +432,18 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
     adminCompanyStats = await loadAdminCompanyStats(supabase, today, last7Iso);
   }
 
+  const [newInquiriesRes, unassignedNewRes] = await Promise.all([
+    supabase
+      .from("inquiries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
+    supabase
+      .from("inquiries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new")
+      .is("assigned_user_id", null),
+  ]);
+
   return {
     today,
     kpis: {
@@ -457,6 +469,10 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
       viewedAt: r.viewedAt,
     })),
     adminCompanyStats,
+    inquiries: {
+      newCount: newInquiriesRes.count ?? 0,
+      unassignedNewCount: unassignedNewRes.count ?? 0,
+    },
   };
 }
 
