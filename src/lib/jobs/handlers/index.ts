@@ -1,5 +1,10 @@
 import type { JobHandler, JobKind } from "@/lib/jobs/types";
 import { recalculateExpectedAmountHandler } from "@/lib/jobs/handlers/recalculate-expected-amount";
+import { recalculateLatestActivityHandler } from "@/lib/jobs/handlers/recalculate-latest-activity";
+import {
+  recalculateCustomerNextActionHandler,
+  recalculateDealNextActionHandler,
+} from "@/lib/jobs/handlers/recalculate-next-action";
 
 /**
  * kindごとのハンドラー登録。
@@ -23,4 +28,16 @@ registerJobHandler("dependency_reindex", noopJobHandler);
 registerJobHandler(
   "customer.recalculate_expected_amount",
   recalculateExpectedAmountHandler,
+);
+registerJobHandler(
+  "customer.recalculate_latest_activity",
+  recalculateLatestActivityHandler,
+);
+registerJobHandler(
+  "customer.recalculate_next_action",
+  recalculateCustomerNextActionHandler,
+);
+registerJobHandler(
+  "deal.recalculate_next_action",
+  recalculateDealNextActionHandler,
 );

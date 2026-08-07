@@ -246,6 +246,58 @@ export type DealIndexRow = {
   search_text: string;
 };
 
+export type ActivityIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  summary: string | null;
+  body_hash: string | null;
+  customer_page_id: string | null;
+  deal_page_id: string | null;
+  contact_page_ids: string[];
+  activity_at: string | null;
+  category_ids: string[];
+  created_by: string | null;
+  created_by_name: string | null;
+  updated_by: string | null;
+  updated_by_name: string | null;
+  batch_id: string | null;
+  search_text: string;
+};
+
+export type ActionIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  customer_page_id: string;
+  deal_page_id: string | null;
+  activity_page_id: string | null;
+  assignee_user_id: string | null;
+  staff_page_id: string | null;
+  due_date: string | null;
+  status_id: string | null;
+  is_open: boolean;
+  priority_id: string | null;
+  completed_at: string | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  search_text: string;
+};
+
 export type WriteOperationRow = {
   request_id: string;
   entity_type: string;
@@ -316,10 +368,10 @@ export type Database = {
       }>;
       contact_index: TableDef<ContactIndexRow>;
       deal_index: TableDef<DealIndexRow>;
-      activity_index: TableDef<Record<string, unknown>>;
+      activity_index: TableDef<ActivityIndexRow>;
       contract_index: TableDef<Record<string, unknown>>;
       complaint_index: TableDef<Record<string, unknown>>;
-      action_index: TableDef<Record<string, unknown>>;
+      action_index: TableDef<ActionIndexRow>;
       masters_cache: TableDef<MastersCacheRow>;
     };
     Views: Record<string, never>;

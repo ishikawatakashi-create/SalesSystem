@@ -7,6 +7,8 @@ import { listContactsByCustomer } from "@/lib/contacts/read-list";
 import { getCustomerDetail } from "@/lib/customers/read-detail";
 import type { CustomerDetail } from "@/lib/customers/types";
 import { listDealsByCustomer } from "@/lib/deals/read-list";
+import { listActivitiesByCustomer } from "@/lib/activities/read-list";
+import { listActions } from "@/lib/actions/read-list";
 import { isCustomerSyncError } from "@/lib/sync/errors";
 import {
   loadDetailLabelMaps,
@@ -17,6 +19,9 @@ import { formatOptional } from "@/features/contacts/format";
 import { formatDateTime, formatYen } from "@/features/customers/format";
 import { CustomerDealsSection } from "@/features/deals/customer-deals-section";
 import { loadListLabelMaps as loadDealListLabelMaps } from "@/features/deals/list-data";
+import { CustomerActivitiesSection } from "@/features/activities/customer-activities-section";
+import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
+import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
 
 export const dynamic = "force-dynamic";
 
@@ -80,11 +85,15 @@ export default async function CustomerDetailPage({
   let canEdit = false;
   let canEditContact = false;
   let canEditDeal = false;
+  let canEditActivity = false;
+  let canEditAction = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "customer.edit");
     canEditContact = hasPermission(user.role, "contact.edit");
     canEditDeal = hasPermission(user.role, "deal.edit");
+    canEditActivity = hasPermission(user.role, "activity.edit");
+    canEditAction = hasPermission(user.role, "action.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
@@ -141,16 +150,28 @@ export default async function CustomerDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const [contacts, deals] = await Promise.all([
+  const [contacts, deals, activities, openActionsResult] = await Promise.all([
     listContactsByCustomer(detail.notionPageId, {
       includeInactive: includeInactiveContacts,
     }),
     listDealsByCustomer(detail.notionPageId),
+    listActivitiesByCustomer(detail.notionPageId),
+    listActions({
+      customerPageId: detail.notionPageId,
+      isOpen: true,
+      sort: "due_date",
+      sortDir: "asc",
+      limit: 50,
+    }),
   ]);
-  const [contactLabels, dealLabels] = await Promise.all([
-    loadListLabelMaps(contacts),
-    loadDealListLabelMaps(deals),
-  ]);
+  const openActions = openActionsResult.rows;
+  const [contactLabels, dealLabels, activityLabels, actionLabels] =
+    await Promise.all([
+      loadListLabelMaps(contacts),
+      loadDealListLabelMaps(deals),
+      loadActivityListLabelMaps(activities),
+      loadActionListLabelMaps(openActions),
+    ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -165,6 +186,14 @@ export default async function CustomerDetailPage({
           </span>
         )}
         <div className="ml-auto flex items-center gap-2 text-xs">
+          {canEditActivity && !detail.isArchived && (
+            <Link
+              href={`/customers/${detail.notionPageId}/activities/new`}
+              className="rounded border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50"
+            >
+              履歴追加
+            </Link>
+          )}
           {canEdit && (
             <Link
               href={`/customers/${detail.notionPageId}/edit`}
@@ -451,6 +480,23 @@ export default async function CustomerDetailPage({
         canEditDeal={canEditDeal}
         customerArchived={detail.isArchived}
         expectedAmount={detail.expectedAmount}
+      />
+
+      <CustomerActivitiesSection
+        customerPageId={detail.notionPageId}
+        activities={activities}
+        activityLabels={activityLabels}
+        openActions={openActions}
+        actionLabels={actionLabels}
+        canEditActivity={canEditActivity}
+        canEditAction={canEditAction}
+        customerArchived={detail.isArchived}
+        derived={{
+          latestActivitySummary: detail.latestActivitySummary,
+          lastActivityAt: detail.lastActivityAt,
+          nextAction: detail.nextAction,
+          nextActionDate: detail.nextActionDate,
+        }}
       />
 
       <p className="text-xs text-slate-400">

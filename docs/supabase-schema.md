@@ -119,7 +119,8 @@ create index on customer_index using gin (staff_user_ids);
 
 従来どおりの列+共通列(external_id追加)。補足:
 
-- `activity_index`: 本文はキャッシュしない。`title` / `summary`(要約)/ `body_hash`(本文ハッシュ。監査・整合性確認用)を持つ。
+- `activity_index`: 本文はキャッシュしない。`title` / `summary`(要約)/ `body_hash`(本文ハッシュ。監査・整合性確認用)を持つ。一覧用に `contact_page_ids` / `search_text` を保持(マイグレーション `20260807093000_phase5_activity_action_index.sql`)。
+- `action_index`: `is_open`(アクション状態 semantic_key=`open` から導出)、`due_date`、`staff_page_id` / `search_text` を保持(同マイグレーション)。
 - `deal_index`: `status_semantic`(masters_cacheから解決したsemantic_key)を持ち、受注集計は `status_semantic = 'won'` で行う。顧客.見込み金額の導出は `status_semantic in ('active','on_hold')` の `expected_amount` 合計(null除外)。一覧用に `contact_page_ids` / `staff_page_ids` / `search_text`(および gin インデックス)を保持する(マイグレーション `20260807090000_phase4_deal_index_search.sql`)。
 
 ### action_index(次回アクション・新規)

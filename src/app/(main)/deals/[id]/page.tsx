@@ -5,9 +5,14 @@ import { AuthError, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDealDetail } from "@/lib/deals/read-detail";
 import type { DealDetail } from "@/lib/deals/types";
+import { listActivities } from "@/lib/activities/read-list";
+import { listActions } from "@/lib/actions/read-list";
 import { isDealSyncError } from "@/lib/sync/errors";
 import { DealDetailView } from "@/features/deals/deal-detail-view";
 import { loadDetailLabelMaps } from "@/features/deals/list-data";
+import { DealRelatedSection } from "@/features/activities/deal-related-section";
+import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
+import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +35,13 @@ export default async function DealDetailPage({
   searchParams: Promise<RawParams>;
 }) {
   let canEdit = false;
+  let canEditActivity = false;
+  let canEditAction = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "deal.edit");
+    canEditActivity = hasPermission(user.role, "activity.edit");
+    canEditAction = hasPermission(user.role, "action.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
@@ -88,13 +97,49 @@ export default async function DealDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
+  const [activitiesResult, actionsResult] = await Promise.all([
+    listActivities({
+      dealPageId: detail.notionPageId,
+      sort: "activity_at",
+      sortDir: "desc",
+      limit: 50,
+    }),
+    listActions({
+      dealPageId: detail.notionPageId,
+      sort: "due_date",
+      sortDir: "asc",
+      limit: 50,
+    }),
+  ]);
+  const [activityLabels, actionLabels] = await Promise.all([
+    loadActivityListLabelMaps(activitiesResult.rows),
+    loadActionListLabelMaps(actionsResult.rows),
+  ]);
 
   return (
-    <DealDetailView
-      detail={detail}
-      labels={labels}
-      canEdit={canEdit}
-      savedNote={savedNote}
-    />
+    <div className="space-y-3">
+      <DealDetailView
+        detail={detail}
+        labels={labels}
+        canEdit={canEdit}
+        savedNote={savedNote}
+      />
+      <div className="mx-auto max-w-4xl">
+        <DealRelatedSection
+          dealPageId={detail.notionPageId}
+          customerPageId={detail.customerPageId}
+          activities={activitiesResult.rows}
+          activityLabels={activityLabels}
+          actions={actionsResult.rows}
+          actionLabels={actionLabels}
+          canEditActivity={canEditActivity}
+          canEditAction={canEditAction}
+          derivedNext={{
+            nextAction: detail.nextAction,
+            nextActionDate: detail.nextActionDate,
+          }}
+        />
+      </div>
+    </div>
   );
 }

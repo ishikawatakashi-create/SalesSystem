@@ -77,7 +77,9 @@ describe("recalculateCustomerExpectedAmount (mocked path)", () => {
       expected_amount: number | null;
     }>,
   ) {
-    const customerUpdate = vi.fn(async () => ({ error: null }));
+    const customerUpdate = vi.fn(async () => ({
+      error: null,
+    }));
     const auditInsert = vi.fn(async () => ({ error: null }));
     return {
       customerUpdate,

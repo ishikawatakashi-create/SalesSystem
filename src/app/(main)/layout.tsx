@@ -48,6 +48,12 @@ export default async function MainLayout({
             <Link href="/deals" className="hover:text-slate-900">
               案件
             </Link>
+            <Link href="/activities" className="hover:text-slate-900">
+              対応履歴
+            </Link>
+            <Link href="/actions" className="hover:text-slate-900">
+              次回アクション
+            </Link>
             {hasPermission(user.role, "user.manage") && (
               <Link href="/admin/users" className="hover:text-slate-900">
                 ユーザー管理

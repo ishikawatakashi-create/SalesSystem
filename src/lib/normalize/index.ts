@@ -27,3 +27,4 @@ export {
   buildCustomerSearchTextKana,
   type CustomerSearchSource,
 } from "@/lib/normalize/search-text";
+export { todayDateTokyo } from "@/lib/normalize/date-tokyo";
