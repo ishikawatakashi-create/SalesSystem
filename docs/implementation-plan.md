@@ -8,6 +8,7 @@
 - 2026-08-07 対応履歴・次回アクションを完了(作業呼称Phase 5)。契約・クレーム・Webhook・CSVは後続。
 - 2026-08-07 契約・クレーム管理を完了(作業呼称Phase 6)。Webhook・CSV・ダッシュボードは後続。
 - 2026-08-07 Notion Webhook受信・Vault検証基盤と admin `/admin/sync` セットアップUIを追加(作業呼称Phase 7 進行中。署名検証後の同期ジョブ処理・削除確認等は後続)。
+- 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を追加。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion` を検証対象とする。
 
 ## Phase 0: 設計(完了)
 
@@ -97,7 +98,7 @@
 **ゴール: マスタ・監査ログ・同期管理・CSVが管理画面で完結する。**
 
 1. マスタ管理(種別タブ・追加・編集・並び替え・色・無効化・semantic_key管理は管理者のみ表示。種別自体の追加はコード対応である旨をUIに明記)
-2. Notion Webhook(署名検証+**1トランザクションenqueue**(ingest_webhook_event)+後続同期ジョブ+自書込スキップ) — **セットアップUI進行中**(作業呼称Phase 7: Vault保存・`/admin/sync` で verification 確認/検証完了。イベント同期ジョブ本体は後続)
+2. Notion Webhook(署名検証+**1トランザクションenqueue**(ingest_webhook_event)+後続同期ジョブ+自書込スキップ) — **Production検証済み**(作業呼称Phase 7: Vault保存・`/admin/sync` で verification/メトリクス・実Notion inbound E2E。削除確認UI・CSVは後続)
 3. Notion削除確認フロー(in_trash検知→delete_pending→管理者確認→除外/復旧)
 4. 定期整合性確認(日次差分・週次全件+**スキーマ変更検知・派生値再計算検証**)
 5. dependency_reindexジョブ(**大量波及の非同期化**: マスタ名変更・自社担当者名変更等の関連インデックス一括再構築)+管理画面からの**手動再実行**。Phase 2・3で実装済みの同期ハンドラーをジョブからも呼べる形に統合

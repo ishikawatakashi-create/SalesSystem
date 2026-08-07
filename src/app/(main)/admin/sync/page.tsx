@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireUser, AuthError } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getSetupStatus } from "@/lib/webhooks/verification-store";
+import { getSyncDashboardMetrics } from "@/lib/webhooks/sync-dashboard";
+import { SyncMetricsPanel } from "./sync-metrics-panel";
 import { WebhookSetupPanel } from "./webhook-setup-panel";
 
 /** Notion 購読用の公開エンドポイント。localhost は使えないため本番URLへフォールバック。 */
@@ -29,8 +30,8 @@ export default async function AdminSyncPage() {
     throw e;
   }
 
-  // トークンはSSRに載せない。状態メタデータのみ取得する。
-  const status = await getSetupStatus();
+  // トークンはSSRに載せない。状態メタデータと件数のみ取得する。
+  const metrics = await getSyncDashboardMetrics();
   const endpointUrl = webhookEndpointUrl();
 
   return (
@@ -41,7 +42,11 @@ export default async function AdminSyncPage() {
           Notion Webhook の購読セットアップと同期関連の管理を行います。
         </p>
       </div>
-      <WebhookSetupPanel status={status} endpointUrl={endpointUrl} />
+      <SyncMetricsPanel metrics={metrics} />
+      <WebhookSetupPanel
+        status={metrics.setupStatus}
+        endpointUrl={endpointUrl}
+      />
     </div>
   );
 }

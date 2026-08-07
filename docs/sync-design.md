@@ -2,7 +2,7 @@
 
 Notionが正本、Supabaseは検索インデックス・監査・同期状態・書込整合性(write_operations)を持つ([architecture.md](./architecture.md))。
 
-改訂履歴: 2026-08-05 設計レビュー反映(write_operationsによる冪等化、分散レート制御、エラー処理の最新仕様化、in_trash、Webhookの1トランザクションenqueue、ページ本文の監査・競合、dependency_reindex、スキーマ変更検知)。
+改訂履歴: 2026-08-05 設計レビュー反映(write_operationsによる冪等化、分散レート制御、エラー処理の最新仕様化、in_trash、Webhookの1トランザクションenqueue、ページ本文の監査・競合、dependency_reindex、スキーマ変更検知)。2026-08-07 Phase 7 Production Webhook endpoint・Vault・再購読手順を追記。
 
 同期の経路:
 
@@ -225,3 +225,43 @@ flowchart LR
 - 管理画面「Notion同期状況」: データソースごとの件数・最終同期・最終整合性確認・エラー件数・実行中ジョブ・**ジョブ滞留(スケジューラー死活)**・**スキーマ警告**。
 - 管理画面「同期エラー」: `sync_errors` 一覧+再実行+解決済み/無視。
 - 顧客詳細では対象行が `error` / `delete_pending` の場合に同期警告バナーを表示する。
+
+## 9. Phase 7 Production Webhook 運用
+
+### 公開エンドポイント
+
+- Production URL: `https://sales-system-weld.vercel.app`
+- Webhook endpoint: `https://sales-system-weld.vercel.app/api/webhooks/notion`
+- 非対応メソッド(GET等)は `405`。シークレットはレスポンスに含めない。
+
+### 購読ステータスと Vault
+
+- `system_settings` キー `notion_webhook_setup` はメタデータのみ保持: `status` = `awaiting` | `received` | `verified`(トークン平文は入れない)。
+- verification_token は Supabase Vault シークレット名 `notion_webhook_verification_token` に保存。
+- 関連 RPC(サービスロールのみ): `store_notion_webhook_verification_token` / `read_notion_webhook_verification_token` / `mark_notion_webhook_verified`。
+- 署名検証は Vault のトークンを使用。環境変数 `NOTION_WEBHOOK_SECRET` が設定されている場合は Vault より優先(上書き用)。
+
+### 対象イベント
+
+- `page.created` / `page.properties_updated` / `page.content_updated` / `page.moved` / `page.deleted` / `page.undeleted`
+- `data_source.schema_updated`(スキーマ照合 → `sync_errors.stage=schema_mismatch`)
+
+### 再購読手順
+
+1. Notion 側で既存 subscription を削除(または無効化)。
+2. `/admin/sync` でセットアップ状態を確認。必要なら verification をやり直し、`received` → Notion Verify → `verified`。
+3. Production endpoint URL を再登録し、handshake 後に管理画面で「検証完了にする」。
+4. Vault の verification_token が新しい値で上書きされることを確認(値自体はログ・ドキュメントに書かない)。
+5. `scripts/e2e-webhook-production-status.ts` で `setup_status=verified` / `vault_readable=yes` / `endpoint_GET_status=405` を確認。
+
+### ドリフトと整合性確認
+
+- 取りこぼしは `reconciliation` ジョブ(日次)または `sync_repair`(ページ単位)で回復。
+- スキーマ変更は本番スキーマを手で壊さず、`schema_mismatch` 件数と管理画面警告で検知する。
+- `/admin/sync` は購読ステータス・最終 Webhook 受信・webhook_sync 成功時刻・待機/失敗ジョブ件数・reconciliation 成功・未解決エラー件数を表示する(シークレット・payload なし)。
+
+### 関連環境変数名(値は記載しない)
+
+- `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY` / `NOTION_TOKEN` / `NOTION_WEBHOOK_SECRET`(任意) / `CRON_SECRET`
+- `NOTION_DS_CUSTOMERS` / `NOTION_DS_CONTACTS` / `NOTION_DS_DEALS` / `NOTION_DS_ACTIVITIES` / `NOTION_DS_CONTRACTS` / `NOTION_DS_COMPLAINTS` / `NOTION_DS_ACTIONS` / `NOTION_DS_MASTERS` / `NOTION_DS_STAFF`
