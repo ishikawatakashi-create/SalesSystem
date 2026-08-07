@@ -298,6 +298,65 @@ export type ActionIndexRow = {
   search_text: string;
 };
 
+export type ContractIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  customer_page_id: string | null;
+  deal_page_id: string | null;
+  contract_type_id: string | null;
+  trade_type_id: string | null;
+  amount: number | null;
+  contracted_at: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  auto_renew: boolean;
+  billing_terms: string | null;
+  payment_status_id: string | null;
+  status_id: string | null;
+  status_semantic: string | null;
+  staff_user_ids: string[];
+  staff_page_ids: string[];
+  has_contract_url: boolean;
+  has_contract_file: boolean;
+  note: string | null;
+  search_text: string;
+};
+
+export type ComplaintIndexRow = {
+  notion_page_id: string;
+  external_id: string | null;
+  content_hash: string | null;
+  notion_last_edited_at: string | null;
+  sync_status: SyncStatus;
+  sync_error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  summary: string | null;
+  body_hash: string | null;
+  customer_page_id: string | null;
+  deal_page_id: string | null;
+  occurred_on: string | null;
+  severity_id: string | null;
+  assignee_user_id: string | null;
+  staff_page_id: string | null;
+  due_date: string | null;
+  status_id: string | null;
+  status_semantic: string | null;
+  completed_on: string | null;
+  note: string | null;
+  search_text: string;
+};
+
 export type WriteOperationRow = {
   request_id: string;
   entity_type: string;
@@ -369,8 +428,8 @@ export type Database = {
       contact_index: TableDef<ContactIndexRow>;
       deal_index: TableDef<DealIndexRow>;
       activity_index: TableDef<ActivityIndexRow>;
-      contract_index: TableDef<Record<string, unknown>>;
-      complaint_index: TableDef<Record<string, unknown>>;
+      contract_index: TableDef<ContractIndexRow>;
+      complaint_index: TableDef<ComplaintIndexRow>;
       action_index: TableDef<ActionIndexRow>;
       masters_cache: TableDef<MastersCacheRow>;
     };

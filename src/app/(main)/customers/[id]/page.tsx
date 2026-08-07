@@ -9,6 +9,8 @@ import type { CustomerDetail } from "@/lib/customers/types";
 import { listDealsByCustomer } from "@/lib/deals/read-list";
 import { listActivitiesByCustomer } from "@/lib/activities/read-list";
 import { listActions } from "@/lib/actions/read-list";
+import { listActiveContractsByCustomer } from "@/lib/contracts/read-list";
+import { listUnresolvedComplaintsByCustomer } from "@/lib/complaints/read-list";
 import { isCustomerSyncError } from "@/lib/sync/errors";
 import {
   loadDetailLabelMaps,
@@ -22,6 +24,10 @@ import { loadListLabelMaps as loadDealListLabelMaps } from "@/features/deals/lis
 import { CustomerActivitiesSection } from "@/features/activities/customer-activities-section";
 import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
 import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
+import { CustomerContractsSection } from "@/features/contracts/customer-contracts-section";
+import { loadListLabelMaps as loadContractListLabelMaps } from "@/features/contracts/list-data";
+import { CustomerComplaintsSection } from "@/features/complaints/customer-complaints-section";
+import { loadListLabelMaps as loadComplaintListLabelMaps } from "@/features/complaints/list-data";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +93,8 @@ export default async function CustomerDetailPage({
   let canEditDeal = false;
   let canEditActivity = false;
   let canEditAction = false;
+  let canEditContract = false;
+  let canEditComplaint = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "customer.edit");
@@ -94,6 +102,8 @@ export default async function CustomerDetailPage({
     canEditDeal = hasPermission(user.role, "deal.edit");
     canEditActivity = hasPermission(user.role, "activity.edit");
     canEditAction = hasPermission(user.role, "action.edit");
+    canEditContract = hasPermission(user.role, "contract.edit");
+    canEditComplaint = hasPermission(user.role, "complaint.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
@@ -150,7 +160,14 @@ export default async function CustomerDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const [contacts, deals, activities, openActionsResult] = await Promise.all([
+  const [
+    contacts,
+    deals,
+    activities,
+    openActionsResult,
+    activeContracts,
+    unresolvedComplaints,
+  ] = await Promise.all([
     listContactsByCustomer(detail.notionPageId, {
       includeInactive: includeInactiveContacts,
     }),
@@ -163,15 +180,25 @@ export default async function CustomerDetailPage({
       sortDir: "asc",
       limit: 50,
     }),
+    listActiveContractsByCustomer(detail.notionPageId),
+    listUnresolvedComplaintsByCustomer(detail.notionPageId),
   ]);
   const openActions = openActionsResult.rows;
-  const [contactLabels, dealLabels, activityLabels, actionLabels] =
-    await Promise.all([
-      loadListLabelMaps(contacts),
-      loadDealListLabelMaps(deals),
-      loadActivityListLabelMaps(activities),
-      loadActionListLabelMaps(openActions),
-    ]);
+  const [
+    contactLabels,
+    dealLabels,
+    activityLabels,
+    actionLabels,
+    contractLabels,
+    complaintLabels,
+  ] = await Promise.all([
+    loadListLabelMaps(contacts),
+    loadDealListLabelMaps(deals),
+    loadActivityListLabelMaps(activities),
+    loadActionListLabelMaps(openActions),
+    loadContractListLabelMaps(activeContracts),
+    loadComplaintListLabelMaps(unresolvedComplaints),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
@@ -497,6 +524,22 @@ export default async function CustomerDetailPage({
           nextAction: detail.nextAction,
           nextActionDate: detail.nextActionDate,
         }}
+      />
+
+      <CustomerContractsSection
+        customerPageId={detail.notionPageId}
+        contracts={activeContracts}
+        labels={contractLabels}
+        canEdit={canEditContract}
+        customerArchived={detail.isArchived}
+      />
+
+      <CustomerComplaintsSection
+        customerPageId={detail.notionPageId}
+        complaints={unresolvedComplaints}
+        labels={complaintLabels}
+        canEdit={canEditComplaint}
+        customerArchived={detail.isArchived}
       />
 
       <p className="text-xs text-slate-400">

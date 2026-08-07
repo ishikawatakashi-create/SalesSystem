@@ -118,3 +118,55 @@ export class ActionSyncError extends Error {
 export function isActionSyncError(error: unknown): error is ActionSyncError {
   return error instanceof ActionSyncError;
 }
+
+/** 契約書込の同期エラー。コード体系は案件と共通 */
+export class ContractSyncError extends Error {
+  constructor(
+    readonly code:
+      | "input_hash_mismatch"
+      | "conflict"
+      | "notion_failed"
+      | "ambiguous_write"
+      | "not_found"
+      | "in_trash"
+      | "validation"
+      | "forbidden_state",
+    message: string,
+    readonly detail?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "ContractSyncError";
+  }
+}
+
+export function isContractSyncError(
+  error: unknown,
+): error is ContractSyncError {
+  return error instanceof ContractSyncError;
+}
+
+/** クレーム書込の同期エラー。コード体系は案件と共通 */
+export class ComplaintSyncError extends Error {
+  constructor(
+    readonly code:
+      | "input_hash_mismatch"
+      | "conflict"
+      | "notion_failed"
+      | "ambiguous_write"
+      | "not_found"
+      | "in_trash"
+      | "validation"
+      | "forbidden_state",
+    message: string,
+    readonly detail?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "ComplaintSyncError";
+  }
+}
+
+export function isComplaintSyncError(
+  error: unknown,
+): error is ComplaintSyncError {
+  return error instanceof ComplaintSyncError;
+}

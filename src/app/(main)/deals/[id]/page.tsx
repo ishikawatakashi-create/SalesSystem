@@ -7,12 +7,18 @@ import { getDealDetail } from "@/lib/deals/read-detail";
 import type { DealDetail } from "@/lib/deals/types";
 import { listActivities } from "@/lib/activities/read-list";
 import { listActions } from "@/lib/actions/read-list";
+import { listContractsByDeal } from "@/lib/contracts/read-list";
+import { listComplaintsByDeal } from "@/lib/complaints/read-list";
 import { isDealSyncError } from "@/lib/sync/errors";
 import { DealDetailView } from "@/features/deals/deal-detail-view";
 import { loadDetailLabelMaps } from "@/features/deals/list-data";
 import { DealRelatedSection } from "@/features/activities/deal-related-section";
 import { loadListLabelMaps as loadActivityListLabelMaps } from "@/features/activities/list-data";
 import { loadListLabelMaps as loadActionListLabelMaps } from "@/features/actions/list-data";
+import { DealContractsSection } from "@/features/contracts/deal-related-section";
+import { loadListLabelMaps as loadContractListLabelMaps } from "@/features/contracts/list-data";
+import { DealComplaintsSection } from "@/features/complaints/deal-related-section";
+import { loadListLabelMaps as loadComplaintListLabelMaps } from "@/features/complaints/list-data";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +43,15 @@ export default async function DealDetailPage({
   let canEdit = false;
   let canEditActivity = false;
   let canEditAction = false;
+  let canEditContract = false;
+  let canEditComplaint = false;
   try {
     const user = await requireUser();
     canEdit = hasPermission(user.role, "deal.edit");
     canEditActivity = hasPermission(user.role, "activity.edit");
     canEditAction = hasPermission(user.role, "action.edit");
+    canEditContract = hasPermission(user.role, "contract.edit");
+    canEditComplaint = hasPermission(user.role, "complaint.edit");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
@@ -97,24 +107,30 @@ export default async function DealDetailPage({
   }
 
   const labels = await loadDetailLabelMaps(detail);
-  const [activitiesResult, actionsResult] = await Promise.all([
-    listActivities({
-      dealPageId: detail.notionPageId,
-      sort: "activity_at",
-      sortDir: "desc",
-      limit: 50,
-    }),
-    listActions({
-      dealPageId: detail.notionPageId,
-      sort: "due_date",
-      sortDir: "asc",
-      limit: 50,
-    }),
-  ]);
-  const [activityLabels, actionLabels] = await Promise.all([
-    loadActivityListLabelMaps(activitiesResult.rows),
-    loadActionListLabelMaps(actionsResult.rows),
-  ]);
+  const [activitiesResult, actionsResult, contracts, complaints] =
+    await Promise.all([
+      listActivities({
+        dealPageId: detail.notionPageId,
+        sort: "activity_at",
+        sortDir: "desc",
+        limit: 50,
+      }),
+      listActions({
+        dealPageId: detail.notionPageId,
+        sort: "due_date",
+        sortDir: "asc",
+        limit: 50,
+      }),
+      listContractsByDeal(detail.notionPageId),
+      listComplaintsByDeal(detail.notionPageId),
+    ]);
+  const [activityLabels, actionLabels, contractLabels, complaintLabels] =
+    await Promise.all([
+      loadActivityListLabelMaps(activitiesResult.rows),
+      loadActionListLabelMaps(actionsResult.rows),
+      loadContractListLabelMaps(contracts),
+      loadComplaintListLabelMaps(complaints),
+    ]);
 
   return (
     <div className="space-y-3">
@@ -124,7 +140,7 @@ export default async function DealDetailPage({
         canEdit={canEdit}
         savedNote={savedNote}
       />
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-4xl space-y-3">
         <DealRelatedSection
           dealPageId={detail.notionPageId}
           customerPageId={detail.customerPageId}
@@ -138,6 +154,20 @@ export default async function DealDetailPage({
             nextAction: detail.nextAction,
             nextActionDate: detail.nextActionDate,
           }}
+        />
+        <DealContractsSection
+          dealPageId={detail.notionPageId}
+          customerPageId={detail.customerPageId}
+          contracts={contracts}
+          labels={contractLabels}
+          canEdit={canEditContract}
+        />
+        <DealComplaintsSection
+          dealPageId={detail.notionPageId}
+          customerPageId={detail.customerPageId}
+          complaints={complaints}
+          labels={complaintLabels}
+          canEdit={canEditComplaint}
         />
       </div>
     </div>

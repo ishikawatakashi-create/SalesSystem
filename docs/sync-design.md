@@ -213,7 +213,8 @@ flowchart LR
 |---|---|
 | Phase 2 | 顧客・先方担当者(担当者名変更→customer_index.search_text再構築。書込パイプライン内の同期実行) — **完了** |
 | Phase 3(=作業呼称Phase 4・完了) | 案件(status_semantic・顧客.見込み金額合計の再計算ジョブ`customer.recalculate_expected_amount`) |
-| Phase 3続き(=作業呼称Phase 5・完了) | 対応履歴(本文ブロック安全更新)・一括登録・次回アクション。導出ジョブ`customer.recalculate_latest_activity` / `customer.recalculate_next_action` / `deal.recalculate_next_action`。契約・クレームは後続 |
+| Phase 3続き(=作業呼称Phase 5・完了) | 対応履歴(本文ブロック安全更新)・一括登録・次回アクション。導出ジョブ`customer.recalculate_latest_activity` / `customer.recalculate_next_action` / `deal.recalculate_next_action` |
+| Phase 3続き(=作業呼称Phase 6・完了) | 契約・クレーム(クレーム本文は見出し付きページブロック)。Webhook・CSVは後続 |
 | Phase 4 | マスタ名変更・自社担当者名変更などの**大量波及**(dependency_reindexジョブとしての非同期実行)、管理画面からの手動再実行 |
 
 - Phase 2・3では影響範囲が単一〜少数ページのため、ジョブ基盤を使わず書込パイプライン内で同期的に再計算する(Phase 4のジョブ化・管理画面に依存しない)。
