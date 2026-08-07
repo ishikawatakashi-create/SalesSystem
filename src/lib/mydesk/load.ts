@@ -436,11 +436,13 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
     supabase
       .from("inquiries")
       .select("id", { count: "exact", head: true })
-      .eq("status", "new"),
+      .eq("status", "new")
+      .eq("historical_import", false),
     supabase
       .from("inquiries")
       .select("id", { count: "exact", head: true })
       .eq("status", "new")
+      .eq("historical_import", false)
       .is("assigned_user_id", null),
   ]);
 

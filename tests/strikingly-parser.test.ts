@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseStrikinglyNotificationMail } from "@/lib/inquiries/parser-strikingly";
+import {
+  looksLikeStrikinglyNotification,
+  parseStrikinglyNotificationMail,
+} from "@/lib/inquiries/parser-strikingly";
 import { htmlToPlainText } from "@/lib/inquiries/html-text";
 
 describe("parseStrikinglyNotificationMail", () => {
@@ -56,6 +59,16 @@ describe("parseStrikinglyNotificationMail", () => {
     expect(text).toContain("こんにちは");
     expect(text).not.toContain("script");
     expect(text).not.toContain("alert");
+  });
+
+  it("あなたのサイトにコメントしました を Strikingly と判定する", () => {
+    expect(
+      looksLikeStrikinglyNotification({
+        subject: "お知らせ",
+        from: "noreply@example.com",
+        body: "田中さんがあなたのサイトにコメントしました",
+      }),
+    ).toBe(true);
   });
 
   it("長い本文を truncate する", () => {

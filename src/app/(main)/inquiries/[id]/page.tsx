@@ -77,6 +77,7 @@ export default async function InquiryDetailPage({
           <p className="text-xs text-slate-500">
             {formatDateTime(inquiry.received_at)} ·{" "}
             {INQUIRY_STATUS_LABELS[inquiry.status as InquiryStatus]}
+            {inquiry.historical_import ? " · 過去取込" : ""}
           </p>
         </div>
         <Link

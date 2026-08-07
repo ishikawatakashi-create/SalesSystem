@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseStrikinglyNotificationMail } from "@/lib/inquiries/parser-strikingly";
+import {
+  looksLikeStrikinglyNotification,
+  parseStrikinglyNotificationMail,
+} from "@/lib/inquiries/parser-strikingly";
 import { normalizePhone } from "@/lib/normalize/phone";
 import type { InquiryAttachmentMeta, InquiryRow } from "@/lib/inquiries/types";
 
@@ -15,15 +18,27 @@ export type IngestMailInput = {
   plainText: string | null;
   htmlText: string | null;
   attachments?: InquiryAttachmentMeta[];
+  /** true: 過去 backfill。badge 対象外。自動顧客化はしない（ingest は常に受信箱のみ） */
+  historicalImport?: boolean;
+  /**
+   * true（既定）: Strikingly と確定できないメールは insert しない。
+   * 通常 polling / backfill 双方で label 混在メールを取りこぼしなくスキップする。
+   */
+  requireStrikingly?: boolean;
 };
+
+export type IngestMailResult =
+  | { status: "accepted"; inquiry: InquiryRow }
+  | { status: "duplicate"; inquiry: InquiryRow }
+  | { status: "skipped"; reason: string };
 
 /**
  * Gmail message → inquiries へ upsert（source_message_id unique）。
- * 本文はログしない。
+ * 本文はログしない。顧客/Contact/Activity/Notion へは自動投入しない。
  */
 export async function ingestInquiryFromMail(
   input: IngestMailInput,
-): Promise<{ inquiry: InquiryRow; created: boolean }> {
+): Promise<IngestMailResult> {
   const parsed = parseStrikinglyNotificationMail({
     subject: input.subject,
     from: input.from,
@@ -32,6 +47,18 @@ export async function ingestInquiryFromMail(
     htmlText: input.htmlText,
   });
 
+  const requireStrikingly = input.requireStrikingly !== false;
+  if (requireStrikingly) {
+    const strikinglyLike = looksLikeStrikinglyNotification({
+      subject: input.subject,
+      from: input.from,
+      body: input.plainText || input.htmlText || parsed.messageText,
+    });
+    if (!strikinglyLike) {
+      return { status: "skipped", reason: "not_strikingly" };
+    }
+  }
+
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("inquiries")
@@ -39,13 +66,15 @@ export async function ingestInquiryFromMail(
     .eq("source_message_id", input.sourceMessageId)
     .maybeSingle();
   if (existing) {
-    return { inquiry: existing as InquiryRow, created: false };
+    return { status: "duplicate", inquiry: existing as InquiryRow };
   }
 
+  const historicalImport = Boolean(input.historicalImport);
   const row = {
     source: "strikingly_email",
     source_message_id: input.sourceMessageId,
     source_thread_id: input.sourceThreadId,
+    // 元メール受信日時（backfill 実行日時ではない）
     received_at: input.receivedAt,
     subject: parsed.subject,
     sender_name: parsed.senderName,
@@ -62,6 +91,7 @@ export async function ingestInquiryFromMail(
     parse_status: parsed.parseStatus,
     parse_warning_code: parsed.parseWarningCode,
     source_confidence: parsed.sourceConfidence,
+    historical_import: historicalImport,
   };
 
   const { data, error } = await admin
@@ -77,7 +107,9 @@ export async function ingestInquiryFromMail(
         .select("*")
         .eq("source_message_id", input.sourceMessageId)
         .maybeSingle();
-      if (again) return { inquiry: again as InquiryRow, created: false };
+      if (again) {
+        return { status: "duplicate", inquiry: again as InquiryRow };
+      }
     }
     throw new Error("inquiry_insert_failed");
   }
@@ -93,12 +125,15 @@ export async function ingestInquiryFromMail(
       status: "new",
       parse_status: parsed.parseStatus,
       source: "strikingly_email",
+      historical_import: historicalImport,
       // 本文は入れない
     },
-    operation_source: "apps_script_ingest",
+    operation_source: historicalImport
+      ? "apps_script_backfill"
+      : "apps_script_ingest",
     request_id: null,
     batch_id: null,
   });
 
-  return { inquiry: data as InquiryRow, created: true };
+  return { status: "accepted", inquiry: data as InquiryRow };
 }

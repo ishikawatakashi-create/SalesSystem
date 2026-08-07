@@ -84,7 +84,8 @@ export async function countNewInquiries(): Promise<number> {
   const { count } = await admin
     .from("inquiries")
     .select("id", { count: "exact", head: true })
-    .eq("status", "new");
+    .eq("status", "new")
+    .eq("historical_import", false);
   return count ?? 0;
 }
 
@@ -94,6 +95,7 @@ export async function countUnassignedNewInquiries(): Promise<number> {
     .from("inquiries")
     .select("id", { count: "exact", head: true })
     .eq("status", "new")
+    .eq("historical_import", false)
     .is("assigned_user_id", null);
   return count ?? 0;
 }

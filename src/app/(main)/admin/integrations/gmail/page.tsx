@@ -60,6 +60,11 @@ export default async function InquiryIngestAdminPage() {
           </li>
           <li>Script Properties に endpoint / secret を設定（値はここに表示しない）</li>
           <li>Gmail で label「SalesSystem/お問い合わせ」とフィルタを作成</li>
+          <li>
+            過去取込は Apps Script で{" "}
+            <code className="font-mono">backfillStrikinglyInquiries</code>{" "}
+            を手動実行（自動開始しない）
+          </li>
           <li>旧 Pub/Sub / Gmail OAuth 方式は廃止済み（DBメタは残置）</li>
         </ul>
       </section>

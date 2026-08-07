@@ -104,7 +104,16 @@ export default async function InquiriesPage({
                   <td className="px-2 py-1.5">{r.company_name || "—"}</td>
                   <td className="px-2 py-1.5">{r.sender_email || "—"}</td>
                   <td className="max-w-xs truncate px-2 py-1.5">
-                    {r.subject || r.message_text?.slice(0, 40) || "—"}
+                    <span className="inline-flex items-center gap-1">
+                      {r.historical_import ? (
+                        <span className="shrink-0 rounded bg-slate-100 px-1 text-[10px] text-slate-500">
+                          過去取込
+                        </span>
+                      ) : null}
+                      <span className="truncate">
+                        {r.subject || r.message_text?.slice(0, 40) || "—"}
+                      </span>
+                    </span>
                   </td>
                   <td className="px-2 py-1.5">
                     {r.assigned_user_id

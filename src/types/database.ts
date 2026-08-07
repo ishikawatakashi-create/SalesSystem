@@ -477,6 +477,7 @@ export type InquiryRow = {
   parse_status: string;
   parse_warning_code: string | null;
   source_confidence: string;
+  historical_import: boolean;
   created_at: string;
   updated_at: string;
 };

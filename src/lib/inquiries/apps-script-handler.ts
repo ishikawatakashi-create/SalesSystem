@@ -49,6 +49,8 @@ const messageSchema = z.object({
   reply_to: z.string().max(500).nullable().optional(),
   subject: z.string().max(1000).nullable().optional(),
   plain_body: z.string().max(MAX_PLAIN_CHARS).nullable().optional(),
+  /** 過去 backfill。true のとき badge 対象外 */
+  historical_import: z.boolean().optional(),
 });
 
 const heartbeatSchema = z.object({
@@ -93,7 +95,7 @@ async function recordIngestError(code: string): Promise<void> {
 
 async function handleOneMessage(
   msg: z.infer<typeof messageSchema>,
-): Promise<"accepted" | "duplicate"> {
+): Promise<"accepted" | "duplicate" | "skipped"> {
   const result = await ingestInquiryFromMail({
     sourceMessageId: msg.gmail_message_id,
     sourceThreadId: msg.gmail_thread_id ?? null,
@@ -103,9 +105,14 @@ async function handleOneMessage(
     replyTo: msg.reply_to ?? null,
     plainText: msg.plain_body ?? null,
     htmlText: null,
+    historicalImport: Boolean(msg.historical_import),
+    requireStrikingly: true,
   });
   const now = new Date().toISOString();
-  if (result.created) {
+  if (result.status === "skipped") {
+    return "skipped";
+  }
+  if (result.status === "accepted") {
     await patchInquiryAppsScriptSettings({
       last_ingest_at: now,
       last_accepted_at: now,
@@ -170,7 +177,7 @@ export async function handleAppsScriptIngestPost(
   // batch
   const batch = batchSchema.safeParse(json);
   if (batch.success) {
-    const results: Array<"accepted" | "duplicate"> = [];
+    const results: Array<"accepted" | "duplicate" | "skipped"> = [];
     try {
       for (const item of batch.data.items) {
         results.push(await handleOneMessage(item));
@@ -185,6 +192,7 @@ export async function handleAppsScriptIngestPost(
         status: "ok",
         accepted: results.filter((r) => r === "accepted").length,
         duplicate: results.filter((r) => r === "duplicate").length,
+        skipped: results.filter((r) => r === "skipped").length,
       },
     };
   }

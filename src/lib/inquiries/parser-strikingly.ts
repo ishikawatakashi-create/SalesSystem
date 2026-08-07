@@ -74,18 +74,28 @@ function extractDisplayName(raw: string | null | undefined): string | null {
   return t || null;
 }
 
-function looksLikeStrikingly(input: {
-  subject: string;
-  from: string;
-  body: string;
+/**
+ * Strikingly 問い合わせ通知らしさの判定。
+ * From 単独には依存しない。件名/本文の特徴語を優先。
+ */
+export function looksLikeStrikinglyNotification(input: {
+  subject?: string | null;
+  from?: string | null;
+  body?: string | null;
 }): boolean {
-  const blob = `${input.subject}\n${input.from}\n${input.body}`.toLowerCase();
+  const subject = input.subject ?? "";
+  const from = input.from ?? "";
+  const body = input.body ?? "";
+  const blob = `${subject}\n${from}\n${body}`.toLowerCase();
+  // 現行 Gmail 実態で確認されている日本語通知フレーズ
+  if (blob.includes("あなたのサイトにコメントしました")) return true;
+  if (blob.includes("サイトにコメントしました")) return true;
   if (blob.includes("strikingly")) return true;
-  if (/new\s+(contact\s+)?form\s+submission/i.test(input.subject)) return true;
-  if (/新しい.*フォーム|お問い合わせ.*通知|form submission/i.test(input.subject)) {
+  if (/new\s+(contact\s+)?form\s+submission/i.test(subject)) return true;
+  if (/新しい.*フォーム|お問い合わせ.*通知|form submission/i.test(subject)) {
     return true;
   }
-  if (/you received a new submission|フォームから送信/i.test(input.body)) {
+  if (/you received a new submission|フォームから送信/i.test(body)) {
     return true;
   }
   return false;
@@ -186,7 +196,7 @@ export function parseStrikinglyNotificationMail(
     fields.message ||
     (body ? body : null);
 
-  const strikinglyLike = looksLikeStrikingly({
+  const strikinglyLike = looksLikeStrikinglyNotification({
     subject: subject ?? "",
     from,
     body,

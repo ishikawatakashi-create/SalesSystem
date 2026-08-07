@@ -8,9 +8,18 @@ const SECRET = "unit-test-secret-16b";
 
 vi.mock("@/lib/inquiries/ingest", () => ({
   ingestInquiryFromMail: vi.fn(async (input: { sourceMessageId: string }) => {
-    const created = input.sourceMessageId !== "dup-msg";
+    if (input.sourceMessageId === "dup-msg") {
+      return {
+        status: "duplicate" as const,
+        inquiry: {
+          id: "inq-1",
+          source_message_id: input.sourceMessageId,
+          status: "new",
+        },
+      };
+    }
     return {
-      created,
+      status: "accepted" as const,
       inquiry: {
         id: "inq-1",
         source_message_id: input.sourceMessageId,

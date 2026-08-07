@@ -77,9 +77,20 @@ Server:
 `system_settings.inquiry_apps_script.last_heartbeat_at` を更新。  
 `/admin/sync` で正常 / 遅延を表示。
 
+### 過去 backfill（手動）
+
+- Apps Script: `backfillStrikinglyInquiries()`（自動開始しない）
+- chunk（約 40 message / 実行）+ Script Properties cursor で再開
+- payload: `historical_import: true`、`received_at` は元メール日時
+- Strikingly と確定できないメールは skip（問い合わせにしない）
+- `source_message_id` dedupe により polling / 再実行と競合しても 1 件
+- DB: `inquiries.historical_import`。status は `new` のまま
+- nav / mydesk 新着 badge は `historical_import = false` のみ集計
+- 自動で顧客・Contact・Activity・Notion 投入はしない
+
 ## Parser / business
 
-Apps Script は transport のみ。  
+Apps Script は transport + 軽い候補判定。  
 Strikingly 解析・候補・割当・顧客化は SalesSystem 側（既存 Phase 11）。
 
 ## status

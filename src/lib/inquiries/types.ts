@@ -39,9 +39,19 @@ export type InquiryRow = {
   parse_status: InquiryParseStatus;
   parse_warning_code: string | null;
   source_confidence: InquirySourceConfidence;
+  /** 過去 backfill 由来。新着 badge 集計対象外 */
+  historical_import: boolean;
   created_at: string;
   updated_at: string;
 };
+
+/** nav / mydesk 新着 badge に含めるか */
+export function isInquiryBadgeEligible(row: {
+  status: string;
+  historical_import?: boolean | null;
+}): boolean {
+  return row.status === "new" && !row.historical_import;
+}
 
 export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {
   new: "未確認",
