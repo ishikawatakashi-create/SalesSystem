@@ -77,10 +77,12 @@ describe("recalculateCustomerExpectedAmount (mocked path)", () => {
       expected_amount: number | null;
     }>,
   ) {
-    const customerUpdate = vi.fn(async () => ({
-      error: null,
-    }));
-    const auditInsert = vi.fn(async () => ({ error: null }));
+    const customerUpdate = vi.fn(
+      async (_payload: Record<string, unknown>) => ({
+        error: null,
+      }),
+    );
+    const auditInsert = vi.fn(async (_row: unknown) => ({ error: null }));
     return {
       customerUpdate,
       auditInsert,
