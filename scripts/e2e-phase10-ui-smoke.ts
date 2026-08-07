@@ -10,6 +10,8 @@ import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { Client as NotionSdk } from "@notionhq/client";
 import { customerCreate, customerUpdate } from "../src/lib/sync/write-pipeline";
+import { contactCreate } from "../src/lib/sync/contact-write-pipeline";
+import { dealCreate } from "../src/lib/sync/deal-write-pipeline";
 import { activityCreate } from "../src/lib/sync/activity-write-pipeline";
 import { titleFromActivityBody, shouldSubmitOnEnter } from "../src/lib/activities/quick-title";
 import { uuidV5 } from "../src/lib/notion/ids";
@@ -173,14 +175,142 @@ async function main() {
   if ((count ?? 0) >= 1) ok("activity_index");
   else ng("activity_index");
 
+  const actorId = String(actor.id);
+  const actorName = String(actor.display_name ?? "admin");
+
+  // 案件コンテキスト（customer + deal）
+  const contact = await contactCreate({
+    requestId: randomUUID(),
+    actorId,
+    actorName,
+    input: {
+      name: `${PREFIX}_contact`,
+      nameKana: null,
+      customerPageId: created.notionPageId,
+      department: "営業",
+      title: null,
+      phone: "090-5050-6060",
+      email: null,
+      contactTypePageId: null,
+      note: null,
+      isActive: true,
+    },
+  });
+  if (contact.notionPageId) ok("contact", mask(contact.notionPageId));
+  else ng("contact");
+
+  const { data: statusRow } = await admin
+    .from("masters_cache")
+    .select("notion_page_id")
+    .eq("master_type", "案件ステータス")
+    .eq("semantic_key", "active")
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  const statusActiveId =
+    (statusRow?.notion_page_id as string | undefined) ?? null;
+
+  const deal = await dealCreate({
+    requestId: randomUUID(),
+    actorId,
+    actorName,
+    input: {
+      title: `${PREFIX}_deal`,
+      customerPageId: created.notionPageId,
+      contactPageIds: contact.notionPageId ? [contact.notionPageId] : [],
+      businessCategoryPageId: null,
+      productName: "P10",
+      stagePageId: null,
+      staffPageIds: [],
+      expectedAmount: 12000,
+      contractAmount: null,
+      probability: 50,
+      expectedCloseDate: null,
+      contractedAt: null,
+      periodStart: null,
+      periodEnd: null,
+      lostReason: null,
+      statusPageId: statusActiveId,
+      note: "p10",
+    },
+  });
+  if (deal.notionPageId) ok("deal", mask(deal.notionPageId));
+  else ng("deal");
+
+  if (deal.notionPageId) {
+    const bodyDeal = `案件詳細から電話メモ。${PREFIX}`;
+    const actDeal = await activityCreate({
+      requestId: randomUUID(),
+      actorId,
+      actorName,
+      input: {
+        title: titleFromActivityBody(bodyDeal),
+        customerPageId: created.notionPageId,
+        dealPageId: deal.notionPageId,
+        contactPageIds: [],
+        activityAt: new Date().toISOString(),
+        categoryPageIds: [],
+        summary: null,
+        nextActionNote: null,
+        nextActionDate: null,
+        body: bodyDeal,
+        batchId: null,
+      },
+    });
+    const { data: rowDeal } = await admin
+      .from("activity_index")
+      .select("customer_page_id,deal_page_id")
+      .eq("notion_page_id", actDeal.notionPageId!)
+      .maybeSingle();
+    if (
+      rowDeal?.customer_page_id === created.notionPageId &&
+      rowDeal?.deal_page_id === deal.notionPageId
+    ) {
+      ok("deal_context_relations");
+    } else ng("deal_context_relations");
+  }
+
+  if (contact.notionPageId) {
+    const bodyContact = `担当者詳細から電話メモ。${PREFIX}`;
+    const actContact = await activityCreate({
+      requestId: randomUUID(),
+      actorId,
+      actorName,
+      input: {
+        title: titleFromActivityBody(bodyContact),
+        customerPageId: created.notionPageId,
+        dealPageId: null,
+        contactPageIds: [contact.notionPageId],
+        activityAt: new Date().toISOString(),
+        categoryPageIds: [],
+        summary: null,
+        nextActionNote: null,
+        nextActionDate: null,
+        body: bodyContact,
+        batchId: null,
+      },
+    });
+    const { data: rowContact } = await admin
+      .from("activity_index")
+      .select("customer_page_id,contact_page_ids")
+      .eq("notion_page_id", actContact.notionPageId!)
+      .maybeSingle();
+    const contactsOk =
+      Array.isArray(rowContact?.contact_page_ids) &&
+      rowContact!.contact_page_ids.includes(contact.notionPageId);
+    if (rowContact?.customer_page_id === created.notionPageId && contactsOk) {
+      ok("contact_context_relations");
+    } else ng("contact_context_relations");
+  }
+
   // archive
   const sdk = new NotionSdk({ auth: process.env.NOTION_TOKEN! });
   const page = await sdk.pages.retrieve({ page_id: created.notionPageId });
   const edited = (page as { last_edited_time: string }).last_edited_time;
   await customerUpdate({
     requestId: uuidV5(`p10:arch:${created.externalId}`),
-    actorId: String(actor.id),
-    actorName: String(actor.display_name ?? "admin"),
+    actorId,
+    actorName,
     notionPageId: created.notionPageId,
     externalId: created.externalId,
     expectedLastEditedTime: edited,
