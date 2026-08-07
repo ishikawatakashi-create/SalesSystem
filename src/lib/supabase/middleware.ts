@@ -4,7 +4,13 @@ import type { Database } from "@/types/database";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/env";
 
 /** 未認証でもアクセスできるパス */
-const PUBLIC_PATHS = ["/login", "/reset-password", "/auth"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/reset-password",
+  "/auth",
+  "/api/webhooks",
+  "/api/jobs",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(

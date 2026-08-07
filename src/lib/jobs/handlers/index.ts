@@ -5,6 +5,9 @@ import {
   recalculateCustomerNextActionHandler,
   recalculateDealNextActionHandler,
 } from "@/lib/jobs/handlers/recalculate-next-action";
+import { reconciliationHandler } from "@/lib/jobs/handlers/reconciliation";
+import { syncRepairHandler } from "@/lib/jobs/handlers/sync-repair";
+import { webhookSyncHandler } from "@/lib/jobs/handlers/webhook-sync";
 
 /**
  * kindごとのハンドラー登録。
@@ -25,6 +28,9 @@ export const noopJobHandler: JobHandler = async () => ({ status: "succeeded" });
 
 registerJobHandler("storage_cleanup", noopJobHandler);
 registerJobHandler("dependency_reindex", noopJobHandler);
+registerJobHandler("webhook_sync", webhookSyncHandler);
+registerJobHandler("reconciliation", reconciliationHandler);
+registerJobHandler("sync_repair", syncRepairHandler);
 registerJobHandler(
   "customer.recalculate_expected_amount",
   recalculateExpectedAmountHandler,

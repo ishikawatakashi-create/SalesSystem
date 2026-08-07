@@ -65,6 +65,11 @@ export default async function MainLayout({
                 ユーザー管理
               </Link>
             )}
+            {hasPermission(user.role, "sync.manage") && (
+              <Link href="/admin/sync" className="hover:text-slate-900">
+                同期管理
+              </Link>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs">
             <span className="text-slate-500">

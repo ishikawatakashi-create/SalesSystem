@@ -486,6 +486,20 @@ export type Database = {
         };
         Returns: string;
       };
+      store_notion_webhook_verification_token: {
+        Args: {
+          p_token: string;
+        };
+        Returns: Record<string, unknown>;
+      };
+      read_notion_webhook_verification_token: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      mark_notion_webhook_verified: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>;
+      };
       reserve_notion_slot: {
         Args: {
           p_priority?: string;
