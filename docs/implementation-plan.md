@@ -7,8 +7,8 @@
 - 2026-08-07 実装進捗反映: Phase 1・顧客管理・先方担当者管理を完了済みとし、次工程を案件管理とする(作業呼称では先方担当者=Phase 3完了、案件=Phase 4)。
 - 2026-08-07 対応履歴・次回アクションを完了(作業呼称Phase 5)。契約・クレーム・Webhook・CSVは後続。
 - 2026-08-07 契約・クレーム管理を完了(作業呼称Phase 6)。Webhook・CSV・ダッシュボードは後続。
-- 2026-08-07 Notion Webhook受信・Vault検証基盤と admin `/admin/sync` セットアップUIを追加(作業呼称Phase 7 進行中。署名検証後の同期ジョブ処理・削除確認等は後続)。
-- 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を追加。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion` を検証対象とする。
+- 2026-08-07 Notion Webhook受信・Vault検証基盤と admin `/admin/sync` セットアップUIを追加(作業呼称Phase 7)。
+- 2026-08-07 Phase 7 Production 実Webhook E2E・同期メトリクス・運用手順を完了。Production endpoint `https://sales-system-weld.vercel.app/api/webhooks/notion`。次工程はCSV・ダッシュボード。
 
 ## Phase 0: 設計(完了)
 

@@ -2,7 +2,7 @@
 
 Notionが正本、Supabaseは検索インデックス・監査・同期状態・書込整合性(write_operations)を持つ([architecture.md](./architecture.md))。
 
-改訂履歴: 2026-08-05 設計レビュー反映(write_operationsによる冪等化、分散レート制御、エラー処理の最新仕様化、in_trash、Webhookの1トランザクションenqueue、ページ本文の監査・競合、dependency_reindex、スキーマ変更検知)。2026-08-07 Phase 7 Production Webhook endpoint・Vault・再購読手順を追記。
+改訂履歴: 2026-08-05 設計レビュー反映(write_operationsによる冪等化、分散レート制御、エラー処理の最新仕様化、in_trash、Webhookの1トランザクションenqueue、ページ本文の監査・競合、dependency_reindex、スキーマ変更検知)。2026-08-07 Phase 7 Production Webhook endpoint・Vault・再購読手順・障害復旧・正式完了記録(N/A理由含む)を追記。
 
 同期の経路:
 
@@ -257,8 +257,46 @@ flowchart LR
 ### ドリフトと整合性確認
 
 - 取りこぼしは `reconciliation` ジョブ(日次)または `sync_repair`(ページ単位)で回復。
-- スキーマ変更は本番スキーマを手で壊さず、`schema_mismatch` 件数と管理画面警告で検知する。
+- スキーマ変更は本番スキーマを手で壊さず、`schema_mismatch` 件数と管理画面警告で検知する。自動migration・snapshot自動上書きは行わない。
 - `/admin/sync` は購読ステータス・最終 Webhook 受信・webhook_sync 成功時刻・待機/失敗ジョブ件数・reconciliation 成功・未解決エラー件数を表示する(シークレット・payload なし)。
+
+### Production 障害時の復旧
+
+1. `/admin/sync` で subscription / pending / failed / unresolved sync_errors / schema drift を確認。
+2. Webhook受信が止まっている場合: endpoint到達(`405` on GET)、Vercelデプロイ、Vault verification、Notion subscription を順に確認。必要なら再購読。
+3. 署名失敗が続く場合: Vaultトークンと Notion subscription の verification を再同期。`NOTION_WEBHOOK_SECRET` 上書きがある場合は値の食い違いを疑う(値はログに出さない)。
+4. 取りこぼし・index遅延: `reconciliation` を手動起動し、必要なら対象ページへ `sync_repair`。
+5. Notion API 一時障害(429/5xx): 分散レートリミッターとジョブリトライに任せ、上限超過のみ `sync_errors` から再実行。
+6. 自書込ループ疑い: content_hash一致時の inbound no-op と audit 重複有無を確認。再writeが不要ならジョブを止め原因を調査。
+
+### Phase 7 正式完了記録(2026-08-07)
+
+Production 実 Notion Webhook E2E まで完了し、作業呼称 Phase 7 を正式完了とする。
+
+- Production Webhook subscription: `verified`
+- endpoint: `https://sales-system-weld.vercel.app/api/webhooks/notion`
+- verification secret: Supabase Vault(`notion_webhook_verification_token`)。値はドキュメント・ログに記載しない
+- 処理経路: Webhook受信 → 署名検証 → `ingest_webhook_event` → job → Notion再取得 → inbound sync → index反映
+- 9DB routing: customers / contacts / deals / activities / actions / contracts / complaints / masters / staff(環境変数 `NOTION_DS_*`)
+- duplicate / stale / ordering: event_id 冪等、`notion_last_edited_at` / `content_hash` による stale no-op
+- self-write no-op: アプリ書込由来の inbound は hash 一致時に再writeしない
+- delete / undelete: `page.deleted` → `delete_pending`(物理DELETEしない) / `page.undeleted` → full sync で復帰
+- schema drift: `data_source.schema_updated` 検知、自動migration・snapshot自動上書きなし、`sync_errors.stage=schema_mismatch` + `/admin/sync` 表示
+- reconciliation: 日次/手動、差分修復・watermark・冪等・rate limiter 経由
+- dependency reindex: 見込み金額・最新対応・次回アクション等の派生再計算を enqueue
+- admin: `/admin/sync`(verified / 最終受信・処理 / pending・failed / reconciliation / drift / unresolved sync_errors。secret・payload なし)
+- sync_errors: 未解決監視・意図的 fixture は ignored/resolved で区別
+
+#### Production 実E2Eで N/A とした項目
+
+- 営業マスタ: 実利用マスタの意味変更を避けるため。安全な `test_` fixture が無かったため実変更せず、既存 simulated E2E を代替根拠とする
+- 自社担当者: Auth role / `is_active` / identity を変更しない方針。安全な表示メタの test fixture が無かったため N/A
+- moved: 本番ページ配置・DB構造を壊すリスクがあるため実移動せず、simulated E2E + unit test を代替根拠とする
+
+#### 未着手(次工程)
+
+- CSV インポート/エクスポート
+- ダッシュボード / マイデスクKPI完成
 
 ### 関連環境変数名(値は記載しない)
 

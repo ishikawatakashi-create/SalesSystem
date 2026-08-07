@@ -7,10 +7,12 @@
 
 ## 現在の状態
 
-**Phase 1 実装中。** 認証スパイク暫定完了 + Supabase基盤リモート適用済み。進行は [docs/implementation-plan.md](./docs/implementation-plan.md) に従う。
+**Phase 7(Notion Webhook Production)完了。** 次工程は CSV・ダッシュボード([docs/implementation-plan.md](./docs/implementation-plan.md))。
 
-- 実装済み: 認証基盤 / Supabase全スキーマ・ジョブ・レートリミッター / 実DB結合テスト
-- Notion接続: クライアント・`setup-notion`(既定はplanのみ)・スキーマ定義を実装。**`--apply`による実作成は未実施**
+- Production: `https://sales-system-weld.vercel.app`
+- Webhook: `/api/webhooks/notion`（subscription verified、Vault 管理）
+- 管理画面: `/admin/sync`
+- 実装済み: 認証〜契約/クレーム、実 Notion Webhook inbound、reconciliation、schema drift 検知
 - 保留(本番公開前): Google OAuthブラウザE2E
 
 ### Auth Admin APIの注意(実測)
