@@ -23,8 +23,22 @@ Phase 12 では関係性マッピング列を追加しない。create 時空の�
 1. migration `20260808200000_phase12_organization_relationship.sql` 適用
 2. `npx tsx scripts/apply-phase12-organization-relationship.ts --apply`
 3. masters cache sync
-4. `npx tsx scripts/enqueue-relationship-backfill.ts`（必要なら `--dry-run` 先行）
-5. Vercel deploy 後、テスト組織で E2E
+4. Vercel deploy（job handler 反映）
+5. `npx tsx scripts/enqueue-relationship-backfill.ts`（必要なら `--dry-run` 先行）
+6. ワーカー処理。Vercel 60s 制約で詰まる場合はローカル:
+   `$env:NODE_OPTIONS='--require ./scripts/shims/mock-server-only.cjs'; npx tsx scripts/run-relationship-backfill-local.ts`
+7. E2E: `npx tsx scripts/e2e-phase12-organizations.ts`
+
+## Production 適用結果（2026-08-08）
+
+| 項目 | 結果 |
+|---|---|
+| commit | `74fb73e`（本体）+ follow-up（chunk/E2E） |
+| migration | `20260808200000_phase12_organization_relationship` Local=Remote |
+| Notion | 関係性 master option + customers relation + seed 8 |
+| masters_cache | 関係性 8 |
+| backfill | empty 28→0 / updated 28（worker 6 + local 22）/ failed 0 |
+| E2E | `Phase12 組織テスト` media+prospect、要件1–14、archive |
 
 ## Phase 13 へ引き継ぐこと
 
@@ -32,3 +46,4 @@ Phase 12 では関係性マッピング列を追加しない。create 時空の�
 - Prospect → Organization promotion（`relationship=prospect`）
 - CSV 関係性マッピング列
 - supplier / other 専用ナビ（現状は「すべて」+ filter）
+- backfill job の Production chunk サイズ / maxDuration チューニング（現状 CHUNK_SIZE=5）

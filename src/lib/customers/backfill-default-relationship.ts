@@ -23,7 +23,8 @@ import { enqueueJob } from "@/lib/jobs/queue";
 export const BACKFILL_DEFAULT_RELATIONSHIP_KIND =
   "customer.backfill_default_relationship" as const;
 
-const CHUNK_SIZE = 15;
+/** Vercel maxDuration=60s 内に収める（Notion write 数件/chunk） */
+const CHUNK_SIZE = 5;
 
 /** system actor（recalculate 系の actor_name: "system" と同趣旨） */
 const SYSTEM_ACTOR_ID = uuidV5("actor:system");
