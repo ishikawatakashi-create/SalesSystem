@@ -13,6 +13,7 @@
 - 2026-08-07 Phase 9(マイデスク・検索・retention・UI/運用仕上げ)を完了。運用ランブック・リリースチェックリストを追加。
 - 2026-08-08 Phase 10(日常営業向けUI/UX再整理)完了後、Phase 11(お問い合わせ受信箱)を実装。transport は Apps Script polling（Pub/Sub は不採用）。詳細は [inquiry-integration.md](./inquiry-integration.md)。
 - 2026-08-08 Phase 12(組織管理への拡張): technical entity=customer 維持、product=Organization。関係性 master / index / `/organizations`。詳細は [phase12-organizations.md](./phase12-organizations.md)。
+- 2026-08-09 Phase 13A(Prospect Pool / 営業リスト基盤): Supabase に営業候補・リスト・CSV取込・割当。Notion 非書込。詳細は [phase13a-prospect-pool.md](./phase13a-prospect-pool.md)。Phase 13B(架電 UI / 昇格)は未着手。
 
 ## Phase 0: 設計(完了)
 

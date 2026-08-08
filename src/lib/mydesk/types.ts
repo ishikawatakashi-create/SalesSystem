@@ -98,6 +98,11 @@ export type MyDeskInquirySummary = {
   unassignedNewCount: number;
 };
 
+export type MyDeskProspectSummary = {
+  /** 自分に割当済み・未着手(new) */
+  assignedNewCount: number;
+};
+
 export type MyDeskSnapshot = {
   today: string;
   kpis: MyDeskKpis;
@@ -110,4 +115,5 @@ export type MyDeskSnapshot = {
   recentViews: MyDeskRecentViewItem[];
   adminCompanyStats: AdminCompanyStats | null;
   inquiries: MyDeskInquirySummary;
+  prospects: MyDeskProspectSummary;
 };

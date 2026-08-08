@@ -432,21 +432,28 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
     adminCompanyStats = await loadAdminCompanyStats(supabase, today, last7Iso);
   }
 
-  const [newInquiriesRes, unassignedNewRes] = await Promise.all([
-    supabase
-      .from("inquiries")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "new")
-      .eq("historical_import", false)
-      .eq("ingest_classification", "source"),
-    supabase
-      .from("inquiries")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "new")
-      .eq("historical_import", false)
-      .eq("ingest_classification", "source")
-      .is("assigned_user_id", null),
-  ]);
+  const [newInquiriesRes, unassignedNewRes, prospectAssignedNewRes] =
+    await Promise.all([
+      supabase
+        .from("inquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new")
+        .eq("historical_import", false)
+        .eq("ingest_classification", "source"),
+      supabase
+        .from("inquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new")
+        .eq("historical_import", false)
+        .eq("ingest_classification", "source")
+        .is("assigned_user_id", null),
+      supabase
+        .from("prospect_list_memberships")
+        .select("id", { count: "exact", head: true })
+        .eq("assigned_user_id", user.id)
+        .eq("stage", "new")
+        .is("archived_at", null),
+    ]);
 
   return {
     today,
@@ -476,6 +483,9 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
     inquiries: {
       newCount: newInquiriesRes.count ?? 0,
       unassignedNewCount: unassignedNewRes.count ?? 0,
+    },
+    prospects: {
+      assignedNewCount: prospectAssignedNewRes.count ?? 0,
     },
   };
 }

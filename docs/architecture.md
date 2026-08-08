@@ -89,6 +89,8 @@ Supabaseはレガシーの `anon` / `service_role` キー(JWT形式)を廃止予
 
 顧客アカウント(= product 上の「組織」。technical entity は customer。[ADR 0001](./adr/0001-organization-over-customer-entity.md)) / 顧客担当者 / 案件 / 対応履歴 / 契約 / クレーム / **次回アクション** / 営業マスタ / 自社担当者マスタ(計9データベース。[notion-schema.md](./notion-schema.md))
 
+**営業候補(Prospect Pool)** は Notion に置かない。Supabase operational data として管理し、正式組織へ昇格するまで Notion 非書込([ADR 0002](./adr/0002-prospect-pool-supabase.md)、[phase13a-prospect-pool.md](./phase13a-prospect-pool.md))。
+
 ### Supabaseに保存する(正本ではない)
 
 | 分類 | 内容 |

@@ -22,9 +22,14 @@
 | 全顧客閲覧 | ○ | ○ | ○ | ○ |
 | 顧客詳細・案件・対応履歴・契約・クレーム閲覧 | ○ | ○ | ○ | ○ |
 | お問い合わせ閲覧 | ○ | ○ | ○ | ○ |
+| 営業リスト / Prospect 閲覧 | ○ | ○ | ○ | ○ |
 | マイデスク・検索・保存済み検索(個人) | ○ | ○ | ○ | ○ |
 | **登録・編集** | | | | |
 | お問い合わせ振分け・紐付け・変換 | ○ | ○ | ○ | × |
+| Prospect 編集・stage・単一担当・DNC | ○ | ○ | ○ | × |
+| 営業リスト管理 | ○ | ○ | × | × |
+| Prospect CSV取込 | ○ | ○ | × | × |
+| Prospect 一括割当 | ○ | ○ | × | × |
 | 顧客登録・編集・アーカイブ | ○ | ○ | ○ | × |
 | 顧客担当者登録・編集・無効化 | ○ | ○ | ○ | × |
 | 案件登録・編集 | ○ | ○ | ○ | × |
@@ -74,6 +79,11 @@ export const PERMISSIONS = {
   'complaint.edit':       ['admin', 'a', 'b'],
   'inquiry.view':         ['admin', 'a', 'b', 'viewer'],
   'inquiry.edit':         ['admin', 'a', 'b'],
+  'prospect.view':        ['admin', 'a', 'b', 'viewer'],
+  'prospect.edit':        ['admin', 'a', 'b'],
+  'prospect.import':      ['admin', 'a'],
+  'prospect.assign':      ['admin', 'a'],
+  'prospect.manage_lists':['admin', 'a'],
   'bulk.update':          ['admin', 'a'],
   'csv.import':           ['admin', 'a'],
   'csv.export':           ['admin', 'a'],

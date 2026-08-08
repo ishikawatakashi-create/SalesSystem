@@ -20,7 +20,9 @@ export type JobKind =
   | "customer.recalculate_latest_activity"
   | "customer.recalculate_next_action"
   | "customer.backfill_default_relationship"
-  | "deal.recalculate_next_action";
+  | "deal.recalculate_next_action"
+  | "prospect_csv_import"
+  | "prospect_bulk_assign";
 
 export type JobRow = {
   id: string;

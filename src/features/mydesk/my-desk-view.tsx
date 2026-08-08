@@ -303,6 +303,11 @@ export function MyDeskView({
       {/* Secondary KPI */}
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <KpiSecondary
+          label="営業候補・未着手"
+          value={snapshot.prospects.assignedNewCount}
+          href={`/prospect-lists`}
+        />
+        <KpiSecondary
           label="未完了"
           value={kpis.openActions}
           href={`/actions?view=all&assignee=${user.id}&open=1`}

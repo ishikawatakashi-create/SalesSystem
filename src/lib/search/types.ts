@@ -1,5 +1,6 @@
 export type SearchEntity =
   | "customers"
+  | "prospects"
   | "contacts"
   | "deals"
   | "activities"
@@ -9,6 +10,7 @@ export type SearchEntity =
 
 export const SEARCH_ENTITY_LABELS: Record<SearchEntity, string> = {
   customers: "組織",
+  prospects: "営業候補",
   contacts: "担当者",
   deals: "案件",
   activities: "対応履歴",
@@ -19,6 +21,7 @@ export const SEARCH_ENTITY_LABELS: Record<SearchEntity, string> = {
 
 export const SEARCH_ENTITIES: SearchEntity[] = [
   "customers",
+  "prospects",
   "contacts",
   "deals",
   "activities",
@@ -37,6 +40,8 @@ export type GlobalSearchHit = {
   isArchived?: boolean;
   /** 組織(customer)のみ: 関係性 semantic_key */
   relationshipSemanticKeys?: string[];
+  /** Prospect バッジ用 */
+  badge?: string;
 };
 
 export type GlobalSearchResult = {

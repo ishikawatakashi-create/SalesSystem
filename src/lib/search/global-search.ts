@@ -53,6 +53,7 @@ export async function globalSearch(
 
   const [
     customersRes,
+    prospectsRes,
     contactsRes,
     dealsRes,
     activitiesRes,
@@ -77,6 +78,22 @@ export async function globalSearch(
       )
       .order("is_archived", { ascending: true })
       .order("display_name", { ascending: true })
+      .limit(limitPerEntity),
+    supabase
+      .from("prospects")
+      .select(
+        "id,company_name,normalized_domain,prefecture,city,do_not_contact",
+      )
+      .is("archived_at", null)
+      .or(
+        [
+          `search_text.ilike.${p}`,
+          `company_name.ilike.${p}`,
+          `normalized_domain.ilike.${p}`,
+          `main_phone.ilike.${p}`,
+        ].join(","),
+      )
+      .order("updated_at", { ascending: false })
       .limit(limitPerEntity),
     supabase
       .from("contact_index")
@@ -201,6 +218,29 @@ export async function globalSearch(
       href: `/organizations/${r.notion_page_id}`,
       isArchived: r.is_archived,
       relationshipSemanticKeys: r.relationship_semantic_keys ?? [],
+    })),
+  );
+
+  pushGroup(
+    "prospects",
+    (
+      (prospectsRes.data ?? []) as Array<{
+        id: string;
+        company_name: string;
+        normalized_domain: string | null;
+        prefecture: string | null;
+        city: string | null;
+        do_not_contact: boolean;
+      }>
+    ).map((r) => ({
+      entity: "prospects" as const,
+      pageId: r.id,
+      title: r.company_name || "(無題)",
+      subtitle:
+        [r.normalized_domain, r.prefecture, r.city].filter(Boolean).join(" / ") ||
+        null,
+      href: `/prospects/${r.id}`,
+      badge: r.do_not_contact ? "DNC" : "Prospect",
     })),
   );
 

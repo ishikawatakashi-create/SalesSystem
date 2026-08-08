@@ -83,6 +83,8 @@ export function AppHeader({
                 label: "学校・研究",
               },
               { href: "/organizations?relationship=partner", label: "パートナー" },
+              { href: "/prospect-lists", label: "営業リスト" },
+              { href: "/prospects", label: "営業候補" },
               { href: "/contacts", label: "担当者" },
             ]}
           />

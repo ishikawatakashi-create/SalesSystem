@@ -555,9 +555,29 @@ export type Database = {
         purpose: string;
         created_at: string;
       }>;
+      prospect_lists: TableDef<Record<string, unknown>>;
+      prospects: TableDef<Record<string, unknown>>;
+      prospect_contacts: TableDef<Record<string, unknown>>;
+      prospect_list_memberships: TableDef<Record<string, unknown>>;
+      prospect_import_jobs: TableDef<Record<string, unknown>>;
+      prospect_import_rows: TableDef<Record<string, unknown>>;
     };
     Views: Record<string, never>;
     Functions: {
+      prospect_list_stats: {
+        Args: { p_list_ids: string[] };
+        Returns: Array<{
+          prospect_list_id: string;
+          total_count: number;
+          unassigned_count: number;
+          assigned_count: number;
+          working_count: number;
+          qualified_count: number;
+          disqualified_count: number;
+          dnc_count: number;
+          duplicate_review_count: number;
+        }>;
+      };
       accept_invitation_and_provision: {
         Args: {
           p_user_id: string;

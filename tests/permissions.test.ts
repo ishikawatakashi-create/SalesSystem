@@ -14,12 +14,33 @@ describe("権限マトリクス(docs/permissions.mdと一致すること)", () =
   it("viewerは閲覧のみ可能(書込・管理系はすべて不可)", () => {
     expect(hasPermission("viewer", "customer.view")).toBe(true);
     expect(hasPermission("viewer", "inquiry.view")).toBe(true);
+    expect(hasPermission("viewer", "prospect.view")).toBe(true);
     for (const action of Object.keys(PERMISSIONS) as (keyof typeof PERMISSIONS)[]) {
-      if (action === "customer.view" || action === "inquiry.view") continue;
+      if (
+        action === "customer.view" ||
+        action === "inquiry.view" ||
+        action === "prospect.view"
+      ) {
+        continue;
+      }
       expect(hasPermission("viewer", action), `viewerは${action}不可のはず`).toBe(
         false,
       );
     }
+  });
+
+  it("Prospect権限: viewは全ロール、editはadmin/a/b、import/assign/listsはadmin/a", () => {
+    for (const role of ALL_ROLES) {
+      expect(hasPermission(role, "prospect.view")).toBe(true);
+    }
+    expect(hasPermission("b", "prospect.edit")).toBe(true);
+    expect(hasPermission("viewer", "prospect.edit")).toBe(false);
+    expect(hasPermission("a", "prospect.import")).toBe(true);
+    expect(hasPermission("b", "prospect.import")).toBe(false);
+    expect(hasPermission("a", "prospect.assign")).toBe(true);
+    expect(hasPermission("b", "prospect.assign")).toBe(false);
+    expect(hasPermission("a", "prospect.manage_lists")).toBe(true);
+    expect(hasPermission("b", "prospect.manage_lists")).toBe(false);
   });
 
   it("お問い合わせは閲覧が全ロール、編集はadmin/a/b", () => {

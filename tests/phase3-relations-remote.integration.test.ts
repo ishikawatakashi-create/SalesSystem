@@ -56,6 +56,7 @@ const EXPECTED_MASTER_COUNTS: Record<string, number> = {
   クレーム対応状況: 3,
   担当者区分: 3,
   アクション状態: 3,
+  関係性: 8,
 };
 
 describeRemote("Phase 3 masters_cacheとrelation検証(リモート)", () => {
@@ -67,13 +68,13 @@ describeRemote("Phase 3 masters_cacheとrelation検証(リモート)", () => {
     });
   });
 
-  it("masters_cacheが71件・種別別件数が期待どおり", async () => {
+  it("masters_cacheが79件・種別別件数が期待どおり", async () => {
     const { data, error } = await admin
       .from("masters_cache")
       .select("master_type,is_active");
     expect(error).toBeNull();
     const rows = data ?? [];
-    expect(rows.length).toBe(71);
+    expect(rows.length).toBe(79);
     const byType = new Map<string, number>();
     for (const r of rows) {
       byType.set(r.master_type, (byType.get(r.master_type) ?? 0) + 1);

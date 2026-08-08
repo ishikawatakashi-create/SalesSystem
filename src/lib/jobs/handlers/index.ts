@@ -11,6 +11,8 @@ import { syncRepairHandler } from "@/lib/jobs/handlers/sync-repair";
 import { webhookSyncHandler } from "@/lib/jobs/handlers/webhook-sync";
 import { csvImportHandler } from "@/lib/jobs/handlers/csv-import";
 import { storageCleanupHandler } from "@/lib/jobs/handlers/storage-cleanup";
+import { prospectCsvImportHandler } from "@/lib/jobs/handlers/prospect-csv-import";
+import { prospectBulkAssignHandler } from "@/lib/jobs/handlers/prospect-bulk-assign";
 
 /**
  * kindごとのハンドラー登録。
@@ -55,3 +57,5 @@ registerJobHandler(
   "deal.recalculate_next_action",
   recalculateDealNextActionHandler,
 );
+registerJobHandler("prospect_csv_import", prospectCsvImportHandler);
+registerJobHandler("prospect_bulk_assign", prospectBulkAssignHandler);
