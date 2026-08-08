@@ -28,7 +28,6 @@ export function InquiryActionsPanel({
   currentUserId,
   assignees,
   candidates,
-  mailtoHref,
 }: {
   inquiryId: string;
   status: InquiryStatus;
@@ -40,7 +39,6 @@ export function InquiryActionsPanel({
   currentUserId: string;
   assignees: Array<{ id: string; label: string }>;
   candidates: CustomerCandidate[];
-  mailtoHref: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -312,20 +310,6 @@ export function InquiryActionsPanel({
         )}
       </section>
 
-      {mailtoHref && (
-        <section className="rounded border border-slate-200 bg-white p-3">
-          <h2 className="mb-1 font-semibold text-slate-800">返信</h2>
-          <p className="mb-2 text-slate-500">
-            SalesSystem からのメール送信は未実装です。
-          </p>
-          <a
-            href={mailtoHref}
-            className="text-primary underline"
-          >
-            メーラーで返信（mailto）
-          </a>
-        </section>
-      )}
     </div>
   );
 }

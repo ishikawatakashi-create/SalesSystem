@@ -310,6 +310,126 @@ export async function createContactFromInquiryAction(input: {
   }
 }
 
+export async function listInquiryDraftFromAliasesAction(): Promise<
+  | { ok: true; aliases: string[]; primary: string | null }
+  | { ok: false; message: string }
+> {
+  try {
+    const user = await requireUser();
+    requirePermission(user, "inquiry.edit");
+    const { fetchDraftFromAliases } = await import(
+      "@/lib/inquiries/apps-script-draft-client"
+    );
+    return fetchDraftFromAliases();
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return { ok: false, message: "権限がありません" };
+    }
+    return { ok: false, message: "送信元一覧の取得に失敗しました" };
+  }
+}
+
+export async function createInquiryReplyDraftAction(input: {
+  inquiryId: string;
+  fromAddress: string;
+  requestId: string;
+}): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    requirePermission(user, "inquiry.edit");
+    const admin = createAdminClient();
+    const { data: inquiry } = await admin
+      .from("inquiries")
+      .select(
+        "id,source_message_id,subject,sender_name,company_name,message_text,status,assigned_user_id,ingest_classification",
+      )
+      .eq("id", input.inquiryId)
+      .maybeSingle();
+    if (!inquiry) return { ok: false, message: "お問い合わせが見つかりません" };
+    if (inquiry.ingest_classification !== "source") {
+      return { ok: false, message: "この問い合わせでは下書きを作成できません" };
+    }
+    if (!inquiry.source_message_id) {
+      return { ok: false, message: "元メールIDがありません" };
+    }
+
+    const requestId = input.requestId.trim();
+    if (!requestId || requestId.length > 120) {
+      return { ok: false, message: "リクエストが不正です" };
+    }
+
+    // 短時間の連打抑制（同一 inquiry）
+    const since = new Date(Date.now() - 15_000).toISOString();
+    const { count } = await admin
+      .from("inquiry_draft_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("inquiry_id", inquiry.id)
+      .gte("created_at", since);
+    if ((count ?? 0) > 0) {
+      return {
+        ok: false,
+        message: "短時間に複数回作成されています。しばらく待ってください",
+      };
+    }
+
+    // request_id 一意（連打対策）
+    const { error: reqInsErr } = await admin.from("inquiry_draft_requests").insert({
+      inquiry_id: inquiry.id,
+      draft_request_id: requestId,
+      from_alias: input.fromAddress,
+      created_by: user.id,
+    });
+    if (reqInsErr) {
+      if (reqInsErr.code === "23505") {
+        return { ok: false, message: "同じ操作が処理中または完了済みです" };
+      }
+      return { ok: false, message: "下書き要求の記録に失敗しました" };
+    }
+
+    const {
+      buildInquiryReplyDraftBody,
+    } = await import("@/lib/inquiries/reply-template");
+    const { createGmailReplyDraft } = await import(
+      "@/lib/inquiries/apps-script-draft-client"
+    );
+
+    const body = buildInquiryReplyDraftBody({
+      companyName: inquiry.company_name,
+      senderName: inquiry.sender_name,
+      actorDisplayName: user.display_name,
+      messageText: inquiry.message_text,
+    });
+
+    const created = await createGmailReplyDraft({
+      gmailMessageId: inquiry.source_message_id,
+      fromAddress: input.fromAddress,
+      body,
+      requestId,
+    });
+    if (!created.ok) {
+      return { ok: false, message: created.message };
+    }
+
+    await auditInquiry({
+      action: "inquiry.reply_draft_created",
+      actorId: user.id,
+      actorName: user.display_name,
+      inquiryId: inquiry.id,
+      changed: {
+        draft_request_id: requestId,
+        from_alias_set: true,
+        // 本文は入れない
+      },
+    });
+
+    revalidatePath(`/inquiries/${input.inquiryId}`);
+    revalidatePath("/inquiries");
+    return { ok: true, message: "Gmailに返信下書きを作成しました" };
+  } catch (e) {
+    return toFailure(e);
+  }
+}
+
 export async function convertInquiryToActivityAction(input: {
   inquiryId: string;
   requestId: string;

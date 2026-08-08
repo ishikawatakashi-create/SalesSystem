@@ -3,13 +3,12 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { AuthError, requirePermission, requireUser } from "@/lib/auth/require";
+import { hasPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listInquiries } from "@/lib/inquiries/read-list";
-import {
-  INQUIRY_STATUS_LABELS,
-  type InquiryStatus,
-} from "@/lib/inquiries/types";
+import type { InquiryStatus } from "@/lib/inquiries/types";
 import { InquiryToolbar } from "@/features/inquiries/inquiry-toolbar";
+import { InquiryListControls } from "@/features/inquiries/inquiry-list-controls";
 import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { formatDateTime } from "@/features/customers/format";
 
@@ -28,18 +27,19 @@ export default async function InquiriesPage({
 }: {
   searchParams: Promise<RawParams>;
 }) {
+  let user;
   try {
-    const user = await requireUser();
+    user = await requireUser();
     requirePermission(user, "inquiry.view");
   } catch (e) {
     if (e instanceof AuthError) redirect("/login");
     throw e;
   }
 
+  const canEdit = hasPermission(user.role, "inquiry.edit");
   const raw = await searchParams;
   const tabParam = str(raw, "tab");
   const statusParam = str(raw, "status");
-  // ?status=new はタブ相当。詳細条件の status 上書きは tab 併用時のみ
   const { rows, total } = await listInquiries({
     tab: tabParam || statusParam || "open",
     q: str(raw, "q"),
@@ -55,9 +55,10 @@ export default async function InquiriesPage({
     .select("id,display_name")
     .eq("is_active", true)
     .order("display_name");
-  const nameById = new Map(
-    (users ?? []).map((u) => [u.id, u.display_name] as const),
-  );
+  const assignees = (users ?? []).map((u) => ({
+    id: u.id,
+    label: u.display_name,
+  }));
 
   return (
     <div className="space-y-3">
@@ -66,12 +67,7 @@ export default async function InquiriesPage({
         <span className="text-xs text-slate-500">{total}件</span>
       </div>
       <Suspense fallback={null}>
-        <InquiryToolbar
-          assignees={(users ?? []).map((u) => ({
-            id: u.id,
-            label: u.display_name,
-          }))}
-        />
+        <InquiryToolbar assignees={assignees} />
       </Suspense>
       {rows.length === 0 ? (
         <CompactEmptyState message="該当するお問い合わせはありません。" />
@@ -91,7 +87,10 @@ export default async function InquiriesPage({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
+                <tr
+                  key={r.id}
+                  className="border-t border-slate-100 hover:bg-slate-50"
+                >
                   <td className="whitespace-nowrap px-2 py-1.5">
                     <Link
                       href={`/inquiries/${r.id}`}
@@ -115,14 +114,13 @@ export default async function InquiriesPage({
                       </span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5">
-                    {r.assigned_user_id
-                      ? nameById.get(r.assigned_user_id) || "—"
-                      : "未割当"}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {INQUIRY_STATUS_LABELS[r.status as InquiryStatus] ?? r.status}
-                  </td>
+                  <InquiryListControls
+                    inquiryId={r.id}
+                    assignedUserId={r.assigned_user_id}
+                    status={r.status as InquiryStatus}
+                    canEdit={canEdit}
+                    assignees={assignees}
+                  />
                 </tr>
               ))}
             </tbody>

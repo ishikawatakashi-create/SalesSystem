@@ -10,7 +10,12 @@
  * 必要な Script Properties:
  * - SALES_SYSTEM_ENDPOINT  … https://.../api/integrations/inquiries/apps-script
  * - SALES_SYSTEM_INGEST_SECRET … SalesSystem の INQUIRY_APPS_SCRIPT_SECRET と同じ値
+ * - SALES_SYSTEM_DRAFT_SECRET … SalesSystem の INQUIRY_APPS_SCRIPT_DRAFT_SECRET と同じ値（下書き用・別secret）
  * - GMAIL_LABEL（任意）… 既定 "SalesSystem/お問い合わせ"
+ *
+ * 下書き Web App:
+ * - デプロイ: ウェブアプリ / 自分として実行 / アクセス: 全員（HMAC必須）
+ * - sendEmail / reply 送信は使わない（createDraftReply のみ）
  */
 
 var DEFAULT_LABEL = "SalesSystem/お問い合わせ";
@@ -28,6 +33,7 @@ function getProps_() {
   return {
     endpoint: (p.getProperty("SALES_SYSTEM_ENDPOINT") || "").trim(),
     secret: (p.getProperty("SALES_SYSTEM_INGEST_SECRET") || "").trim(),
+    draftSecret: (p.getProperty("SALES_SYSTEM_DRAFT_SECRET") || "").trim(),
     label: (p.getProperty("GMAIL_LABEL") || DEFAULT_LABEL).trim(),
   };
 }
@@ -614,6 +620,8 @@ function checkConfiguration() {
       endpoint_looks_https: props.endpoint.indexOf("https://") === 0,
       secret_set: !!props.secret,
       secret_length_ok: props.secret.length >= 16,
+      draft_secret_set: !!props.draftSecret,
+      draft_secret_length_ok: props.draftSecret.length >= 16,
       label_name: props.label,
       label_exists: !!label,
       trigger_exists: hasTrigger,
@@ -631,4 +639,158 @@ function checkConfiguration() {
         : { status: "idle", completed: false },
     }),
   );
+}
+
+// ---------- Gmail draft Web App (HMAC envelope) ----------
+
+var DRAFT_MAX_SKEW_MS_ = 5 * 60 * 1000;
+var DRAFT_NONCE_PROP_ = "DRAFT_USED_NONCES";
+
+function jsonResponse_(obj, code) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
+    ContentService.MimeType.JSON,
+  );
+}
+
+function verifyDraftEnvelope_(envelope, secret) {
+  if (!envelope || typeof envelope !== "object") {
+    return { ok: false, reason: "invalid_envelope" };
+  }
+  var ts = String(envelope.timestamp || "").trim();
+  var nonce = String(envelope.nonce || "").trim();
+  var payloadB64 = String(envelope.payload_b64 || "").trim();
+  var signature = String(envelope.signature || "").trim().toLowerCase();
+  if (!ts) return { ok: false, reason: "missing_timestamp" };
+  if (!nonce) return { ok: false, reason: "missing_nonce" };
+  if (!payloadB64) return { ok: false, reason: "missing_payload" };
+  if (!signature) return { ok: false, reason: "missing_signature" };
+
+  var t = Number(ts);
+  if (!isFinite(t)) return { ok: false, reason: "stale_timestamp" };
+  var ms = t < 1e12 ? t * 1000 : t;
+  if (Math.abs(Date.now() - ms) > DRAFT_MAX_SKEW_MS_) {
+    return { ok: false, reason: "stale_timestamp" };
+  }
+
+  var expected = toHex_(
+    Utilities.computeHmacSha256Signature(
+      ts + "." + nonce + "." + payloadB64,
+      secret,
+      Utilities.Charset.UTF_8,
+    ),
+  );
+  if (expected !== signature) return { ok: false, reason: "invalid_signature" };
+
+  // nonce replay（Script Properties に短時間保持）
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty(DRAFT_NONCE_PROP_) || "{}";
+  var map = {};
+  try {
+    map = JSON.parse(raw) || {};
+  } catch (e) {
+    map = {};
+  }
+  var now = Date.now();
+  Object.keys(map).forEach(function (k) {
+    if (now - Number(map[k]) > DRAFT_MAX_SKEW_MS_ * 2) delete map[k];
+  });
+  if (map[nonce]) return { ok: false, reason: "replay_nonce" };
+  map[nonce] = now;
+  props.setProperty(DRAFT_NONCE_PROP_, JSON.stringify(map));
+  return { ok: true };
+}
+
+function decodePayloadB64_(b64) {
+  var bytes = Utilities.base64Decode(b64);
+  var text = Utilities.newBlob(bytes).getDataAsString("UTF-8");
+  return JSON.parse(text);
+}
+
+function listSendAsAddresses_() {
+  var primary = Session.getActiveUser().getEmail();
+  var aliases = GmailApp.getAliases() || [];
+  var all = [];
+  if (primary) all.push(String(primary));
+  for (var i = 0; i < aliases.length; i++) {
+    var a = String(aliases[i] || "").trim();
+    if (a && all.indexOf(a) === -1) all.push(a);
+  }
+  return { primary: primary || null, aliases: all };
+}
+
+function createReplyDraft_(payload) {
+  var messageId = String(payload.gmail_message_id || "").trim();
+  var from = String(payload.from || "").trim();
+  var body = String(payload.body || "");
+  if (!messageId) return { error: "message_not_found" };
+  if (!from) return { error: "invalid_from" };
+
+  var allowed = listSendAsAddresses_();
+  var fromLower = from.toLowerCase();
+  var allowedHit = false;
+  for (var i = 0; i < allowed.aliases.length; i++) {
+    if (String(allowed.aliases[i]).toLowerCase() === fromLower) {
+      allowedHit = true;
+      from = String(allowed.aliases[i]);
+      break;
+    }
+  }
+  if (!allowedHit) {
+    return { error: "invalid_from" };
+  }
+
+  var message;
+  try {
+    message = GmailApp.getMessageById(messageId);
+  } catch (e) {
+    return { error: "message_not_found" };
+  }
+  if (!message) return { error: "message_not_found" };
+
+  var options = {};
+  // primary 以外は from 指定。primary も明示してよい
+  options.from = from;
+  // 送信は絶対にしない
+  message.createDraftReply(body, options);
+  return { status: "draft_created" };
+}
+
+/**
+ * Web App endpoint（SalesSystem server からのみ呼ぶ想定）。
+ * 本文・secret・signature はログしない。
+ */
+function doPost(e) {
+  try {
+    var props = getProps_();
+    if (!props.draftSecret || props.draftSecret.length < 16) {
+      return jsonResponse_({ error: "not_configured" });
+    }
+    var envelope = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    var verified = verifyDraftEnvelope_(envelope, props.draftSecret);
+    if (!verified.ok) {
+      return jsonResponse_({ error: "unauthorized", reason: verified.reason });
+    }
+    var payload = decodePayloadB64_(envelope.payload_b64);
+    var action = String(payload.action || "");
+    if (action === "list_aliases") {
+      var addrs = listSendAsAddresses_();
+      return jsonResponse_({
+        status: "ok",
+        primary: addrs.primary,
+        aliases: addrs.aliases,
+      });
+    }
+    if (action === "create_reply_draft") {
+      var created = createReplyDraft_(payload);
+      if (created.error) return jsonResponse_(created);
+      return jsonResponse_(created);
+    }
+    return jsonResponse_({ error: "unknown_action" });
+  } catch (err) {
+    return jsonResponse_({ error: "draft_failed" });
+  }
+}
+
+function doGet() {
+  return jsonResponse_({ error: "method_not_allowed" });
 }

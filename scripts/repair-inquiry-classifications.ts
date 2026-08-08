@@ -1,7 +1,8 @@
 /**
- * 既存 inquiries を subject だけで安全分類し、
- * 返信等を ingest_classification=ignored_non_source にする。
- * 物理削除しない。PII・本文はログしない。
+ * 既存 inquiries の分類修復（PII・本文なし）。
+ * - 返信 → ignored_non_source
+ * - 元通知件名なのに ignored → source へ復帰
+ * - 元通知で no_action かつ未割当・未リンク → new へ復帰（open一覧へ）
  *
  * Usage: npx tsx scripts/repair-inquiry-classifications.ts
  */
@@ -43,7 +44,9 @@ async function main() {
   const sb = createClient(url, key);
   const { data, error } = await sb
     .from("inquiries")
-    .select("id,subject,ingest_classification,parser_version")
+    .select(
+      "id,subject,status,ingest_classification,assigned_user_id,linked_customer_page_id,linked_contact_page_id,linked_activity_page_id",
+    )
     .order("received_at", { ascending: false })
     .limit(200);
   if (error) {
@@ -51,47 +54,81 @@ async function main() {
     process.exit(1);
   }
 
-  let ignored = 0;
-  let sourceKept = 0;
-  let already = 0;
+  let markedIgnored = 0;
+  let restoredSource = 0;
+  let reopenedNew = 0;
 
   for (const row of data ?? []) {
     const subject = (row.subject ?? "").trim();
     const isReply = REPLY_FWD_RE.test(subject);
     const isSourceSubject = SOURCE_SUBJECT_RE.test(subject);
 
-    if (isReply || !isSourceSubject) {
-      if (row.ingest_classification === "ignored_non_source") {
-        already += 1;
-        continue;
+    if (isReply) {
+      if (row.ingest_classification !== "ignored_non_source") {
+        const { error: upErr } = await sb
+          .from("inquiries")
+          .update({
+            ingest_classification: "ignored_non_source",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (upErr) {
+          console.log("update_error", upErr.code);
+          process.exit(1);
+        }
+        markedIgnored += 1;
       }
-      const { error: upErr } = await sb
-        .from("inquiries")
-        .update({
-          ingest_classification: "ignored_non_source",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", row.id);
-      if (upErr) {
-        console.log("update_error", upErr.code);
-        process.exit(1);
-      }
-      ignored += 1;
       continue;
     }
 
-    // 元通知: parser_version を 1 に下げて再pollで再parse可能に（既に2なら維持）
-    sourceKept += 1;
-    if ((row.parser_version ?? 1) >= 2) continue;
-    // 明示的に 1 のまま（default）。再POSTで updated される
+    if (isSourceSubject) {
+      if (row.ingest_classification !== "source") {
+        const { error: upErr } = await sb
+          .from("inquiries")
+          .update({
+            ingest_classification: "source",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (upErr) {
+          console.log("update_error", upErr.code);
+          process.exit(1);
+        }
+        restoredSource += 1;
+      }
+
+      // open一覧へ復帰（未割当・未リンクの no_action のみ）
+      if (
+        row.status === "no_action" &&
+        !row.assigned_user_id &&
+        !row.linked_customer_page_id &&
+        !row.linked_contact_page_id &&
+        !row.linked_activity_page_id
+      ) {
+        const { error: upErr } = await sb
+          .from("inquiries")
+          .update({
+            status: "new",
+            no_action_reason: null,
+            handled_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (upErr) {
+          console.log("update_error", upErr.code);
+          process.exit(1);
+        }
+        reopenedNew += 1;
+      }
+    }
   }
 
   console.log(
     JSON.stringify({
       scanned: data?.length ?? 0,
-      marked_ignored_non_source: ignored,
-      already_ignored: already,
-      source_subject_kept: sourceKept,
+      marked_ignored_non_source: markedIgnored,
+      restored_source_classification: restoredSource,
+      reopened_no_action_to_new: reopenedNew,
     }),
   );
 }

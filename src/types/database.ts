@@ -540,6 +540,19 @@ export type Database = {
       masters_cache: TableDef<MastersCacheRow>;
       inquiries: TableDef<InquiryRow>;
       gmail_oauth_states: TableDef<GmailOauthStateRow>;
+      inquiry_draft_requests: TableDef<{
+        id: string;
+        inquiry_id: string;
+        draft_request_id: string;
+        from_alias: string | null;
+        created_by: string | null;
+        created_at: string;
+      }>;
+      apps_script_request_nonces: TableDef<{
+        nonce: string;
+        purpose: string;
+        created_at: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: {

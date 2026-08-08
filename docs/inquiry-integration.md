@@ -115,7 +115,27 @@ Strikingly 解析・返信除外・再parse（`parser_version`）・割当・顧
 | duplicate | 正常（no-op） |
 | Apps Script `local_throw` | 多くは `getDate().toISOString` 不備。最新 Code.gs の `toIso8601_` を使用 |
 
+## Gmail 返信下書き（Web App）
+
+mailto / ブラウザ compose ではなく、Apps Script Web App 経由で **下書きのみ**作成する。
+
+```
+SalesSystem（inquiry.edit）
+  → 署名付き envelope（HMAC）
+  → Apps Script doPost
+  → GmailApp.getMessageById + createDraftReply
+```
+
+- Script Property: `SALES_SYSTEM_DRAFT_SECRET`（ingest secret とは別）
+- Server env: `INQUIRY_APPS_SCRIPT_DRAFT_URL` / `INQUIRY_APPS_SCRIPT_DRAFT_SECRET`
+- 送信元は primary + `GmailApp.getAliases()` のみ（自由入力不可）
+- `sendEmail` / `reply` / Gmail API send は使わない
+- 下書き作成だけでは status を `done` にしない
+- 一覧では担当・状態を inline 変更可能（既存 Server Action / audit）
+
 ## 環境変数（名前のみ）
 
 - `INQUIRY_APPS_SCRIPT_SECRET`（server-only）
+- `INQUIRY_APPS_SCRIPT_DRAFT_URL`（server-only）
+- `INQUIRY_APPS_SCRIPT_DRAFT_SECRET`（server-only）
 - `NEXT_PUBLIC_APP_URL`（endpoint 組み立て用・任意）

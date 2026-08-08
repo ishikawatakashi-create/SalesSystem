@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isReplyOrForwardSubject,
   isStrikinglySourceNotification,
+  isStrikinglySourceSubject,
   parseStrikinglyNotificationMail,
   selectParseBody,
   STRIKINGLY_PARSER_VERSION,
@@ -85,12 +86,19 @@ export async function ingestInquiryFromMail(
     .maybeSingle();
 
   if (requireStrikingly && !isSource) {
-    const reason = isReplyOrForwardSubject(input.subject)
+    const reply = isReplyOrForwardSubject(input.subject);
+    const sourceSubject = isStrikinglySourceSubject(input.subject);
+    const reason = reply
       ? "reply_or_forward"
-      : "not_strikingly";
-    // 既に誤取込済みなら一覧除外マーク（物理削除しない）
+      : sourceSubject
+        ? "source_body_incomplete"
+        : "not_strikingly";
+
+    // 返信等のみ ignored へ。元通知件名の既存 row は絶対に demote しない
+    // （body 一時欠落や問い合わせ者メールドメインで source を消さない）
     if (
       existing &&
+      reply &&
       (existing as InquiryRow).ingest_classification !== "ignored_non_source"
     ) {
       await admin
@@ -101,6 +109,30 @@ export async function ingestInquiryFromMail(
         })
         .eq("id", (existing as InquiryRow).id);
     }
+
+    // 元通知件名の既存があれば classification を source に戻し duplicate 扱いで守る
+    if (existing && sourceSubject) {
+      const row = existing as InquiryRow;
+      if (row.ingest_classification !== "source") {
+        await admin
+          .from("inquiries")
+          .update({
+            ingest_classification: "source",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        const { data: restored } = await admin
+          .from("inquiries")
+          .select("*")
+          .eq("id", row.id)
+          .maybeSingle();
+        if (restored) {
+          return { status: "duplicate", inquiry: restored as InquiryRow };
+        }
+      }
+      return { status: "duplicate", inquiry: row };
+    }
+
     return { status: "skipped", reason };
   }
 

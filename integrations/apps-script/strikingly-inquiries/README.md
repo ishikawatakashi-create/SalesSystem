@@ -100,6 +100,20 @@ plain が欠落する場合は `html_body` を transient 送信（DB 非保存�
 
 完了後にやり直す場合のみ `resetBackfillProgress` → 再度 `backfillStrikinglyInquiries`。
 
+## Gmail 返信下書き（Web App）
+
+1. Script Property に `SALES_SYSTEM_DRAFT_SECRET` を追加（ingest secret とは別）
+2. `appsscript.json` / `Code.gs` を最新化
+3. 初回実行で **再authorization**（Gmail compose スコープ）
+4. デプロイ → ウェブアプリ  
+   - 実行ユーザー: 自分  
+   - アクセスできるユーザー: 全員（HMAC必須）
+5. デプロイ URL を Vercel `INQUIRY_APPS_SCRIPT_DRAFT_URL` へ  
+   secret を `INQUIRY_APPS_SCRIPT_DRAFT_SECRET` へ
+6. `/inquiries/[id]` で送信元選択 → 「Gmail返信下書きを作成」
+
+`sendEmail` / `reply` 送信は使いません。`createDraftReply` のみ。
+
 ## トラブルシュート
 
 | 症状 | 確認 |

@@ -86,6 +86,13 @@ export function isReplyOrForwardSubject(subject?: string | null): boolean {
   return REPLY_FWD_SUBJECT_RE.test((subject ?? "").trim());
 }
 
+/** 件名だけでの元通知判定（問い合わせ者メールドメインは見ない） */
+export function isStrikinglySourceSubject(subject?: string | null): boolean {
+  const s = (subject ?? "").trim();
+  if (!s || isReplyOrForwardSubject(s)) return false;
+  return SOURCE_SUBJECT_RE.test(s);
+}
+
 export function hasLabelSentinel(body: string, label: string): boolean {
   const re = new RegExp(
     `(^|\\n)\\s*${escapeRegExp(label)}\\s*[:：]?\\s*($|\\n)`,
@@ -112,10 +119,8 @@ export function isStrikinglySourceNotification(input: {
   from?: string | null;
   body?: string | null;
 }): boolean {
-  const subject = (input.subject ?? "").trim();
-  if (!subject) return false;
-  if (isReplyOrForwardSubject(subject)) return false;
-  if (!SOURCE_SUBJECT_RE.test(subject)) return false;
+  // from / 問い合わせ者メールドメインは判定に使わない
+  if (!isStrikinglySourceSubject(input.subject)) return false;
 
   const body = input.body ?? "";
   const required = [

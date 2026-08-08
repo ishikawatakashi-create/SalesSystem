@@ -11,6 +11,8 @@ import {
   type InquiryStatus,
 } from "@/lib/inquiries/types";
 import { InquiryActionsPanel } from "@/features/inquiries/inquiry-actions-panel";
+import { InquiryReplyDraftPanel } from "@/features/inquiries/inquiry-reply-draft-panel";
+import { isDraftIntegrationConfigured } from "@/lib/inquiries/apps-script-draft-client";
 import { formatDateTime } from "@/features/customers/format";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
@@ -51,11 +53,6 @@ export default async function InquiryDetailPage({
     .select("id,display_name")
     .eq("is_active", true)
     .order("display_name");
-
-  const mailto = inquiry.reply_to_email || inquiry.sender_email;
-  const mailtoHref = mailto
-    ? `mailto:${encodeURIComponent(mailto)}?subject=${encodeURIComponent(`Re: ${inquiry.subject || ""}`)}`
-    : null;
 
   const basicFormKeys = new Set([
     "フリガナ",
@@ -193,7 +190,12 @@ export default async function InquiryDetailPage({
             )}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="space-y-3 lg:col-span-2">
+          <InquiryReplyDraftPanel
+            inquiryId={inquiry.id}
+            canEdit={canEdit}
+            draftConfigured={isDraftIntegrationConfigured()}
+          />
           <InquiryActionsPanel
             inquiryId={inquiry.id}
             status={inquiry.status as InquiryStatus}
@@ -208,7 +210,6 @@ export default async function InquiryDetailPage({
               label: u.display_name,
             }))}
             candidates={candidates}
-            mailtoHref={mailtoHref}
           />
         </div>
       </div>

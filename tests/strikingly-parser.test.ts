@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isReplyOrForwardSubject,
   isStrikinglySourceNotification,
+  isStrikinglySourceSubject,
   parseStrikinglyNotificationMail,
   selectParseBody,
 } from "@/lib/inquiries/parser-strikingly";
@@ -64,6 +65,15 @@ describe("isStrikinglySourceNotification / reply exclusion", () => {
         body: "no sentinels",
       }),
     ).toBe(false);
+  });
+
+  it("source subject 判定はメールドメイン非依存", () => {
+    expect(
+      isStrikinglySourceSubject("テスト はあなたのサイトにコメントしました"),
+    ).toBe(true);
+    expect(isStrikinglySourceSubject("Re: テスト はあなたのサイトにコメントしました")).toBe(
+      false,
+    );
   });
 });
 
