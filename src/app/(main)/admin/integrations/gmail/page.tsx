@@ -63,7 +63,9 @@ export default async function InquiryIngestAdminPage() {
           <li>
             過去取込は Apps Script で{" "}
             <code className="font-mono">backfillStrikinglyInquiries</code>{" "}
-            を手動実行（自動開始しない）
+            を手動実行（自動開始しない）。必要十分なら{" "}
+            <code className="font-mono">stopBackfillByUser</code>{" "}
+            で停止（cursor 保持・全期間完了は不要）
           </li>
           <li>旧 Pub/Sub / Gmail OAuth 方式は廃止済み（DBメタは残置）</li>
         </ul>

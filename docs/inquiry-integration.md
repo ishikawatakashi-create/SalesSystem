@@ -87,6 +87,12 @@ Server:
 - DB: `inquiries.historical_import`。status は `new` のまま
 - nav / mydesk 新着 badge は `historical_import = false` のみ集計
 - 自動で顧客・Contact・Activity・Notion 投入はしない
+- **全期間完了は必須ではない。** 必要十分なら `stopBackfillByUser()` で停止
+  - `status=stopped_by_user`（または chunk 間の `paused`）
+  - cursor / processed・accepted・duplicate・skipped・failed を保持
+  - `completed=true` にはしない
+  - 通常 5 分 polling へ影響しない
+  - 再開時は既存 cursor から継続
 
 ## Parser / business
 

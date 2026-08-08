@@ -7,8 +7,10 @@ import { toIso8601FromDateLike } from "@/lib/inquiries/apps-script-date";
 import { isInquiryBadgeEligible } from "@/lib/inquiries/types";
 import {
   applyBackfillPageResult,
+  canResumeBackfill,
   createBackfillProgress,
   recordRetryableFailure,
+  stopBackfillByUser,
 } from "@/lib/inquiries/apps-script-backfill-state";
 import { signInquiryRequest } from "@/lib/inquiries/apps-script-hmac";
 
@@ -138,7 +140,7 @@ describe("badge eligibility", () => {
 });
 
 describe("backfill progress continuation", () => {
-  it("chunk 後に offset が進み running のまま", () => {
+  it("chunk 後に offset が進み paused（running 残留しない）", () => {
     const p0 = createBackfillProgress();
     const p1 = applyBackfillPageResult(p0, {
       threadsInPage: 20,
@@ -148,7 +150,7 @@ describe("backfill progress continuation", () => {
       delta: { processed: 40, accepted: 10, duplicate: 5, skipped: 25 },
     });
     expect(p1.thread_offset).toBe(15);
-    expect(p1.status).toBe("running");
+    expect(p1.status).toBe("paused");
     expect(p1.completed).toBe(false);
     expect(p1.accepted).toBe(10);
     expect(p1.skipped).toBe(25);
@@ -197,6 +199,31 @@ describe("backfill progress continuation", () => {
     expect(p1.thread_offset).toBe(10);
     expect(p1.failed).toBe(1);
     expect(p1.completed).toBe(false);
+    expect(p1.status).toBe("paused");
+  });
+
+  it("人間停止は cursor/件数を保持し completed にしない", () => {
+    let p = createBackfillProgress();
+    p = applyBackfillPageResult(p, {
+      threadsInPage: 20,
+      threadsFullyHandled: 10,
+      pageSize: 20,
+      stopEarly: true,
+      delta: { processed: 40, accepted: 12, duplicate: 8, skipped: 20 },
+    });
+    // 旧 running 取り残しも停止可
+    p = { ...p, status: "running" };
+    const stopped = stopBackfillByUser(p);
+    expect(stopped).not.toBeNull();
+    if (!stopped) return;
+    expect(stopped.status).toBe("stopped_by_user");
+    expect(stopped.completed).toBe(false);
+    expect(stopped.thread_offset).toBe(10);
+    expect(stopped.processed).toBe(40);
+    expect(stopped.accepted).toBe(12);
+    expect(stopped.duplicate).toBe(8);
+    expect(stopped.skipped).toBe(20);
+    expect(canResumeBackfill(stopped)).toBe(true);
   });
 
   it("completed 後の再適用は完了のまま", () => {

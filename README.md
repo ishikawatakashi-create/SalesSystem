@@ -7,7 +7,7 @@
 
 ## 現在の状態
 
-**Phase 11(お問い合わせ受信箱 / Apps Script 取込)実装済み。** Gmail label + Apps Script 設定は人間操作後。詳細は [docs/inquiry-integration.md](./docs/inquiry-integration.md)。
+**Phase 11(お問い合わせ受信箱 / Apps Script 取込)完了。** 5分 polling・返信除外・一覧操作・Gmail返信下書き。過去 backfill は必要十分な期間までの partial stop 可（全期間完了は非必須）。詳細は [docs/inquiry-integration.md](./docs/inquiry-integration.md)。
 
 - Production: `https://sales-system-weld.vercel.app`
 - 主要URL: `/` / `/inquiries` / `/customers` / `/deals` / `/admin/sync` / `/admin/imports`

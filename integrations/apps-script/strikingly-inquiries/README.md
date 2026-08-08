@@ -73,7 +73,8 @@ plain が欠落する場合は `html_body` を transient 送信（DB 非保存�
 
 1. `backfillStrikinglyInquiries` を **明示実行**（自動開始しない）
 2. 1 回あたり約 40 message まで処理して停止
-3. ログ例: `backfill=running ... processed=... accepted=... duplicate=... skipped=... failed=...`
+3. 実行中のみ `status=running`。chunk 終了後は `paused`（実行中と誤認しない）
+4. ログ例: `backfill=paused ... processed=... accepted=... duplicate=... skipped=... failed=...`
 
 対象:
 
@@ -82,23 +83,39 @@ plain が欠落する場合は `html_body` を transient 送信（DB 非保存�
 - From 単独には依存しない
 - server 側 parser でも最終判定。非 Strikingly は insert せず skip
 
-### 7. progress 確認
+### 7. progress 確認 / 人間停止
 
 - `getBackfillStatus` または `checkConfiguration` の `backfill_status`
-- 確認項目: `status` / `processed` / `accepted` / `duplicate` / `skipped` / `failed` / `completed`
+- 確認項目: `status` / `processed` / `accepted` / `duplicate` / `skipped` / `failed` / `completed` / `thread_offset`
 - 本文・メール・電話・secret はログに出ません
 
-続きがあるときは **もう一度** `backfillStrikinglyInquiries` を実行（Script Properties の cursor から再開）。
+**必要十分な期間まで取り込んだら全期間完了を待たず停止してよい。**
 
-### 8. 完了確認
+1. Apps Script で `stopBackfillByUser` を実行
+2. `status=stopped_by_user` / `completed=false` / cursor・件数は保持
+3. 通常 5 分 polling はそのまま継続
+4. 将来の再開: 再度 `backfillStrikinglyInquiries`（既存 cursor から継続）
+
+`resetBackfillProgress` は cursor を消すので日常停止には使わない。
+
+続きがあるとき（paused）は **もう一度** `backfillStrikinglyInquiries` を実行。
+
+### 8. 完了確認（任意）
+
+全期間を取り切った場合のみ:
 
 1. ログが `backfill=completed` または `completed: true`
 2. `/inquiries` で過去分が **元の受信日時順** で並ぶこと
-3. 過去取込は一覧に「過去取込」表示、**新着 badge には含めない**
-4. status は勝手に対応済へ変更されない（`new` のまま受信箱に蓄積）
-5. 顧客/担当/履歴への自動昇格はしない
 
-完了後にやり直す場合のみ `resetBackfillProgress` → 再度 `backfillStrikinglyInquiries`。
+Phase 11 完了条件に「全期間 backfill 完了」は含めない。  
+partial stop（`stopped_by_user`）で十分。
+
+共通確認:
+
+- 過去取込は一覧に「過去取込」表示、**新着 badge には含めない**
+- status は勝手に対応済へ変更されない
+- 顧客/担当/履歴への自動昇格はしない
+- 過去問い合わせは削除しない
 
 ## Gmail 返信下書き（Web App）
 

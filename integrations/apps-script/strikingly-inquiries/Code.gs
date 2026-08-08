@@ -6,6 +6,7 @@
  * - Gmail の既読化・削除・label 変更・archive は一切しない（read-only 動作）
  * - 問い合わせ本文・メールアドレス・電話・secret を Logger に出さない
  * - backfill は自動開始しない。人間が backfillStrikinglyInquiries() を実行したときだけ
+ * - partial 停止は stopBackfillByUser()（cursor/件数保持・completed にしない）
  *
  * 必要な Script Properties:
  * - SALES_SYSTEM_ENDPOINT  … https://.../api/integrations/inquiries/apps-script
@@ -376,7 +377,7 @@ function setupTrigger() {
 
 function defaultBackfillProgress_() {
   return {
-    status: "running",
+    status: "paused",
     thread_offset: 0,
     processed: 0,
     accepted: 0,
@@ -384,6 +385,7 @@ function defaultBackfillProgress_() {
     skipped: 0,
     failed: 0,
     completed: false,
+    stopped_reason: null,
   };
 }
 
@@ -438,8 +440,10 @@ function backfillStrikinglyInquiries() {
     return;
   }
 
+  // paused / stopped_by_user / 旧 running から再開可。実行中のみ running。
   progress.status = "running";
   progress.completed = false;
+  progress.stopped_reason = null;
 
   var query = 'label:"' + props.label.replace(/"/g, "") + '"';
   var threads = GmailApp.search(
@@ -539,8 +543,10 @@ function backfillStrikinglyInquiries() {
   if (!stopEarly && threads.length < BACKFILL_THREAD_PAGE) {
     progress.status = "completed";
     progress.completed = true;
+    progress.stopped_reason = null;
   } else {
-    progress.status = "running";
+    // 実処理終了後は paused（running のまま残さない）
+    progress.status = "paused";
     progress.completed = false;
   }
 
@@ -568,6 +574,48 @@ function backfillStrikinglyInquiries() {
   );
 }
 
+/**
+ * 人間判断で partial backfill を停止する。
+ * cursor / 件数は保持。completed=true にはしない。通常 polling には影響しない。
+ * 旧 status=running の取り残しにも使う。
+ */
+function stopBackfillByUser() {
+  var progress = loadBackfillProgress_();
+  if (!progress) {
+    Logger.log('backfill=stop_noop reason=no_progress status=idle');
+    return;
+  }
+  if (progress.completed || progress.status === "completed") {
+    Logger.log(
+      "backfill=already_completed processed=" +
+        (progress.processed || 0) +
+        " accepted=" +
+        (progress.accepted || 0),
+    );
+    return;
+  }
+  progress.status = "stopped_by_user";
+  progress.completed = false;
+  progress.stopped_reason = "human_partial_stop";
+  saveBackfillProgress_(progress);
+  Logger.log(
+    "backfill=stopped_by_user" +
+      " thread_offset=" +
+      (progress.thread_offset || 0) +
+      " processed=" +
+      (progress.processed || 0) +
+      " accepted=" +
+      (progress.accepted || 0) +
+      " duplicate=" +
+      (progress.duplicate || 0) +
+      " skipped=" +
+      (progress.skipped || 0) +
+      " failed=" +
+      (progress.failed || 0) +
+      " completed=false",
+  );
+}
+
 /** progress 確認（PII なし） */
 function getBackfillStatus() {
   var progress = loadBackfillProgress_();
@@ -586,11 +634,12 @@ function getBackfillStatus() {
         failed: progress.failed || 0,
         completed: !!progress.completed,
         thread_offset: progress.thread_offset || 0,
+        stopped_reason: progress.stopped_reason || null,
       }),
   );
 }
 
-/** 完了後に再 backfill する場合のみ。通常は不要 */
+/** 完了後に再 backfill する場合のみ。通常は不要。cursor を消すので日常停止には使わない */
 function resetBackfillProgress() {
   PropertiesService.getScriptProperties().deleteProperty(BACKFILL_PROP);
   Logger.log("backfill=reset");
@@ -635,6 +684,8 @@ function checkConfiguration() {
             skipped: bf.skipped || 0,
             failed: bf.failed || 0,
             completed: !!bf.completed,
+            thread_offset: bf.thread_offset || 0,
+            stopped_reason: bf.stopped_reason || null,
           }
         : { status: "idle", completed: false },
     }),
