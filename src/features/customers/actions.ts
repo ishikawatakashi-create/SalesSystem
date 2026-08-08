@@ -61,7 +61,23 @@ export async function createCustomerAction(input: {
     }
 
     const admin = createAdminClient();
-    const write = await prepareCustomerWrite({ data: input.data, db: admin });
+    let write = await prepareCustomerWrite({ data: input.data, db: admin });
+    // legacy/API互換: 関係性未指定なら customer を default
+    if ((write.relationshipPageIds ?? []).length === 0) {
+      const { findRelationshipMasterPageId } = await import(
+        "@/lib/organizations/resolve-relationship-semantics"
+      );
+      const { DEFAULT_ORGANIZATION_RELATIONSHIP_SEMANTIC_KEY } = await import(
+        "@/lib/organizations/relationship"
+      );
+      const defaultId = await findRelationshipMasterPageId(
+        admin,
+        DEFAULT_ORGANIZATION_RELATIONSHIP_SEMANTIC_KEY,
+      );
+      if (defaultId) {
+        write = { ...write, relationshipPageIds: [defaultId] };
+      }
+    }
 
     const result = await customerCreate({
       requestId: input.requestId,
@@ -119,6 +135,7 @@ export async function updateCustomerAction(input: {
         current: {
           businessCategoryPageIds: current.businessCategoryPageIds,
           tagPageIds: current.tagPageIds,
+          relationshipPageIds: current.relationshipPageIds ?? [],
           salesStatusPageId: current.salesStatusPageId,
           acquisitionRoutePageId: current.acquisitionRoutePageId,
           priorityPageId: current.priorityPageId,

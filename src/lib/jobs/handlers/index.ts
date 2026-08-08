@@ -5,6 +5,7 @@ import {
   recalculateCustomerNextActionHandler,
   recalculateDealNextActionHandler,
 } from "@/lib/jobs/handlers/recalculate-next-action";
+import { backfillDefaultRelationshipHandler } from "@/lib/jobs/handlers/backfill-default-relationship";
 import { reconciliationHandler } from "@/lib/jobs/handlers/reconciliation";
 import { syncRepairHandler } from "@/lib/jobs/handlers/sync-repair";
 import { webhookSyncHandler } from "@/lib/jobs/handlers/webhook-sync";
@@ -45,6 +46,10 @@ registerJobHandler(
 registerJobHandler(
   "customer.recalculate_next_action",
   recalculateCustomerNextActionHandler,
+);
+registerJobHandler(
+  "customer.backfill_default_relationship",
+  backfillDefaultRelationshipHandler,
 );
 registerJobHandler(
   "deal.recalculate_next_action",

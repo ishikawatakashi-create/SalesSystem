@@ -87,7 +87,7 @@ Supabaseはレガシーの `anon` / `service_role` キー(JWT形式)を廃止予
 
 ### Notionに保存する(正本)
 
-顧客アカウント / 顧客担当者 / 案件 / 対応履歴 / 契約 / クレーム / **次回アクション** / 営業マスタ / 自社担当者マスタ(計9データベース。[notion-schema.md](./notion-schema.md))
+顧客アカウント(= product 上の「組織」。technical entity は customer。[ADR 0001](./adr/0001-organization-over-customer-entity.md)) / 顧客担当者 / 案件 / 対応履歴 / 契約 / クレーム / **次回アクション** / 営業マスタ / 自社担当者マスタ(計9データベース。[notion-schema.md](./notion-schema.md))
 
 ### Supabaseに保存する(正本ではない)
 

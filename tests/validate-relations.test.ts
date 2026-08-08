@@ -80,6 +80,7 @@ function input(
     website: null,
     businessCategoryPageIds: [],
     tagPageIds: [],
+    relationshipPageIds: [],
     salesStatusPageId: null,
     acquisitionRoutePageId: null,
     priorityPageId: null,
@@ -174,6 +175,7 @@ describe("validateCustomerRelations", () => {
         current: {
           businessCategoryPageIds: [],
           tagPageIds: [],
+          relationshipPageIds: [],
           salesStatusPageId: M.statusInactive,
           acquisitionRoutePageId: null,
           priorityPageId: null,
@@ -253,6 +255,7 @@ describe("validateCustomerRelations", () => {
         current: {
           businessCategoryPageIds: [],
           tagPageIds: [],
+          relationshipPageIds: [],
           salesStatusPageId: null,
           acquisitionRoutePageId: null,
           priorityPageId: null,
@@ -311,6 +314,7 @@ describe("validateCustomerRelations", () => {
         current: {
           businessCategoryPageIds: [],
           tagPageIds: [],
+          relationshipPageIds: [],
           salesStatusPageId: null,
           acquisitionRoutePageId: null,
           priorityPageId: null,

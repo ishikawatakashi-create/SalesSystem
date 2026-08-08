@@ -47,7 +47,7 @@ export function CustomerDealsSection({
         </span>
         {canEditDeal && !customerArchived && deals.length > 0 && (
           <Link
-            href={`/customers/${customerPageId}/deals/new`}
+            href={`/organizations/${customerPageId}/deals/new`}
             className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
           >
             追加
@@ -60,7 +60,7 @@ export function CustomerDealsSection({
             message="案件はまだありません。"
             actionHref={
               canEditDeal && !customerArchived
-                ? `/customers/${customerPageId}/deals/new`
+                ? `/organizations/${customerPageId}/deals/new`
                 : undefined
             }
             actionLabel={

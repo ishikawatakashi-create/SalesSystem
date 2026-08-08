@@ -41,6 +41,11 @@ export async function listCustomers(
   if (query.businessCategoryId) {
     q = q.contains("business_category_ids", [query.businessCategoryId]);
   }
+  if (query.relationshipSemanticKey) {
+    q = q.contains("relationship_semantic_keys", [
+      query.relationshipSemanticKey,
+    ]);
+  }
   if (query.staffUserId) {
     q = q.contains("staff_user_ids", [query.staffUserId]);
   }

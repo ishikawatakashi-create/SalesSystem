@@ -11,6 +11,7 @@ export type NavGroupId =
 export function resolveNavGroup(pathname: string): NavGroupId {
   if (!pathname || pathname === "/") return "mydesk";
   if (
+    pathname.startsWith("/organizations") ||
     pathname.startsWith("/customers") ||
     pathname.startsWith("/contacts")
   ) {

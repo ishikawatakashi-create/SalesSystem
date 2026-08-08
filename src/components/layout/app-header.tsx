@@ -67,11 +67,23 @@ export function AppHeader({
             マイデスク
           </Link>
           <NavDropdown
-            label="顧客"
+            label="組織"
             active={group === "customers"}
             items={[
-              { href: "/customers", label: "顧客一覧" },
-              { href: "/contacts", label: "先方担当者一覧" },
+              { href: "/organizations", label: "すべての組織" },
+              { href: "/organizations?relationship=customer", label: "顧客" },
+              { href: "/organizations?relationship=prospect", label: "見込顧客" },
+              { href: "/organizations?relationship=media", label: "メディア" },
+              {
+                href: "/organizations?relationship=municipality",
+                label: "自治体",
+              },
+              {
+                href: "/organizations?relationship=education_research",
+                label: "学校・研究",
+              },
+              { href: "/organizations?relationship=partner", label: "パートナー" },
+              { href: "/contacts", label: "担当者" },
             ]}
           />
           <Link href="/deals" className={navLinkClass(group === "deals")}>

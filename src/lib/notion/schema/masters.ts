@@ -105,6 +105,15 @@ export const INITIAL_MASTERS: InitialMasterSeed[] = [
   m("アクション状態", "未完了", 10, { semanticKey: "open" }),
   m("アクション状態", "完了", 20, { semanticKey: "done" }),
   m("アクション状態", "取消", 30, { semanticKey: "cancelled" }),
+  // 関係性（product: Organization relationships / technical entity: customer）
+  m("関係性", "顧客", 10, { semanticKey: "customer" }),
+  m("関係性", "見込顧客", 20, { semanticKey: "prospect" }),
+  m("関係性", "メディア", 30, { semanticKey: "media" }),
+  m("関係性", "自治体", 40, { semanticKey: "municipality" }),
+  m("関係性", "学校・研究機関", 50, { semanticKey: "education_research" }),
+  m("関係性", "パートナー", 60, { semanticKey: "partner" }),
+  m("関係性", "仕入先", 70, { semanticKey: "supplier" }),
+  m("関係性", "その他", 80, { semanticKey: "other" }),
 ];
 
 function m(

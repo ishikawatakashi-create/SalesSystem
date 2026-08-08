@@ -21,6 +21,7 @@ function sample(over: Partial<CustomerWriteInput> = {}): CustomerWriteInput {
     website: "https://example.com",
     businessCategoryPageIds: ["b2", "b1"],
     tagPageIds: [],
+    relationshipPageIds: [],
     salesStatusPageId: "s1",
     acquisitionRoutePageId: null,
     priorityPageId: null,

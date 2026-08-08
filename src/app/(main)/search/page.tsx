@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/ui/state-messages";
+import { RelationshipBadges } from "@/features/organizations/relationship-badges";
 import { AuthError } from "@/lib/auth/require";
 import { globalSearch } from "@/lib/search/global-search";
 import {
@@ -130,6 +131,15 @@ export default async function SearchPage({
                           </span>
                         )}
                       </span>
+                      {hit.relationshipSemanticKeys &&
+                        hit.relationshipSemanticKeys.length > 0 && (
+                          <span className="mt-0.5">
+                            <RelationshipBadges
+                              keys={hit.relationshipSemanticKeys}
+                              empty={null}
+                            />
+                          </span>
+                        )}
                       {hit.subtitle && (
                         <span className="text-[11px] text-slate-500">
                           {hit.subtitle}

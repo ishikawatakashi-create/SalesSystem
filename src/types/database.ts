@@ -235,6 +235,8 @@ export type CustomerIndexRow = {
   website: string | null;
   business_category_ids: string[];
   tag_ids: string[];
+  relationship_ids: string[];
+  relationship_semantic_keys: string[];
   sales_status_id: string | null;
   acquisition_route_id: string | null;
   priority_id: string | null;

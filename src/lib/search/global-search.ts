@@ -63,7 +63,7 @@ export async function globalSearch(
     supabase
       .from("customer_index")
       .select(
-        "notion_page_id,display_name,legal_name,phone,email,is_archived",
+        "notion_page_id,display_name,legal_name,phone,email,is_archived,relationship_semantic_keys",
       )
       .or(
         [
@@ -191,14 +191,16 @@ export async function globalSearch(
         phone: string | null;
         email: string | null;
         is_archived: boolean;
+        relationship_semantic_keys: string[] | null;
       }>
     ).map((r) => ({
       entity: "customers" as const,
       pageId: r.notion_page_id,
       title: r.display_name || "(無題)",
       subtitle: [r.legal_name, r.phone, r.email].filter(Boolean).join(" / ") || null,
-      href: `/customers/${r.notion_page_id}`,
+      href: `/organizations/${r.notion_page_id}`,
       isArchived: r.is_archived,
+      relationshipSemanticKeys: r.relationship_semantic_keys ?? [],
     })),
   );
 

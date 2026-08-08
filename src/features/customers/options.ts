@@ -32,6 +32,7 @@ export type RelatedCustomerOption = {
 export type CustomerFormOptions = {
   businessCategories: MasterOption[];
   tags: MasterOption[];
+  relationships: MasterOption[];
   salesStatuses: MasterOption[];
   acquisitionRoutes: MasterOption[];
   priorities: MasterOption[];
@@ -45,6 +46,7 @@ const MASTER_TYPE_TO_KEY: Record<
     CustomerFormOptions,
     | "businessCategories"
     | "tags"
+    | "relationships"
     | "salesStatuses"
     | "acquisitionRoutes"
     | "priorities"
@@ -52,6 +54,7 @@ const MASTER_TYPE_TO_KEY: Record<
 > = {
   事業区分: "businessCategories",
   タグ: "tags",
+  関係性: "relationships",
   営業ステータス: "salesStatuses",
   集客ルート: "acquisitionRoutes",
   優先度: "priorities",
@@ -71,6 +74,7 @@ export async function loadCustomerFormOptions(input?: {
       ? [
           ...current.businessCategoryPageIds,
           ...current.tagPageIds,
+          ...(current.relationshipPageIds ?? []),
           ...(current.salesStatusPageId ? [current.salesStatusPageId] : []),
           ...(current.acquisitionRoutePageId
             ? [current.acquisitionRoutePageId]
@@ -107,6 +111,7 @@ export async function loadCustomerFormOptions(input?: {
   const options: CustomerFormOptions = {
     businessCategories: [],
     tags: [],
+    relationships: [],
     salesStatuses: [],
     acquisitionRoutes: [],
     priorities: [],

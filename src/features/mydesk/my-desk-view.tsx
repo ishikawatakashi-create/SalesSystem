@@ -84,7 +84,7 @@ function TodoActionTable({
             <th className="px-2 py-1.5 font-medium">区分</th>
             <th className="px-2 py-1.5 font-medium">期限</th>
             <th className="px-2 py-1.5 font-medium">内容</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
             <th className="px-2 py-1.5 font-medium">案件</th>
             {canEditActions && (
               <th className="px-2 py-1.5 font-medium">操作</th>
@@ -131,7 +131,7 @@ function TodoActionTable({
                 <td className="max-w-36 truncate px-2 py-1.5">
                   {row.customerPageId ? (
                     <Link
-                      href={`/customers/${row.customerPageId}`}
+                      href={`/organizations/${row.customerPageId}`}
                       className="text-primary hover:underline"
                     >
                       {row.customerName ?? "(不明)"}
@@ -256,10 +256,10 @@ export function MyDeskView({
         </div>
         <div className="flex items-center gap-2 text-xs">
           <Link
-            href="/customers/new"
+            href="/organizations/new"
             className="rounded border border-slate-300 bg-white px-2 py-1 hover:bg-slate-50"
           >
-            +新規顧客
+            +新規組織
           </Link>
           <Link
             href="/actions/new"
@@ -381,7 +381,7 @@ export function MyDeskView({
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                   <th className="px-2 py-1.5 font-medium">案件</th>
-                  <th className="px-2 py-1.5 font-medium">顧客</th>
+                  <th className="px-2 py-1.5 font-medium">組織</th>
                   <th className="px-2 py-1.5 font-medium">状態</th>
                   <th className="px-2 py-1.5 font-medium">ステージ</th>
                   <th className="px-2 py-1.5 font-medium">見込み</th>
@@ -405,7 +405,7 @@ export function MyDeskView({
                     <td className="max-w-36 truncate px-2 py-1.5">
                       {d.customerPageId ? (
                         <Link
-                          href={`/customers/${d.customerPageId}`}
+                          href={`/organizations/${d.customerPageId}`}
                           className="text-primary hover:underline"
                         >
                           {d.customerName ?? "(不明)"}
@@ -456,7 +456,7 @@ export function MyDeskView({
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                   <th className="px-2 py-1.5 font-medium">日時</th>
                   <th className="px-2 py-1.5 font-medium">内容</th>
-                  <th className="px-2 py-1.5 font-medium">顧客</th>
+                  <th className="px-2 py-1.5 font-medium">組織</th>
                   <th className="px-2 py-1.5 font-medium">案件</th>
                 </tr>
               </thead>
@@ -480,7 +480,7 @@ export function MyDeskView({
                     <td className="max-w-36 truncate px-2 py-1.5">
                       {a.customerPageId ? (
                         <Link
-                          href={`/customers/${a.customerPageId}`}
+                          href={`/organizations/${a.customerPageId}`}
                           className="text-primary hover:underline"
                         >
                           {a.customerName ?? "(不明)"}
@@ -539,12 +539,12 @@ export function MyDeskView({
       </Section>
 
       {snapshot.recentViews.length > 0 && (
-        <Section title="最近閲覧した顧客">
+        <Section title="最近閲覧した組織">
           <ul className="flex flex-wrap gap-x-3 gap-y-1 rounded border border-slate-200 bg-white px-3 py-2 text-xs">
             {snapshot.recentViews.map((v) => (
               <li key={v.customerPageId}>
                 <Link
-                  href={`/customers/${v.customerPageId}`}
+                  href={`/organizations/${v.customerPageId}`}
                   className="text-primary hover:underline"
                 >
                   {v.customerName ?? "(不明)"}

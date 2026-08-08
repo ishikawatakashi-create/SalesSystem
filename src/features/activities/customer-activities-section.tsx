@@ -98,7 +98,7 @@ export function CustomerActivitiesSection({
           <span className="text-xs text-slate-500">{activities.length}件</span>
           {canEditActivity && !customerArchived && activities.length > 0 && (
             <Link
-              href={`/customers/${customerPageId}/activities/new`}
+              href={`/organizations/${customerPageId}/activities/new`}
               className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
             >
               詳細登録
@@ -111,7 +111,7 @@ export function CustomerActivitiesSection({
               message="対応履歴はまだありません。"
               actionHref={
                 canEditActivity && !customerArchived
-                  ? `/customers/${customerPageId}/activities/new`
+                  ? `/organizations/${customerPageId}/activities/new`
                   : undefined
               }
               actionLabel={
@@ -182,7 +182,7 @@ export function CustomerActivitiesSection({
           <span className="text-xs text-slate-500">{openActions.length}件</span>
           {canEditAction && !customerArchived && openActions.length > 0 && (
             <Link
-              href={`/customers/${customerPageId}/actions/new`}
+              href={`/organizations/${customerPageId}/actions/new`}
               className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
             >
               追加
@@ -195,7 +195,7 @@ export function CustomerActivitiesSection({
               message="未完了のアクションはありません。"
               actionHref={
                 canEditAction && !customerArchived
-                  ? `/customers/${customerPageId}/actions/new`
+                  ? `/organizations/${customerPageId}/actions/new`
                   : undefined
               }
               actionLabel={

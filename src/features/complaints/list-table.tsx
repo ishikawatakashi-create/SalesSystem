@@ -126,7 +126,7 @@ export function ComplaintListTable({
                 <td className="max-w-40 truncate px-2 py-1.5">
                   {row.customer_page_id ? (
                     <Link
-                      href={`/customers/${row.customer_page_id}`}
+                      href={`/organizations/${row.customer_page_id}`}
                       className="text-primary hover:underline"
                     >
                       {labels.customerNames.get(row.customer_page_id) ??

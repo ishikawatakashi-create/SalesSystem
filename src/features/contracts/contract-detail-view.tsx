@@ -94,12 +94,12 @@ export function ContractDetailView({
           <dl className="divide-y divide-slate-100">
             <Item label="契約名" value={detail.title || "(無題)"} />
             <Item
-              label="顧客アカウント"
+              label="組織"
               value={
                 detail.customerPageId ? (
                   <span>
                     <Link
-                      href={`/customers/${detail.customerPageId}`}
+                      href={`/organizations/${detail.customerPageId}`}
                       className="text-primary underline"
                     >
                       {labels.customerName ?? "(不明)"}

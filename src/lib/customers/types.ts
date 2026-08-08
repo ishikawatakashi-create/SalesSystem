@@ -19,6 +19,7 @@ export type CustomerWriteInput = {
   website: string | null;
   businessCategoryPageIds: string[];
   tagPageIds: string[];
+  relationshipPageIds: string[];
   salesStatusPageId: string | null;
   acquisitionRoutePageId: string | null;
   priorityPageId: string | null;
@@ -82,6 +83,8 @@ export type CustomerIndexRow = {
   website: string | null;
   business_category_ids: string[];
   tag_ids: string[];
+  relationship_ids: string[];
+  relationship_semantic_keys: string[];
   sales_status_id: string | null;
   acquisition_route_id: string | null;
   priority_id: string | null;
@@ -116,6 +119,7 @@ export type CustomerRecoveryPayload = {
   expectedRelations: {
     businessCategoryPageIds: string[];
     tagPageIds: string[];
+    relationshipPageIds: string[];
     salesStatusPageId: string | null;
     acquisitionRoutePageId: string | null;
     priorityPageId: string | null;
@@ -146,6 +150,8 @@ export type CustomerListQuery = {
   prefecture?: string;
   salesStatusId?: string;
   businessCategoryId?: string;
+  /** Organization relationship semantic_key（単一 filter） */
+  relationshipSemanticKey?: string;
   staffUserId?: string;
   isArchived?: boolean;
   sort?: CustomerListSortKey;

@@ -7,13 +7,13 @@
 
 ## 現在の状態
 
-**Phase 11(お問い合わせ受信箱 / Apps Script 取込)完了。** 5分 polling・返信除外・一覧操作・Gmail返信下書き。過去 backfill は必要十分な期間までの partial stop 可（全期間完了は非必須）。詳細は [docs/inquiry-integration.md](./docs/inquiry-integration.md)。
+**Phase 12(組織管理への拡張)実装中〜完了手順あり。** technical entity は customer のまま、product 概念を組織へ拡張。詳細は [docs/phase12-organizations.md](./docs/phase12-organizations.md) / [ADR](./docs/adr/0001-organization-over-customer-entity.md)。
 
 - Production: `https://sales-system-weld.vercel.app`
-- 主要URL: `/` / `/inquiries` / `/customers` / `/deals` / `/admin/sync` / `/admin/imports`
+- 主要URL: `/` / `/organizations` / `/inquiries` / `/deals` / `/admin/sync` / `/admin/imports`（`/customers` は互換）
 - 取込: `POST /api/integrations/inquiries/apps-script`（HMAC）
 - Apps Script: `integrations/apps-script/strikingly-inquiries/`
-- 実装済み: Phase 1〜11（請求・返信送信・AIは非対象）
+- 実装済み: Phase 1〜12（Prospect Pool / 請求・返信送信・AIは非対象）
 - 運用: [docs/operations-runbook.md](./docs/operations-runbook.md) / [docs/release-checklist.md](./docs/release-checklist.md)
 
 ### Auth Admin APIの注意(実測)

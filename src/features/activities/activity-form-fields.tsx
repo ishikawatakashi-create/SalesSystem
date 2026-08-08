@@ -149,7 +149,7 @@ export function ActivityFormFields({
         </Field>
 
         <Field
-          label="顧客アカウント"
+          label="組織"
           required
           error={errMsg(errors, "customerPageId")}
         >
@@ -157,7 +157,7 @@ export function ActivityFormFields({
             <>
               <input type="hidden" {...register("customerPageId")} />
               <p className="h-7 leading-7 text-xs text-slate-800">
-                {lockedCustomer?.displayName ?? "(顧客)"}
+                {lockedCustomer?.displayName ?? "(組織)"}
                 {lockedCustomer?.isArchived && (
                   <span className="ml-1 rounded bg-slate-200 px-1 text-[10px]">
                     アーカイブ

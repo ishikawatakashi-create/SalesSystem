@@ -17,6 +17,8 @@ export type CustomerDomain = {
   website: string | null;
   businessCategoryPageIds: string[];
   tagPageIds: string[];
+  /** Notion masters「関係性」（product: Organization relationships） */
+  relationshipPageIds: string[];
   salesStatusPageId: string | null;
   acquisitionRoutePageId: string | null;
   priorityPageId: string | null;
@@ -109,6 +111,7 @@ export async function notionPageToCustomer(input: {
     website: propByName(props, byName, "Webサイト")?.url ?? null,
     businessCategoryPageIds: await rel("事業区分"),
     tagPageIds: await rel("タグ"),
+    relationshipPageIds: byName["関係性"] ? await rel("関係性") : [],
     salesStatusPageId: await singleRel("営業ステータス"),
     acquisitionRoutePageId: await singleRel("集客ルート"),
     priorityPageId: await singleRel("優先度"),
@@ -162,6 +165,11 @@ export function customerToNotionProperties(input: {
     [id("Webサイト")]: { url: input.customer.website },
     [id("事業区分")]: relation(input.customer.businessCategoryPageIds),
     [id("タグ")]: relation(input.customer.tagPageIds),
+    ...(input.propertiesByName["関係性"]
+      ? {
+          [id("関係性")]: relation(input.customer.relationshipPageIds),
+        }
+      : {}),
     [id("営業ステータス")]: relation(
       input.customer.salesStatusPageId ? [input.customer.salesStatusPageId] : [],
     ),

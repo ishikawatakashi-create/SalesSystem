@@ -40,6 +40,7 @@ Notionが営業データの正本(SSoT)である。本書は**9つのNotionデ�
 | 代表者名 | rich_text | |
 | Webサイト | url | |
 | 事業区分 | relation → 営業マスタ(複数可) | |
+| 関係性 | relation → 営業マスタ(複数可) | Phase 12。product: Organization relationships。semantic_key: customer/prospect/media/municipality/education_research/partner/supplier/other |
 | タグ | relation → 営業マスタ(複数可) | |
 | 営業ステータス | relation → 営業マスタ(単一) | |
 | 集客ルート | relation → 営業マスタ(単一) | |
@@ -189,7 +190,7 @@ Notionが営業データの正本(SSoT)である。本書は**9つのNotionデ�
 | プロパティ | 型 | 備考 |
 |---|---|---|
 | 名称 | title | |
-| マスタ種別 | select | 事業区分 / タグ / 営業ステータス / 案件ステージ / 案件ステータス / 対応履歴分類 / 集客ルート / 優先度 / 契約区分 / 取引区分 / 支払状況 / 契約状態 / クレーム重要度 / クレーム対応状況 / 担当者区分 / アクション状態 |
+| マスタ種別 | select | 事業区分 / タグ / 営業ステータス / 案件ステージ / 案件ステータス / 対応履歴分類 / 集客ルート / 優先度 / 契約区分 / 取引区分 / 支払状況 / 契約状態 / クレーム重要度 / クレーム対応状況 / 担当者区分 / アクション状態 / **関係性**(Phase 12) |
 | **semantic_key** | rich_text | **状態系マスタ用・Phase 1から導入。** 表示名に依存せずコードが状態を一意判定するためのキー(例: `won` / `lost` / `active` / `completed` / `open` / `done` / `cancelled`)。**同一種別内で一意**(設定されている行のみ)。状態遷移・受注集計・アクション未完了判定などに使用 |
 | **semantic_tags** | rich_text(カンマ区切り) | **分類系マスタ用。** 複数項目が同じ意味を共有できるタグ集合。例: 訪問=`meeting,visit`、オンライン商談=`meeting,online`。一意性なし。商談件数の判定は「`meeting` を含むか」で行う。Supabaseキャッシュでは `text[]` に展開 |
 | 表示順 | number | |
@@ -212,6 +213,7 @@ Notionが営業データの正本(SSoT)である。本書は**9つのNotionデ�
 - 営業ステータス(semantic_key): 未接触 / 接触予定 / 接触中 / 担当者接続 / アポイント獲得 / 商談中(`negotiating`)/ 提案・見積 / 検討中 / 受注(`won`)/ 導入・実施中 / 継続フォロー / 保留 / 失注(`lost`)
 - 集客ルート: 紹介 / セミナー / 広告 / Web問い合わせ / 展示会 / アウトバウンド / 既存顧客 / パートナー / 自治体・団体経由 / その他
 - 事業区分: 介護福祉(インソール) / AIセミナー
+- 関係性: 顧客(customer) / 見込顧客(prospect) / メディア(media) / 自治体(municipality) / 学校・研究機関(education_research) / パートナー(partner) / 仕入先(supplier) / その他(other)
 - 優先度: 高 / 中 / 低
 - 対応履歴分類(semantic_tags): 電話(`call`)/ メール(`email`)/ 訪問(`meeting,visit`)/ オンライン商談(`meeting,online`)/ 資料送付(`document`)/ 見積発行(`quote`)/ DM(`dm`)/ その他
 - 案件ステージ(semantic_key): 初回接触 / ヒアリング / 提案 / 見積提示 / クロージング / 受注(`won`)/ 失注(`lost`)

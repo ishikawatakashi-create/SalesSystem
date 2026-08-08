@@ -116,6 +116,8 @@ export async function processImportRow(input: {
           businessCategoryPageIds:
             (staged.businessCategoryPageIds as string[]) ?? [],
           tagPageIds: (staged.tagPageIds as string[]) ?? [],
+          relationshipPageIds:
+            (staged.relationshipPageIds as string[]) ?? [],
           salesStatusPageId: (staged.salesStatusPageId as string) ?? null,
           acquisitionRoutePageId:
             (staged.acquisitionRoutePageId as string) ?? null,
@@ -125,6 +127,19 @@ export async function processImportRow(input: {
             (staged.relatedAccountPageIds as string[]) ?? [],
           isArchived: Boolean(staged.isArchived ?? false),
         };
+        // Phase12: CSV 関係性列は未対応。create 時空なら customer default
+        if (!isUpdate && write.relationshipPageIds.length === 0) {
+          const { findRelationshipMasterPageId } = await import(
+            "@/lib/organizations/resolve-relationship-semantics"
+          );
+          const { DEFAULT_ORGANIZATION_RELATIONSHIP_SEMANTIC_KEY } =
+            await import("@/lib/organizations/relationship");
+          const defaultId = await findRelationshipMasterPageId(
+            input.admin,
+            DEFAULT_ORGANIZATION_RELATIONSHIP_SEMANTIC_KEY,
+          );
+          if (defaultId) write.relationshipPageIds = [defaultId];
+        }
         if (isUpdate && pageId) {
           const result = await customerUpdate({
             requestId,

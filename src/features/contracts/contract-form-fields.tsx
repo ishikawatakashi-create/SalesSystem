@@ -159,7 +159,7 @@ export function ContractFormFields({
             <input type="text" className={inputCls} {...register("title")} />
           </Field>
           <Field
-            label="顧客アカウント"
+            label="組織"
             required
             error={errMsg(errors, "customerPageId")}
           >

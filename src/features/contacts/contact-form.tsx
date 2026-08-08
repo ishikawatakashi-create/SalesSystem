@@ -207,7 +207,7 @@ export function ContactForm({
             <input type="text" className={inputCls} {...register("nameKana")} />
           </Field>
           <Field
-            label="所属顧客"
+            label="所属組織"
             required
             error={
               typeof errors.customerPageId?.message === "string"

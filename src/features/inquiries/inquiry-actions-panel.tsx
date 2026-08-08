@@ -17,6 +17,16 @@ import {
   type InquiryStatus,
 } from "@/lib/inquiries/types";
 
+/** お問い合わせ種別テキストから関係性 semantic_key を推定（初期値のみ） */
+export function suggestRelationshipKeysFromInquiryType(
+  typeText: string | null | undefined,
+): string[] {
+  const t = (typeText ?? "").trim();
+  if (t.includes("メディア")) return ["media"];
+  if (t.includes("自治体")) return ["municipality", "prospect"];
+  return ["prospect"];
+}
+
 export function InquiryActionsPanel({
   inquiryId,
   status,
@@ -28,6 +38,7 @@ export function InquiryActionsPanel({
   currentUserId,
   assignees,
   candidates,
+  inquiryTypeText,
 }: {
   inquiryId: string;
   status: InquiryStatus;
@@ -39,12 +50,18 @@ export function InquiryActionsPanel({
   currentUserId: string;
   assignees: Array<{ id: string; label: string }>;
   candidates: CustomerCandidate[];
+  inquiryTypeText?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [noActionReason, setNoActionReason] = useState("");
   const [showNoAction, setShowNoAction] = useState(false);
+
+  const suggestedRel = suggestRelationshipKeysFromInquiryType(inquiryTypeText);
+  const createOrgHref = `/organizations/new?fromInquiry=${inquiryId}${
+    suggestedRel.length > 0 ? `&rel=${encodeURIComponent(suggestedRel.join(","))}` : ""
+  }`;
 
   if (!canEdit) {
     return (
@@ -195,7 +212,7 @@ export function InquiryActionsPanel({
       </section>
 
       <section className="rounded border border-slate-200 bg-white p-3">
-        <h2 className="mb-2 font-semibold text-slate-800">既存顧客候補</h2>
+        <h2 className="mb-2 font-semibold text-slate-800">既存組織候補</h2>
         {candidates.length === 0 ? (
           <p className="text-slate-500">強い一致候補はありません。</p>
         ) : (
@@ -225,12 +242,12 @@ export function InquiryActionsPanel({
                         customerPageId: c.customerPageId,
                         contactPageId: c.contactPageId,
                       });
-                      setMessage(r.ok ? "顧客を紐付けました" : r.message);
+                      setMessage(r.ok ? "組織を紐付けました" : r.message);
                       router.refresh();
                     });
                   }}
                 >
-                  この顧客に紐付け
+                  既存組織へ紐付け
                 </button>
               </li>
             ))}
@@ -238,22 +255,22 @@ export function InquiryActionsPanel({
         )}
         <div className="mt-2 flex flex-wrap gap-2">
           <Link
-            href={`/customers/new?fromInquiry=${inquiryId}`}
+            href={createOrgHref}
             className="rounded bg-primary px-2 py-1.5 font-medium text-white hover:bg-primary-hover"
           >
-            新規顧客として登録
+            組織を作成
           </Link>
           {linkedCustomerPageId && (
             <Link
-              href={`/customers/${linkedCustomerPageId}`}
+              href={`/organizations/${linkedCustomerPageId}`}
               className="rounded border border-slate-300 px-2 py-1.5 hover:bg-slate-50"
             >
-              紐付顧客を開く
+              紐付組織を開く
             </Link>
           )}
           {linkedCustomerPageId && !linkedContactPageId && (
             <Link
-              href={`/customers/${linkedCustomerPageId}/contacts/new?fromInquiry=${inquiryId}`}
+              href={`/organizations/${linkedCustomerPageId}/contacts/new?fromInquiry=${inquiryId}`}
               className="rounded border border-slate-300 px-2 py-1.5 hover:bg-slate-50"
             >
               先方担当者として登録
@@ -306,7 +323,7 @@ export function InquiryActionsPanel({
           </button>
         )}
         {!linkedCustomerPageId && (
-          <p className="mt-1 text-slate-500">顧客紐付け後に実行できます。</p>
+          <p className="mt-1 text-slate-500">組織紐付け後に実行できます。</p>
         )}
       </section>
 

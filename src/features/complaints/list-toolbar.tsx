@@ -43,7 +43,7 @@ export function ComplaintListToolbar({
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">顧客</span>
+          <span className="text-slate-500">組織</span>
           <select
             name="customer"
             defaultValue={query.customerPageId ?? ""}

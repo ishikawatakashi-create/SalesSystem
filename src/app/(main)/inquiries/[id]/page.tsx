@@ -210,6 +210,15 @@ export default async function InquiryDetailPage({
               label: u.display_name,
             }))}
             candidates={candidates}
+            inquiryTypeText={
+              String(
+                (inquiry.form_fields as Record<string, unknown>)?.[
+                  "お問い合わせ種別"
+                ] ??
+                  inquiry.form_name ??
+                  "",
+              ).trim() || null
+            }
           />
         </div>
       </div>

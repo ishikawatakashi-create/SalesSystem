@@ -22,6 +22,7 @@ export type RelationValidationReason =
 export const CUSTOMER_MASTER_FIELDS = {
   businessCategoryPageIds: "事業区分",
   tagPageIds: "タグ",
+  relationshipPageIds: "関係性",
   salesStatusPageId: "営業ステータス",
   acquisitionRoutePageId: "集客ルート",
   priorityPageId: "優先度",
@@ -32,6 +33,7 @@ type MasterField = keyof typeof CUSTOMER_MASTER_FIELDS;
 const FIELD_LABELS: Record<string, string> = {
   businessCategoryPageIds: "事業区分",
   tagPageIds: "タグ",
+  relationshipPageIds: "関係性",
   salesStatusPageId: "営業ステータス",
   acquisitionRoutePageId: "集客ルート",
   priorityPageId: "優先度",
@@ -79,6 +81,7 @@ export type CustomerRelationLooseInput = Omit<
 export type CurrentRelations = {
   businessCategoryPageIds: string[];
   tagPageIds: string[];
+  relationshipPageIds: string[];
   salesStatusPageId: string | null;
   acquisitionRoutePageId: string | null;
   priorityPageId: string | null;
@@ -138,6 +141,7 @@ export function collectCustomerRelationIds(input: CustomerRelationLooseInput): {
     masterIds: dedupe([
       ...input.businessCategoryPageIds,
       ...input.tagPageIds,
+      ...(input.relationshipPageIds ?? []),
       ...single(input.salesStatusPageId),
       ...single(input.acquisitionRoutePageId),
       ...single(input.priorityPageId),
@@ -237,6 +241,10 @@ export function validateCustomerRelations(input: {
   for (const id of tagPageIds) {
     checkMaster("tagPageIds", id);
   }
+  const relationshipPageIds = dedupe(write.relationshipPageIds ?? []);
+  for (const id of relationshipPageIds) {
+    checkMaster("relationshipPageIds", id);
+  }
 
   const salesStatusPageId = normalizeSingle(
     write.salesStatusPageId,
@@ -284,6 +292,7 @@ export function validateCustomerRelations(input: {
     ...write,
     businessCategoryPageIds,
     tagPageIds,
+    relationshipPageIds,
     salesStatusPageId,
     acquisitionRoutePageId,
     priorityPageId,

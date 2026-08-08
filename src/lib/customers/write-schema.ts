@@ -61,6 +61,7 @@ export const customerWriteSchema = z.object({
   website: optionalText(500),
   businessCategoryPageIds: multiRelation,
   tagPageIds: multiRelation,
+  relationshipPageIds: multiRelation,
   salesStatusPageId: singleRelation,
   acquisitionRoutePageId: singleRelation,
   priorityPageId: singleRelation,

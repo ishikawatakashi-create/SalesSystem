@@ -104,7 +104,7 @@ const COMMON: PropertyDef[] = [
   { name: "更新日時", type: "last_edited_time" },
 ];
 
-const MASTER_TYPES = [
+export const MASTER_TYPES = [
   "事業区分",
   "タグ",
   "営業ステータス",
@@ -121,7 +121,8 @@ const MASTER_TYPES = [
   "クレーム対応状況",
   "担当者区分",
   "アクション状態",
-];
+  "関係性",
+] as const;
 
 const NOTION_COLORS = [
   "default",
@@ -172,6 +173,7 @@ export const DATABASES: DatabaseDef[] = [
     phaseBRelations: [
       { name: "事業区分", type: "relation", target: "masters" },
       { name: "タグ", type: "relation", target: "masters" },
+      { name: "関係性", type: "relation", target: "masters" },
       { name: "営業ステータス", type: "relation", target: "masters", single: true },
       { name: "集客ルート", type: "relation", target: "masters", single: true },
       { name: "優先度", type: "relation", target: "masters", single: true },

@@ -134,12 +134,12 @@ export function ActionDetailView({
           <h2 className="mb-1 text-xs font-bold text-slate-700">関連</h2>
           <dl className="divide-y divide-slate-100">
             <Item
-              label="顧客アカウント"
+              label="組織"
               value={
                 detail.customerPageId ? (
                   <span>
                     <Link
-                      href={`/customers/${detail.customerPageId}`}
+                      href={`/organizations/${detail.customerPageId}`}
                       className="text-primary underline"
                     >
                       {labels.customerName ?? "(不明)"}

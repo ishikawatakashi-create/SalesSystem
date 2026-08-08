@@ -95,7 +95,7 @@ export function ActionFormFields({
         </Field>
 
         <Field
-          label="顧客アカウント"
+          label="組織"
           required
           error={errMsg(errors, "customerPageId")}
         >
@@ -103,7 +103,7 @@ export function ActionFormFields({
             <>
               <input type="hidden" {...register("customerPageId")} />
               <p className="h-7 leading-7 text-xs text-slate-800">
-                {lockedCustomer?.displayName ?? "(顧客)"}
+                {lockedCustomer?.displayName ?? "(組織)"}
               </p>
             </>
           ) : (

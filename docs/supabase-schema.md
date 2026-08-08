@@ -106,6 +106,8 @@ create index on customer_index (next_action_date);
 create index on customer_index (last_activity_at);
 create index on customer_index using gin (tag_ids);
 create index on customer_index using gin (business_category_ids);
+create index on customer_index using gin (relationship_ids);
+create index on customer_index using gin (relationship_semantic_keys);
 create index on customer_index using gin (staff_user_ids);
 ```
 

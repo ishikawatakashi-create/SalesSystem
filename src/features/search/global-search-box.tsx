@@ -11,6 +11,7 @@ import {
   useTransition,
 } from "react";
 
+import { RelationshipBadges } from "@/features/organizations/relationship-badges";
 import { searchGlobalAction } from "@/features/search/actions";
 import type { GlobalSearchHit } from "@/lib/search/types";
 
@@ -213,6 +214,15 @@ export function GlobalSearchBox() {
                         </span>
                       )}
                     </span>
+                    {hit.relationshipSemanticKeys &&
+                      hit.relationshipSemanticKeys.length > 0 && (
+                        <span className="mt-0.5">
+                          <RelationshipBadges
+                            keys={hit.relationshipSemanticKeys}
+                            empty={null}
+                          />
+                        </span>
+                      )}
                     {hit.subtitle && (
                       <span className="truncate text-[11px] text-slate-500">
                         {hit.subtitle}

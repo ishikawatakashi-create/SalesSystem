@@ -73,12 +73,12 @@ export function ActivityDetailView({
               value={formatDateTime(detail.activityAt)}
             />
             <Item
-              label="顧客アカウント"
+              label="組織"
               value={
                 detail.customerPageId ? (
                   <span>
                     <Link
-                      href={`/customers/${detail.customerPageId}`}
+                      href={`/organizations/${detail.customerPageId}`}
                       className="text-primary underline"
                     >
                       {labels.customerName ?? "(不明)"}

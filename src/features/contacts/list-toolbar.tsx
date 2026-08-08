@@ -38,7 +38,7 @@ export function ContactListToolbar({
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">所属顧客</span>
+          <span className="text-slate-500">所属組織</span>
           <select
             name="customer"
             defaultValue={query.customerPageId ?? ""}

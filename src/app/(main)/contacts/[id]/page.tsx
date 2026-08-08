@@ -177,12 +177,12 @@ export default async function ContactDetailPage({
             <Item label="氏名" value={detail.name} />
             <Item label="氏名よみ" value={formatOptional(detail.nameKana)} />
             <Item
-              label="所属顧客"
+              label="所属組織"
               value={
                 detail.customerPageId ? (
                   <span>
                     <Link
-                      href={`/customers/${detail.customerPageId}`}
+                      href={`/organizations/${detail.customerPageId}`}
                       className="text-primary underline"
                     >
                       {labels.customerName ?? "(不明)"}

@@ -60,6 +60,9 @@ export type CustomerIndexStore = {
     toPageIds: string[];
   }): Promise<void>;
   resolveStaffUserIds(staffPageIds: string[]): Promise<string[]>;
+  resolveRelationshipSemanticKeys(
+    relationshipPageIds: string[],
+  ): Promise<string[]>;
 };
 
 export type AuditStore = {
@@ -171,6 +174,7 @@ function buildRecoveryPayload(input: {
     expectedRelations: {
       businessCategoryPageIds: input.write.businessCategoryPageIds,
       tagPageIds: input.write.tagPageIds,
+      relationshipPageIds: input.write.relationshipPageIds ?? [],
       salesStatusPageId: input.write.salesStatusPageId,
       acquisitionRoutePageId: input.write.acquisitionRoutePageId,
       priorityPageId: input.write.priorityPageId,
@@ -239,10 +243,15 @@ async function finishAfterNotion(input: {
     const staffUserIds = await deps.index.resolveStaffUserIds(
       customer.staffPageIds,
     );
+    const relationshipSemanticKeys =
+      await deps.index.resolveRelationshipSemanticKeys(
+        customer.relationshipPageIds ?? [],
+      );
     const contentHash = hashCustomerDomain(customer);
     const row = customerDomainToIndexRow({
       customer,
       staffUserIds,
+      relationshipSemanticKeys,
       contentHash,
       notionLastEditedAt: lastEditedTime || null,
       syncStatus: partial ? "error" : "synced",

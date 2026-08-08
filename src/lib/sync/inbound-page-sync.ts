@@ -452,9 +452,17 @@ export async function syncPageFromNotion(input: {
       };
     }
     const staffUserIds = await resolveStaffUserIds(admin, customer.staffPageIds);
+    const { resolveRelationshipSemanticKeys } = await import(
+      "@/lib/organizations/resolve-relationship-semantics"
+    );
+    const relationshipSemanticKeys = await resolveRelationshipSemanticKeys(
+      admin,
+      customer.relationshipPageIds ?? [],
+    );
     const row = customerDomainToIndexRow({
       customer,
       staffUserIds,
+      relationshipSemanticKeys,
       contentHash,
       notionLastEditedAt: lastEdited,
       syncStatus: "synced",

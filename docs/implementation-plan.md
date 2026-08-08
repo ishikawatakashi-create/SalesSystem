@@ -12,6 +12,7 @@
 - 2026-08-07 Phase 8 CSV取込・既存データ移行を実装完了。次工程はダッシュボード・全体仕上げ。
 - 2026-08-07 Phase 9(マイデスク・検索・retention・UI/運用仕上げ)を完了。運用ランブック・リリースチェックリストを追加。
 - 2026-08-08 Phase 10(日常営業向けUI/UX再整理)完了後、Phase 11(お問い合わせ受信箱)を実装。transport は Apps Script polling（Pub/Sub は不採用）。詳細は [inquiry-integration.md](./inquiry-integration.md)。
+- 2026-08-08 Phase 12(組織管理への拡張): technical entity=customer 維持、product=Organization。関係性 master / index / `/organizations`。詳細は [phase12-organizations.md](./phase12-organizations.md)。
 
 ## Phase 0: 設計(完了)
 

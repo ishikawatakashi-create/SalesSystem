@@ -31,7 +31,7 @@ export function CustomerComplaintsSection({
         </Link>
         {canEdit && !customerArchived && complaints.length > 0 && (
           <Link
-            href={`/customers/${customerPageId}/complaints/new`}
+            href={`/organizations/${customerPageId}/complaints/new`}
             className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
           >
             追加
@@ -44,7 +44,7 @@ export function CustomerComplaintsSection({
             message="未解決のクレームはありません。"
             actionHref={
               canEdit && !customerArchived
-                ? `/customers/${customerPageId}/complaints/new`
+                ? `/organizations/${customerPageId}/complaints/new`
                 : undefined
             }
             actionLabel={

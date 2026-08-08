@@ -15,6 +15,8 @@ import {
 export function customerDomainToIndexRow(input: {
   customer: CustomerDomain;
   staffUserIds: string[];
+  /** masters_cache から解決した関係性 semantic_key */
+  relationshipSemanticKeys?: string[];
   contentHash: string;
   notionLastEditedAt: string | null;
   syncStatus: CustomerIndexRow["sync_status"];
@@ -58,6 +60,8 @@ export function customerDomainToIndexRow(input: {
     website: input.customer.website,
     business_category_ids: input.customer.businessCategoryPageIds,
     tag_ids: input.customer.tagPageIds,
+    relationship_ids: input.customer.relationshipPageIds ?? [],
+    relationship_semantic_keys: input.relationshipSemanticKeys ?? [],
     sales_status_id: input.customer.salesStatusPageId,
     acquisition_route_id: input.customer.acquisitionRoutePageId,
     priority_id: input.customer.priorityPageId,
@@ -106,6 +110,16 @@ export const CUSTOMER_INDEX_FIELD_MAP = [
     note: "master page IDs",
   },
   { domain: "tagPageIds", column: "tag_ids", note: "master page IDs" },
+  {
+    domain: "relationshipPageIds",
+    column: "relationship_ids",
+    note: "master page IDs（関係性）",
+  },
+  {
+    domain: "relationshipSemanticKeys",
+    column: "relationship_semantic_keys",
+    note: "masters_cache.semantic_key",
+  },
   {
     domain: "salesStatusPageId",
     column: "sales_status_id",

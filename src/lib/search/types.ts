@@ -8,7 +8,7 @@ export type SearchEntity =
   | "complaints";
 
 export const SEARCH_ENTITY_LABELS: Record<SearchEntity, string> = {
-  customers: "顧客",
+  customers: "組織",
   contacts: "担当者",
   deals: "案件",
   activities: "対応履歴",
@@ -33,8 +33,10 @@ export type GlobalSearchHit = {
   title: string;
   subtitle: string | null;
   href: string;
-  /** 顧客のみ: アーカイブ表示用 */
+  /** 組織(customer)のみ: アーカイブ表示用 */
   isArchived?: boolean;
+  /** 組織(customer)のみ: 関係性 semantic_key */
+  relationshipSemanticKeys?: string[];
 };
 
 export type GlobalSearchResult = {

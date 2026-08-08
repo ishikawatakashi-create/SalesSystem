@@ -126,6 +126,12 @@ function createIndexStore(admin: AdminClient): CustomerIndexStore {
         .insert(rows as never);
       if (error) throw new Error(error.message);
     },
+    async resolveRelationshipSemanticKeys(relationshipPageIds) {
+      const { resolveRelationshipSemanticKeys } = await import(
+        "@/lib/organizations/resolve-relationship-semantics"
+      );
+      return resolveRelationshipSemanticKeys(admin, relationshipPageIds);
+    },
     async resolveStaffUserIds(staffPageIds) {
       if (staffPageIds.length === 0) return [];
       const { data, error } = await admin

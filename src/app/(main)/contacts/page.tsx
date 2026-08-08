@@ -113,7 +113,7 @@ export default async function ContactsPage({
               <th className="px-2 py-1.5 font-medium">
                 {sortHeader("氏名よみ")}
               </th>
-              <th className="px-2 py-1.5 font-medium">所属顧客</th>
+              <th className="px-2 py-1.5 font-medium">所属組織</th>
               <th className="px-2 py-1.5 font-medium">{sortHeader("部署")}</th>
               <th className="px-2 py-1.5 font-medium">{sortHeader("役職")}</th>
               <th className="px-2 py-1.5 font-medium">電話番号</th>
@@ -167,7 +167,7 @@ export default async function ContactsPage({
                 <td className="max-w-48 truncate px-2 py-1.5">
                   {row.customer_page_id ? (
                     <Link
-                      href={`/customers/${row.customer_page_id}`}
+                      href={`/organizations/${row.customer_page_id}`}
                       className="text-primary hover:underline"
                     >
                       {labels.customerNames.get(row.customer_page_id) ?? "(不明)"}

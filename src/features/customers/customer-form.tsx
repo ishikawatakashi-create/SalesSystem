@@ -139,6 +139,7 @@ export function CustomerForm({
       website: initial?.website ?? "",
       businessCategoryPageIds: initial?.businessCategoryPageIds ?? [],
       tagPageIds: initial?.tagPageIds ?? [],
+      relationshipPageIds: initial?.relationshipPageIds ?? [],
       salesStatusPageId: initial?.salesStatusPageId ?? null,
       acquisitionRoutePageId: initial?.acquisitionRoutePageId ?? null,
       priorityPageId: initial?.priorityPageId ?? null,
@@ -165,6 +166,7 @@ export function CustomerForm({
     name:
       | "businessCategoryPageIds"
       | "tagPageIds"
+      | "relationshipPageIds"
       | "staffPageIds"
       | "relatedAccountPageIds",
   ) => {
@@ -183,6 +185,7 @@ export function CustomerForm({
   };
   const bizState = multi("businessCategoryPageIds");
   const tagState = multi("tagPageIds");
+  const relationshipState = multi("relationshipPageIds");
   const staffState = multi("staffPageIds");
   const relatedState = multi("relatedAccountPageIds");
 
@@ -243,7 +246,7 @@ export function CustomerForm({
       const dest =
         meta.mode === "create" && meta.successRedirect
           ? meta.successRedirect
-          : `/customers/${result.notionPageId}`;
+          : `/organizations/${result.notionPageId}`;
       router.push(dest);
       router.refresh();
       return;
@@ -354,6 +357,23 @@ export function CustomerForm({
       </section>
 
       <section className="rounded border border-slate-200 bg-white p-3">
+        <h2 className="mb-2 text-xs font-bold text-slate-700">関係性</h2>
+        <p className="mb-1 text-[11px] text-slate-500">
+          複数選択可。未選択の新規作成は「顧客」が自動付与されます。
+        </p>
+        <MultiCheck
+          options={options.relationships.map((m) => ({
+            id: m.pageId,
+            label: m.name,
+            inactive: !m.isActive,
+          }))}
+          values={relationshipState.values}
+          onToggle={relationshipState.onToggle}
+          emptyText="関係性マスタが未同期です"
+        />
+      </section>
+
+      <section className="rounded border border-slate-200 bg-white p-3">
         <h2 className="mb-2 text-xs font-bold text-slate-700">営業情報</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field label="営業ステータス">
@@ -416,7 +436,7 @@ export function CustomerForm({
               }))}
               values={relatedState.values}
               onToggle={relatedState.onToggle}
-              emptyText="選択可能な顧客がありません"
+              emptyText="選択可能な組織がありません"
             />
           </div>
         </div>

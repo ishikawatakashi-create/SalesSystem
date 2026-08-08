@@ -19,6 +19,7 @@ export type JobKind =
   | "customer.recalculate_expected_amount"
   | "customer.recalculate_latest_activity"
   | "customer.recalculate_next_action"
+  | "customer.backfill_default_relationship"
   | "deal.recalculate_next_action";
 
 export type JobRow = {

@@ -45,7 +45,7 @@ export function CustomerContractsSection({
         </Link>
         {canEdit && !customerArchived && contracts.length > 0 && (
           <Link
-            href={`/customers/${customerPageId}/contracts/new`}
+            href={`/organizations/${customerPageId}/contracts/new`}
             className="ml-auto text-xs text-slate-600 underline-offset-2 hover:underline"
           >
             追加
@@ -58,7 +58,7 @@ export function CustomerContractsSection({
             message="有効な契約はありません。"
             actionHref={
               canEdit && !customerArchived
-                ? `/customers/${customerPageId}/contracts/new`
+                ? `/organizations/${customerPageId}/contracts/new`
                 : undefined
             }
             actionLabel={
