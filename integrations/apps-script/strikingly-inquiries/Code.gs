@@ -102,27 +102,68 @@ function postJson_(payload) {
   };
 }
 
+var MAX_HTML_CHARS_ = 100000;
+
+function hasLabelSentinel_(body, label) {
+  var re = new RegExp(
+    "(^|\\n)\\s*" + label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[:：]?\\s*($|\\n)",
+    "i",
+  );
+  return re.test(String(body || ""));
+}
+
+/** plain 行 or HTML 断片のどちらでも label 文字が含まれるか（transport 候補用） */
+function bodyHasLabelHint_(body, label) {
+  if (hasLabelSentinel_(body, label)) return true;
+  return String(body || "").indexOf(label) !== -1;
+}
+
 /**
- * Apps Script 側の軽い候補判定（最終判定は server parser）。
- * From 単独へ過度依存しない。
+ * Apps Script 側の軽い候補判定（最終判定は server）。
+ * Re/Fwd と非元通知は送らない。From 単独では判定しない。
  */
 function isStrikinglyCandidate_(subject, from, body) {
-  var s = String(subject || "");
-  var f = String(from || "");
-  var b = String(body || "");
-  var blob = (s + "\n" + f + "\n" + b).toLowerCase();
-  if (blob.indexOf("あなたのサイトにコメントしました") !== -1) return true;
-  if (blob.indexOf("サイトにコメントしました") !== -1) return true;
-  if (blob.indexOf("strikingly") !== -1) return true;
-  if (/new\s+(contact\s+)?form\s+submission/i.test(s)) return true;
-  if (/新しい.*フォーム|お問い合わせ.*通知|form submission/i.test(s)) {
-    return true;
+  var s = String(subject || "").trim();
+  if (!s) return false;
+  if (/^(re|fw|fwd)\s*:/i.test(s)) return false;
+  if (!/^.+\sはあなたのサイトにコメントしました\s*$/.test(s)) return false;
+  var required = [
+    "カスタムフォーム",
+    "お問い合わせ種別",
+    "名",
+    "メールアドレス",
+    "お問い合わせ内容",
+  ];
+  for (var i = 0; i < required.length; i++) {
+    if (!bodyHasLabelHint_(body, required[i])) return false;
   }
-  if (/you received a new submission|フォームから送信/i.test(b)) return true;
-  return false;
+  return true;
+}
+
+function truncate_(text, maxChars) {
+  var s = String(text || "");
+  if (s.length <= maxChars) return s;
+  return s.slice(0, maxChars);
 }
 
 function buildInquiryPayload_(msg, historical) {
+  var plain = "";
+  var html = "";
+  try {
+    plain = msg.getPlainBody() || "";
+  } catch (e1) {
+    plain = "";
+  }
+  try {
+    html = msg.getBody() || "";
+  } catch (e2) {
+    html = "";
+  }
+  // plain に sentinel が無いとき HTML 側も候補判定に使う
+  var gateBody = plain;
+  if (!hasLabelSentinel_(plain, "お問い合わせ内容") && html) {
+    gateBody = html;
+  }
   return {
     source: "strikingly_email",
     gmail_message_id: String(msg.getId()),
@@ -131,8 +172,10 @@ function buildInquiryPayload_(msg, historical) {
     from: msg.getFrom() || null,
     reply_to: msg.getReplyTo() || null,
     subject: msg.getSubject() || null,
-    plain_body: msg.getPlainBody() || null,
+    plain_body: plain || null,
+    html_body: html ? truncate_(html, MAX_HTML_CHARS_) : null,
     historical_import: !!historical,
+    _gate_body: gateBody,
   };
 }
 
@@ -140,11 +183,23 @@ function classifyResponse_(code, body) {
   if (code >= 200 && code < 300) {
     if (body.indexOf('"skipped"') !== -1) return "skipped";
     if (body.indexOf('"duplicate"') !== -1) return "duplicate";
+    if (body.indexOf('"updated"') !== -1) return "accepted";
     if (body.indexOf('"accepted"') !== -1) return "accepted";
     return "accepted";
   }
   if (code === 400) return "failed_validation";
   return "failed_retryable";
+}
+
+function stripInternalPayloadFields_(payload) {
+  var out = {};
+  var keys = Object.keys(payload);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.charAt(0) === "_") continue;
+    out[k] = payload[k];
+  }
+  return out;
 }
 
 function emptyHttpCounters_() {
@@ -238,22 +293,22 @@ function syncStrikinglyInquiries() {
       processed++;
       var subject = msg.getSubject() || "";
       var from = msg.getFrom() || "";
-      var body = "";
+      var payload;
       try {
-        body = msg.getPlainBody() || "";
-      } catch (bodyErr) {
+        payload = buildInquiryPayload_(msg, false);
+      } catch (buildErr) {
         failed++;
         counters.local_throw++;
-        counters.last_error = "plain_body_read_failed";
+        counters.last_error = "payload_build_failed";
         continue;
       }
-      if (!isStrikinglyCandidate_(subject, from, body)) {
+      if (!isStrikinglyCandidate_(subject, from, payload._gate_body)) {
         skipped++;
         continue;
       }
 
       try {
-        var res = postJson_(buildInquiryPayload_(msg, false));
+        var res = postJson_(stripInternalPayloadFields_(payload));
         noteHttp_(counters, res.code, res.error);
         var kind = classifyResponse_(res.code, res.body);
         if (kind === "accepted") success++;
@@ -426,14 +481,22 @@ function backfillStrikinglyInquiries() {
 
       var subject = msg.getSubject() || "";
       var from = msg.getFrom() || "";
-      var body = msg.getPlainBody() || "";
-      if (!isStrikinglyCandidate_(subject, from, body)) {
+      var bfPayload;
+      try {
+        bfPayload = buildInquiryPayload_(msg, true);
+      } catch (bfBuildErr) {
+        progress.failed = (progress.failed || 0) + 1;
+        threadOk = false;
+        stopEarly = true;
+        break;
+      }
+      if (!isStrikinglyCandidate_(subject, from, bfPayload._gate_body)) {
         progress.skipped = (progress.skipped || 0) + 1;
         continue;
       }
 
       try {
-        var res = postJson_(buildInquiryPayload_(msg, true));
+        var res = postJson_(stripInternalPayloadFields_(bfPayload));
         var kind = classifyResponse_(res.code, res.body);
         if (kind === "accepted") {
           progress.accepted = (progress.accepted || 0) + 1;

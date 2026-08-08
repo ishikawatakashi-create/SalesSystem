@@ -36,6 +36,7 @@ export async function listInquiries(query: InquiryListQuery): Promise<{
   let q = admin
     .from("inquiries")
     .select("*", { count: "exact" })
+    .eq("ingest_classification", "source")
     .order("received_at", { ascending: false });
 
   const tab = query.tab || "open";
@@ -85,7 +86,8 @@ export async function countNewInquiries(): Promise<number> {
     .from("inquiries")
     .select("id", { count: "exact", head: true })
     .eq("status", "new")
-    .eq("historical_import", false);
+    .eq("historical_import", false)
+    .eq("ingest_classification", "source");
   return count ?? 0;
 }
 
@@ -96,6 +98,7 @@ export async function countUnassignedNewInquiries(): Promise<number> {
     .select("id", { count: "exact", head: true })
     .eq("status", "new")
     .eq("historical_import", false)
+    .eq("ingest_classification", "source")
     .is("assigned_user_id", null);
   return count ?? 0;
 }

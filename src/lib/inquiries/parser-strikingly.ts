@@ -1,12 +1,18 @@
 import { htmlToPlainText, truncateBody } from "@/lib/inquiries/html-text";
 import type { InquiryParseStatus, InquirySourceConfidence } from "@/lib/inquiries/types";
 
+/** 現行 Strikingly カスタムフォーム向け parser 版 */
+export const STRIKINGLY_PARSER_VERSION = 2;
+
 export type ParsedStrikinglyMail = {
   senderName: string | null;
+  senderKana: string | null;
   senderEmail: string | null;
   replyToEmail: string | null;
   phone: string | null;
   companyName: string | null;
+  department: string | null;
+  inquiryType: string | null;
   formName: string | null;
   subject: string | null;
   messageText: string | null;
@@ -14,6 +20,7 @@ export type ParsedStrikinglyMail = {
   parseStatus: InquiryParseStatus;
   parseWarningCode: string | null;
   sourceConfidence: InquirySourceConfidence;
+  parserVersion: number;
 };
 
 export type StrikinglyParseInput = {
@@ -24,34 +31,46 @@ export type StrikinglyParseInput = {
   htmlText?: string | null;
 };
 
-const FIELD_PATTERNS: Array<{ key: string; labels: RegExp }> = [
-  {
-    key: "name",
-    // 「名」は実 Strikingly カスタムフォームで使用。長いラベルを先に置く
-    labels: /^(名前|お名前|氏名|名|Name|Your\s*Name)\s*[:：]/i,
-  },
-  {
-    key: "email",
-    labels: /^(メールアドレス|メール|Email|E-?mail)\s*[:：]/i,
-  },
-  {
-    key: "phone",
-    labels: /^(電話|電話番号|Tel|Phone|携帯)\s*[:：]/i,
-  },
-  {
-    key: "company",
-    labels: /^(会社名|会社|組織|Company|Organization)\s*[:：]/i,
-  },
+const SOURCE_SUBJECT_RE = /^.+\sはあなたのサイトにコメントしました\s*$/;
+const REPLY_FWD_SUBJECT_RE = /^(re|fw|fwd)\s*:/i;
+
+const FOOTER_MARKERS = [
+  "このメールを返信して",
+  "すべての返事を読む",
+  "reply to this email",
+  "view all responses",
+  "commented on your site",
+];
+
+const LABEL_DEFS: Array<{
+  key: string;
+  labels: string[];
+  multiline?: boolean;
+}> = [
+  { key: "inquiryType", labels: ["お問い合わせ種別"] },
+  { key: "name", labels: ["名前", "お名前", "氏名", "名", "Name", "Your Name"] },
+  { key: "kana", labels: ["フリガナ", "ふりがな", "カナ"] },
+  { key: "company", labels: ["会社名", "会社", "組織", "Company", "Organization"] },
+  { key: "department", labels: ["部署名", "部署", "Department"] },
+  { key: "email", labels: ["メールアドレス", "メール", "Email", "E-mail", "E-Mail"] },
+  { key: "phone", labels: ["電話番号", "電話", "Tel", "Phone", "携帯"] },
   {
     key: "message",
-    labels:
-      /^(お問い合わせ内容|問い合わせ内容|内容|メッセージ|Message|Comments?)\s*[:：]/i,
-  },
-  {
-    key: "form",
-    labels: /^(お問い合わせ種別|フォーム名|フォーム|Form)\s*[:：]/i,
+    labels: ["お問い合わせ内容", "問い合わせ内容", "メッセージ", "Message", "Comment", "Comments"],
+    multiline: true,
   },
 ];
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function nullIfEmpty(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const t = value.trim();
+  if (!t || t === "/" || t === "-" || t === "—" || t === "－") return null;
+  return t;
+}
 
 function extractEmail(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -63,44 +82,125 @@ function extractEmail(raw: string | null | undefined): string | null {
   return bareAddr ? bareAddr.toLowerCase() : null;
 }
 
-function extractDisplayName(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const m = raw.match(/^\s*"?([^"<]+)"?\s*</);
-  const captured = m?.[1];
-  if (captured) {
-    const n = captured.trim();
-    return n || null;
-  }
-  if (raw.includes("@")) return null;
-  const t = raw.trim();
-  return t || null;
+export function isReplyOrForwardSubject(subject?: string | null): boolean {
+  return REPLY_FWD_SUBJECT_RE.test((subject ?? "").trim());
 }
 
-/**
- * Strikingly 問い合わせ通知らしさの判定。
- * From 単独には依存しない。件名/本文の特徴語を優先。
- */
+export function hasLabelSentinel(body: string, label: string): boolean {
+  const re = new RegExp(
+    `(^|\\n)\\s*${escapeRegExp(label)}\\s*[:：]?\\s*($|\\n)`,
+    "i",
+  );
+  return re.test(body);
+}
+
+/** 旧ゆるい判定（互換・テスト用）。取込ゲートには isStrikinglySourceNotification を使う */
 export function looksLikeStrikinglyNotification(input: {
   subject?: string | null;
   from?: string | null;
   body?: string | null;
 }): boolean {
-  const subject = input.subject ?? "";
-  const from = input.from ?? "";
+  return isStrikinglySourceNotification(input);
+}
+
+/**
+ * 正規の Strikingly 元通知か（最終ゲート）。
+ * From だけでは判定しない。Re/Fwd は除外。
+ */
+export function isStrikinglySourceNotification(input: {
+  subject?: string | null;
+  from?: string | null;
+  body?: string | null;
+}): boolean {
+  const subject = (input.subject ?? "").trim();
+  if (!subject) return false;
+  if (isReplyOrForwardSubject(subject)) return false;
+  if (!SOURCE_SUBJECT_RE.test(subject)) return false;
+
   const body = input.body ?? "";
-  const blob = `${subject}\n${from}\n${body}`.toLowerCase();
-  // 現行 Gmail 実態で確認されている日本語通知フレーズ
-  if (blob.includes("あなたのサイトにコメントしました")) return true;
-  if (blob.includes("サイトにコメントしました")) return true;
-  if (blob.includes("strikingly")) return true;
-  if (/new\s+(contact\s+)?form\s+submission/i.test(subject)) return true;
-  if (/新しい.*フォーム|お問い合わせ.*通知|form submission/i.test(subject)) {
-    return true;
+  const required = [
+    "カスタムフォーム",
+    "お問い合わせ種別",
+    "名",
+    "メールアドレス",
+    "お問い合わせ内容",
+  ];
+  return required.every((label) => hasLabelSentinel(body, label));
+}
+
+function countSourceSentinels(body: string): number {
+  const labels = [
+    "カスタムフォーム",
+    "お問い合わせ種別",
+    "名",
+    "フリガナ",
+    "会社名",
+    "部署名",
+    "メールアドレス",
+    "お問い合わせ内容",
+  ];
+  return labels.reduce(
+    (n, label) => n + (hasLabelSentinel(body, label) ? 1 : 0),
+    0,
+  );
+}
+
+/** plain が欠落している場合に HTML 由来テキストを優先 */
+export function selectParseBody(plain: string, fromHtml: string): string {
+  const p = plain.trim();
+  const h = fromHtml.trim();
+  const ps = countSourceSentinels(p);
+  const hs = countSourceSentinels(h);
+  if (hs > ps) return h;
+  if (ps > 0) return p;
+  // sentinel が無い場合でも HTML の方が明らかに長いなら HTML を試す
+  if (h.length > p.length * 2 && h.length > 200) return h;
+  return p || h;
+}
+
+function stripFooter(text: string): string {
+  let cut = text.length;
+  const lower = text.toLowerCase();
+  for (const marker of FOOTER_MARKERS) {
+    const idx = lower.indexOf(marker.toLowerCase());
+    if (idx >= 0 && idx < cut) cut = idx;
   }
-  if (/you received a new submission|フォームから送信/i.test(body)) {
-    return true;
+  return text.slice(0, cut).trim();
+}
+
+function stripHeaderNoise(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const out: string[] = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (/はあなたのサイトにコメントしました\s*$/.test(t)) continue;
+    if (/commented on your site/i.test(t)) continue;
+    out.push(line);
   }
-  return false;
+  return out.join("\n").trim();
+}
+
+function matchLabelLine(
+  line: string,
+): { key: string; inlineValue: string; multiline?: boolean } | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  for (const def of LABEL_DEFS) {
+    for (const label of def.labels) {
+      const re = new RegExp(`^${escapeRegExp(label)}\\s*[:：]?\\s*(.*)$`, "i");
+      const m = trimmed.match(re);
+      if (!m) continue;
+      // 「名」が「名前」等のプレフィックスに誤爆しないよう、完全一致ラベルを優先済み
+      // 「内容」単独はお問い合わせ内容の部分一致を避けるため LABEL_DEFS に入れない
+      const inline = (m[1] ?? "").trim();
+      return { key: def.key, inlineValue: inline, multiline: def.multiline };
+    }
+  }
+  return null;
+}
+
+function isKnownLabelLine(line: string): boolean {
+  return matchLabelLine(line) != null || /^\s*カスタムフォーム\s*$/i.test(line);
 }
 
 function parseLabeledFields(body: string): Record<string, string> {
@@ -109,61 +209,52 @@ function parseLabeledFields(body: string): Record<string, string> {
   let i = 0;
   while (i < lines.length) {
     const rawLine = lines[i] ?? "";
-    const line = rawLine.trim();
-    let matched = false;
-    for (const fp of FIELD_PATTERNS) {
-      const m = line.match(fp.labels);
-      if (!m || m[0] === undefined) continue;
-      matched = true;
-      let value = line.slice(m[0].length).trim();
-      if (!value && i + 1 < lines.length) {
-        const next = (lines[i + 1] ?? "").trim();
-        if (next && !FIELD_PATTERNS.some((p) => p.labels.test(next))) {
-          value = next;
-          i += 1;
-        }
-      }
-      // 複数行メッセージ
-      if (fp.key === "message" && value) {
-        const rest: string[] = [value];
-        while (i + 1 < lines.length) {
-          const peek = lines[i + 1] ?? "";
-          if (!peek.trim()) {
-            rest.push("");
-            i += 1;
-            continue;
-          }
-          if (FIELD_PATTERNS.some((p) => p.labels.test(peek.trim()))) break;
-          rest.push(peek.trimEnd());
-          i += 1;
-        }
-        fields[fp.key] = rest.join("\n").trim();
-      } else if (value) {
-        fields[fp.key] = value;
-      }
-      break;
-    }
+    const matched = matchLabelLine(rawLine);
     if (!matched) {
-      // 未知ラベル: 「ラベル: 値」
-      const custom = line.match(/^(.{1,40})[:：]\s*(.+)$/);
-      const customLabel = custom?.[1];
-      const customValue = custom?.[2];
-      if (customLabel && customValue && !customLabel.includes("@")) {
-        const label = customLabel.trim();
-        const known = FIELD_PATTERNS.some((p) => p.labels.test(`${label}:`));
-        if (!known && label.length >= 1) {
-          fields[`custom:${label}`] = customValue.trim();
-        }
+      i += 1;
+      continue;
+    }
+
+    let value = matched.inlineValue;
+    if (!value && i + 1 < lines.length) {
+      const next = (lines[i + 1] ?? "").trim();
+      if (next && !isKnownLabelLine(next)) {
+        value = next;
+        i += 1;
       }
     }
+
+    if (matched.multiline) {
+      const rest: string[] = [];
+      if (value) rest.push(value);
+      while (i + 1 < lines.length) {
+        const peekRaw = lines[i + 1] ?? "";
+        const peek = peekRaw.trim();
+        if (!peek) {
+          rest.push("");
+          i += 1;
+          continue;
+        }
+        if (isKnownLabelLine(peek)) break;
+        if (FOOTER_MARKERS.some((m) => peek.toLowerCase().includes(m.toLowerCase()))) {
+          break;
+        }
+        rest.push(peekRaw.trimEnd());
+        i += 1;
+      }
+      value = rest.join("\n").trim();
+    }
+
+    const normalized = nullIfEmpty(value);
+    if (normalized) fields[matched.key] = normalized;
     i += 1;
   }
   return fields;
 }
 
 /**
- * Strikingly 問い合わせ通知メールのゆるいパーサ。
- * テンプレート不一致でも破棄せず warning で本文を残す。
+ * Strikingly 問い合わせ通知メールのパーサ。
+ * HTML は sanitize 済み plain 化して使用。HTML 自体は返さない。
  */
 export function parseStrikinglyNotificationMail(
   input: StrikinglyParseInput,
@@ -173,42 +264,41 @@ export function parseStrikinglyNotificationMail(
   const replyTo = input.replyTo?.trim() || "";
   const plain = truncateBody((input.plainText ?? "").trim());
   const fromHtml = input.htmlText ? htmlToPlainText(input.htmlText) : "";
-  const body = plain || fromHtml;
+  const selected = selectParseBody(plain, fromHtml);
+  const body = stripFooter(stripHeaderNoise(selected));
 
-  const replyToEmail = extractEmail(replyTo);
-  const fromEmail = extractEmail(from);
   const fields = body ? parseLabeledFields(body) : {};
+  const replyToEmail = extractEmail(replyTo);
 
-  const senderEmail =
-    replyToEmail ||
-    fields.email?.toLowerCase() ||
-    fromEmail ||
-    null;
+  const fieldEmail = nullIfEmpty(fields.email)?.toLowerCase() ?? null;
+  const senderEmail = fieldEmail || replyToEmail || null;
 
-  const senderName =
-    fields.name ||
-    extractDisplayName(replyTo) ||
-    extractDisplayName(from) ||
-    null;
+  const senderName = nullIfEmpty(fields.name);
+  const senderKana = nullIfEmpty(fields.kana);
+  const companyName = nullIfEmpty(fields.company);
+  const department = nullIfEmpty(fields.department);
+  const inquiryType = nullIfEmpty(fields.inquiryType);
+  const phone = nullIfEmpty(fields.phone);
 
-  const phone = fields.phone || null;
-  const companyName = fields.company || null;
-  const formName = fields.form || null;
-  const messageText =
-    fields.message ||
-    (body ? body : null);
+  const hasCustomFormHeader = hasLabelSentinel(selected, "カスタムフォーム");
+  const formName = inquiryType || (hasCustomFormHeader ? "カスタムフォーム" : null);
 
-  const strikinglyLike = looksLikeStrikinglyNotification({
+  let messageText = nullIfEmpty(fields.message);
+  if (messageText) {
+    messageText = stripFooter(messageText);
+  }
+
+  const strikinglyLike = isStrikinglySourceNotification({
     subject: subject ?? "",
     from,
-    body,
+    body: selected,
   });
 
   let parseStatus: InquiryParseStatus = "ok";
   let parseWarningCode: string | null = null;
   let sourceConfidence: InquirySourceConfidence = "medium";
 
-  if (!body) {
+  if (!selected) {
     parseStatus = "warning";
     parseWarningCode = "empty_body";
     sourceConfidence = "low";
@@ -216,31 +306,29 @@ export function parseStrikinglyNotificationMail(
     parseStatus = "warning";
     parseWarningCode = "unknown_template";
     sourceConfidence = "low";
-  } else if (!senderEmail && !senderName && !fields.message) {
+  } else if (!senderEmail && !senderName && !messageText) {
     parseStatus = "warning";
     parseWarningCode = "sparse_fields";
     sourceConfidence = "medium";
-  } else if (strikinglyLike && (senderEmail || fields.message)) {
+  } else if (strikinglyLike && (senderEmail || messageText)) {
     sourceConfidence = "high";
   }
 
   const formFields: Record<string, string> = {};
-  for (const [k, v] of Object.entries(fields)) {
-    if (k.startsWith("custom:")) formFields[k.slice(7)] = v;
-    else if (!["name", "email", "phone", "company", "message", "form"].includes(k)) {
-      formFields[k] = v;
-    } else if (k !== "message") {
-      // 既知フィールドも form_fields に残してよい（message は message_text）
-      formFields[k] = v;
-    }
-  }
+  if (senderKana) formFields["フリガナ"] = senderKana;
+  if (department) formFields["部署名"] = department;
+  if (inquiryType) formFields["お問い合わせ種別"] = inquiryType;
+  if (hasCustomFormHeader) formFields["フォーム"] = "カスタムフォーム";
 
   return {
     senderName,
+    senderKana,
     senderEmail,
-    replyToEmail: replyToEmail || senderEmail,
+    replyToEmail: fieldEmail || replyToEmail || senderEmail,
     phone,
     companyName,
+    department,
+    inquiryType,
     formName,
     subject,
     messageText,
@@ -248,5 +336,6 @@ export function parseStrikinglyNotificationMail(
     parseStatus,
     parseWarningCode,
     sourceConfidence,
+    parserVersion: STRIKINGLY_PARSER_VERSION,
   };
 }

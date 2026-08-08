@@ -57,8 +57,15 @@ export default async function InquiryDetailPage({
     ? `mailto:${encodeURIComponent(mailto)}?subject=${encodeURIComponent(`Re: ${inquiry.subject || ""}`)}`
     : null;
 
+  const basicFormKeys = new Set([
+    "フリガナ",
+    "部署名",
+    "お問い合わせ種別",
+    "フォーム",
+  ]);
   const formEntries = Object.entries(inquiry.form_fields ?? {}).filter(
-    ([, v]) => v != null && String(v).trim() !== "",
+    ([k, v]) =>
+      !basicFormKeys.has(k) && v != null && String(v).trim() !== "",
   );
 
   return (
@@ -95,16 +102,44 @@ export default async function InquiryDetailPage({
             <dl className="grid grid-cols-[7rem_1fr] gap-y-1">
               <dt className="text-slate-500">名前</dt>
               <dd>{inquiry.sender_name || "—"}</dd>
+              <dt className="text-slate-500">フリガナ</dt>
+              <dd>
+                {String(
+                  (inquiry.form_fields as Record<string, unknown>)?.["フリガナ"] ??
+                    "",
+                ).trim() || "—"}
+              </dd>
               <dt className="text-slate-500">会社</dt>
               <dd>{inquiry.company_name || "—"}</dd>
+              <dt className="text-slate-500">部署</dt>
+              <dd>
+                {String(
+                  (inquiry.form_fields as Record<string, unknown>)?.["部署名"] ??
+                    "",
+                ).trim() || "—"}
+              </dd>
               <dt className="text-slate-500">メール</dt>
               <dd>{inquiry.sender_email || "—"}</dd>
               <dt className="text-slate-500">Reply-To</dt>
               <dd>{inquiry.reply_to_email || "—"}</dd>
               <dt className="text-slate-500">電話</dt>
               <dd>{inquiry.phone || "—"}</dd>
+              <dt className="text-slate-500">お問い合わせ種別</dt>
+              <dd>
+                {String(
+                  (inquiry.form_fields as Record<string, unknown>)?.[
+                    "お問い合わせ種別"
+                  ] ?? inquiry.form_name ??
+                    "",
+                ).trim() || "—"}
+              </dd>
               <dt className="text-slate-500">フォーム</dt>
-              <dd>{inquiry.form_name || "—"}</dd>
+              <dd>
+                {String(
+                  (inquiry.form_fields as Record<string, unknown>)?.["フォーム"] ??
+                    "",
+                ).trim() || "—"}
+              </dd>
               <dt className="text-slate-500">source</dt>
               <dd>{inquiry.source}</dd>
             </dl>

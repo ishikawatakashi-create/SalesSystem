@@ -41,6 +41,9 @@ export type InquiryRow = {
   source_confidence: InquirySourceConfidence;
   /** 過去 backfill 由来。新着 badge 集計対象外 */
   historical_import: boolean;
+  parser_version: number;
+  /** source=正規 / ignored_non_source=返信等で一覧除外 */
+  ingest_classification: "source" | "ignored_non_source";
   created_at: string;
   updated_at: string;
 };
@@ -49,8 +52,13 @@ export type InquiryRow = {
 export function isInquiryBadgeEligible(row: {
   status: string;
   historical_import?: boolean | null;
+  ingest_classification?: string | null;
 }): boolean {
-  return row.status === "new" && !row.historical_import;
+  return (
+    row.status === "new" &&
+    !row.historical_import &&
+    (row.ingest_classification ?? "source") === "source"
+  );
 }
 
 export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {

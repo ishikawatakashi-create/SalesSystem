@@ -18,14 +18,26 @@ describe("Phase 11 simulated inquiry flow (Apps Script)", () => {
       gmail_message_id: "gmail-msg-abc",
       gmail_thread_id: "thread-1",
       received_at: new Date().toISOString(),
-      from: "Strikingly <noreply@strikingly.com>",
-      reply_to: "佐藤花子 <sato@example.test>",
-      subject: "New Form Submission from Strikingly",
+      from: "'佐藤花子' via sales",
+      reply_to: null as string | null,
+      subject: "佐藤花子 はあなたのサイトにコメントしました",
       plain_body: [
-        "名前: 佐藤花子",
-        "メール: sato@example.test",
-        "会社: 架空商事",
-        "お問い合わせ内容: デモ希望です。",
+        "カスタムフォーム",
+        "お問い合わせ種別",
+        "デモ希望",
+        "名",
+        "佐藤花子",
+        "フリガナ",
+        "サトウハナコ",
+        "会社名",
+        "架空商事",
+        "部署名",
+        "/",
+        "メールアドレス",
+        "sato@example.test",
+        "お問い合わせ内容",
+        "デモ希望です。",
+        "このメールを返信して",
       ].join("\n"),
     };
     const raw = JSON.stringify(payload);
@@ -49,7 +61,9 @@ describe("Phase 11 simulated inquiry flow (Apps Script)", () => {
     });
 
     expect(parsed.senderEmail).toBe("sato@example.test");
+    expect(parsed.senderName).toBe("佐藤花子");
     expect(parsed.companyName).toBe("架空商事");
+    expect(parsed.messageText).toBe("デモ希望です。");
     expect(parsed.parseStatus).toBe("ok");
 
     const dedupeKey = payload.gmail_message_id;

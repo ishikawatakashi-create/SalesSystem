@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const MAX_BODY_BYTES = 200_000;
 const MAX_BATCH = 20;
 const MAX_PLAIN_CHARS = 50_000;
+const MAX_HTML_CHARS = 100_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 60;
 
@@ -50,6 +51,8 @@ const messageSchema = z.object({
   reply_to: z.string().max(2000).nullable().optional(),
   subject: z.string().max(2000).nullable().optional(),
   plain_body: z.string().max(MAX_PLAIN_CHARS).nullable().optional(),
+  /** transient。DB には保存しない。server で sanitize して parser に使用 */
+  html_body: z.string().max(MAX_HTML_CHARS).nullable().optional(),
   /** 過去 backfill。true のとき badge 対象外 */
   historical_import: z.boolean().optional(),
 });
@@ -96,7 +99,7 @@ async function recordIngestError(code: string): Promise<void> {
 
 async function handleOneMessage(
   msg: z.infer<typeof messageSchema>,
-): Promise<"accepted" | "duplicate" | "skipped"> {
+): Promise<"accepted" | "updated" | "duplicate" | "skipped"> {
   const result = await ingestInquiryFromMail({
     sourceMessageId: msg.gmail_message_id,
     sourceThreadId: msg.gmail_thread_id ?? null,
@@ -105,7 +108,7 @@ async function handleOneMessage(
     from: msg.from ?? null,
     replyTo: msg.reply_to ?? null,
     plainText: msg.plain_body ?? null,
-    htmlText: null,
+    htmlText: msg.html_body ?? null,
     historicalImport: Boolean(msg.historical_import),
     requireStrikingly: true,
   });
@@ -113,13 +116,13 @@ async function handleOneMessage(
   if (result.status === "skipped") {
     return "skipped";
   }
-  if (result.status === "accepted") {
+  if (result.status === "accepted" || result.status === "updated") {
     await patchInquiryAppsScriptSettings({
       last_ingest_at: now,
       last_accepted_at: now,
       last_error_code: null,
     });
-    return "accepted";
+    return result.status;
   }
   await patchInquiryAppsScriptSettings({
     last_ingest_at: now,
@@ -188,7 +191,8 @@ export async function handleAppsScriptIngestPost(
   // batch
   const batch = batchSchema.safeParse(json);
   if (batch.success) {
-    const results: Array<"accepted" | "duplicate" | "skipped"> = [];
+    const results: Array<"accepted" | "updated" | "duplicate" | "skipped"> =
+      [];
     try {
       for (const item of batch.data.items) {
         results.push(await handleOneMessage(item));
@@ -201,7 +205,8 @@ export async function handleAppsScriptIngestPost(
       status: 200,
       body: {
         status: "ok",
-        accepted: results.filter((r) => r === "accepted").length,
+        accepted: results.filter((r) => r === "accepted" || r === "updated")
+          .length,
         duplicate: results.filter((r) => r === "duplicate").length,
         skipped: results.filter((r) => r === "skipped").length,
       },

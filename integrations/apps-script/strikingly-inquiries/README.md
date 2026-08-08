@@ -64,7 +64,8 @@ Google Cloud Pub/Sub・Gmail OAuth Client・users.watch は使いません。
 6. `/admin/sync` で heartbeat が更新されること
 
 通常 polling は `newer_than:2d` の overlap のみ。  
-label 内の非 Strikingly メールは候補判定で skip（server でも最終判定）。
+`Re:` / `Fwd:` や非元通知は skip（inquiry を作らない）。  
+plain が欠落する場合は `html_body` を transient 送信（DB 非保存。server で sanitize）。
 
 ### 6. backfill 開始（任意・手動のみ）
 

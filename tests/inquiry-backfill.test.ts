@@ -65,22 +65,49 @@ describe("Apps Script received_at conversion", () => {
 });
 
 describe("Strikingly candidate detection (backfill)", () => {
-  it("日本語通知フレーズを検出する（From 非依存）", () => {
+  it("正規件名+sentinel を検出する（From 非依存）", () => {
     expect(
       looksLikeStrikinglyNotification({
-        subject: "通知",
+        subject: "山田 はあなたのサイトにコメントしました",
         from: "sales@in-iru.com",
-        body: "山田さんがあなたのサイトにコメントしました",
+        body: [
+          "カスタムフォーム",
+          "お問い合わせ種別",
+          "x",
+          "名",
+          "山田",
+          "メールアドレス",
+          "a@example.test",
+          "お問い合わせ内容",
+          "hello",
+        ].join("\n"),
       }),
     ).toBe(true);
   });
 
-  it("非 Strikingly は false", () => {
+  it("非 Strikingly / 返信は false", () => {
     expect(
       looksLikeStrikinglyNotification({
         subject: "請求書",
         from: "sales@in-iru.com",
         body: "今月の請求です",
+      }),
+    ).toBe(false);
+    expect(
+      looksLikeStrikinglyNotification({
+        subject: "Re: 山田 はあなたのサイトにコメントしました",
+        from: "a@example.test",
+        body: [
+          "カスタムフォーム",
+          "お問い合わせ種別",
+          "x",
+          "名",
+          "山田",
+          "メールアドレス",
+          "a@example.test",
+          "お問い合わせ内容",
+          "hello",
+        ].join("\n"),
       }),
     ).toBe(false);
   });
@@ -96,6 +123,16 @@ describe("badge eligibility", () => {
   it("historical_import の new は badge 対象外（status は new のまま）", () => {
     expect(
       isInquiryBadgeEligible({ status: "new", historical_import: true }),
+    ).toBe(false);
+  });
+
+  it("ignored_non_source は badge 対象外", () => {
+    expect(
+      isInquiryBadgeEligible({
+        status: "new",
+        historical_import: false,
+        ingest_classification: "ignored_non_source",
+      }),
     ).toBe(false);
   });
 });

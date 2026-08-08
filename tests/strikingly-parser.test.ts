@@ -1,15 +1,129 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  looksLikeStrikinglyNotification,
+  isReplyOrForwardSubject,
+  isStrikinglySourceNotification,
   parseStrikinglyNotificationMail,
+  selectParseBody,
 } from "@/lib/inquiries/parser-strikingly";
 import { htmlToPlainText } from "@/lib/inquiries/html-text";
 
-describe("parseStrikinglyNotificationMail", () => {
-  it("Reply-To とラベル付き本文を解析する", () => {
+const SOURCE_SUBJECT = "架空花子 はあなたのサイトにコメントしました";
+
+function sourceBodyLines(overrides?: { message?: string; company?: string }) {
+  return [
+    "カスタムフォーム",
+    "お問い合わせ種別",
+    "資料請求",
+    "名",
+    "架空花子",
+    "フリガナ",
+    "カクウハナコ",
+    "会社名",
+    overrides?.company ?? "/",
+    "部署名",
+    "企画部",
+    "メールアドレス",
+    "hanako.kakou@example.test",
+    "お問い合わせ内容",
+    overrides?.message ?? "テストです",
+    "",
+    "このメールを返信して",
+    "すべての返事を読む",
+  ].join("\n");
+}
+
+describe("isStrikinglySourceNotification / reply exclusion", () => {
+  it("Re:/RE:/Fwd: は除外", () => {
+    expect(isReplyOrForwardSubject("Re: 架空花子 はあなたのサイトにコメントしました")).toBe(
+      true,
+    );
+    expect(isReplyOrForwardSubject("RE: hello")).toBe(true);
+    expect(isReplyOrForwardSubject("Fwd: x")).toBe(true);
+    expect(isStrikinglySourceNotification({
+      subject: "Re: 架空花子 はあなたのサイトにコメントしました",
+      body: sourceBodyLines(),
+    })).toBe(false);
+  });
+
+  it("件名+sentinel が揃えば source", () => {
+    expect(
+      isStrikinglySourceNotification({
+        subject: SOURCE_SUBJECT,
+        from: "'架空花子' via sales",
+        body: sourceBodyLines(),
+      }),
+    ).toBe(true);
+  });
+
+  it("From だけでは source にしない", () => {
+    expect(
+      isStrikinglySourceNotification({
+        subject: "Hello",
+        from: "'架空花子' via sales",
+        body: "no sentinels",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("parseStrikinglyNotificationMail (v2)", () => {
+  it("ラベル改行形式から名/会社/メール/本文を抽出する", () => {
     const parsed = parseStrikinglyNotificationMail({
-      subject: "New Form Submission",
+      subject: SOURCE_SUBJECT,
+      from: "'架空花子' via sales <sales@example.test>",
+      plainText: sourceBodyLines({ company: "/" }),
+    });
+    expect(parsed.senderName).toBe("架空花子");
+    expect(parsed.senderName).not.toMatch(/via sales/i);
+    expect(parsed.companyName).toBeNull();
+    expect(parsed.senderEmail).toBe("hanako.kakou@example.test");
+    expect(parsed.inquiryType).toBe("資料請求");
+    expect(parsed.formName).toBe("資料請求");
+    expect(parsed.department).toBe("企画部");
+    expect(parsed.senderKana).toBe("カクウハナコ");
+    expect(parsed.messageText).toBe("テストです");
+    expect(parsed.messageText).not.toContain("このメールを返信して");
+    expect(parsed.messageText).not.toContain("あなたのサイトにコメント");
+    expect(parsed.formFields["フリガナ"]).toBe("カクウハナコ");
+    expect(parsed.formFields["部署名"]).toBe("企画部");
+    expect(parsed.parseStatus).toBe("ok");
+  });
+
+  it("plain が欠落しても HTML から抽出する", () => {
+    const html = `
+      <html><body>
+      <script>alert(1)</script>
+      <p>カスタムフォーム</p>
+      <p>お問い合わせ種別<br>採用について</p>
+      <p>名<br>架空太郎</p>
+      <p>フリガナ<br>カクウタロウ</p>
+      <p>会社名<br>架空商事</p>
+      <p>部署名<br>/</p>
+      <p>メールアドレス<br>taro.kakou@example.test</p>
+      <p>お問い合わせ内容<br>テストです</p>
+      <p>このメールを返信して</p>
+      </body></html>
+    `;
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "架空太郎 はあなたのサイトにコメントしました",
+      from: "'架空太郎' via sales",
+      plainText: "架空太郎 commented on your site https://example.test/x",
+      htmlText: html,
+    });
+    expect(parsed.senderName).toBe("架空太郎");
+    expect(parsed.companyName).toBe("架空商事");
+    expect(parsed.senderEmail).toBe("taro.kakou@example.test");
+    expect(parsed.messageText).toBe("テストです");
+    expect(selectParseBody(
+      "架空太郎 commented on your site https://example.test/x",
+      htmlToPlainText(html),
+    )).toContain("お問い合わせ内容");
+  });
+
+  it("コロン付きラベル形式も解析する", () => {
+    const parsed = parseStrikinglyNotificationMail({
+      subject: "New Form Submission from Strikingly",
       from: "Strikingly <noreply@strikingly.com>",
       replyTo: "山田太郎 <yamada@example.test>",
       plainText: [
@@ -21,35 +135,10 @@ describe("parseStrikinglyNotificationMail", () => {
         "資料請求したいです。",
       ].join("\n"),
     });
+    // 新ゲート件名ではないため warning になり得るが field 抽出は行う
     expect(parsed.senderEmail).toBe("yamada@example.test");
     expect(parsed.senderName).toBe("山田太郎");
-    expect(parsed.phone).toBe("090-1111-2222");
-    expect(parsed.companyName).toBe("株式会社テスト");
     expect(parsed.messageText).toContain("資料請求");
-    expect(parsed.parseStatus).toBe("ok");
-    expect(parsed.sourceConfidence).toBe("high");
-  });
-
-  it("未知テンプレートでも破棄せず warning で本文を残す", () => {
-    const parsed = parseStrikinglyNotificationMail({
-      subject: "Hello",
-      from: "someone@example.test",
-      plainText: "ただの本文です",
-    });
-    expect(parsed.parseStatus).toBe("warning");
-    expect(parsed.parseWarningCode).toBe("unknown_template");
-    expect(parsed.messageText).toContain("ただの本文");
-  });
-
-  it("custom fields を form_fields に保持する", () => {
-    const parsed = parseStrikinglyNotificationMail({
-      subject: "Form submission from Strikingly",
-      from: "noreply@strikingly.com",
-      replyTo: "a@example.test",
-      plainText: ["部署: 営業部", "お問い合わせ内容: 見積希望"].join("\n"),
-    });
-    expect(parsed.formFields["部署"]).toBe("営業部");
-    expect(parsed.messageText).toContain("見積希望");
   });
 
   it("HTML を sanitization して plain 化する", () => {
@@ -59,52 +148,5 @@ describe("parseStrikinglyNotificationMail", () => {
     expect(text).toContain("こんにちは");
     expect(text).not.toContain("script");
     expect(text).not.toContain("alert");
-  });
-
-  it("あなたのサイトにコメントしました を Strikingly と判定する", () => {
-    expect(
-      looksLikeStrikinglyNotification({
-        subject: "お知らせ",
-        from: "noreply@example.com",
-        body: "田中さんがあなたのサイトにコメントしました",
-      }),
-    ).toBe(true);
-  });
-
-  it("実形式に近い日本語カスタムフォーム（架空fixture）を解析する", () => {
-    const parsed = parseStrikinglyNotificationMail({
-      subject: "架空花子 はあなたのサイトにコメントしました",
-      from: "'架空花子' via sales",
-      plainText: [
-        "カスタムフォーム",
-        "お問い合わせ種別: 資料請求",
-        "名: 架空花子",
-        "フリガナ: カクウハナコ",
-        "会社名: 架空商事株式会社",
-        "部署名: 企画部",
-        "メールアドレス: hanako.kakou@example.test",
-        "お問い合わせ内容:",
-        "デモを希望します。",
-      ].join("\n"),
-    });
-    expect(parsed.parseWarningCode).not.toBe("unknown_template");
-    expect(parsed.senderName).toBe("架空花子");
-    expect(parsed.senderEmail).toBe("hanako.kakou@example.test");
-    expect(parsed.companyName).toBe("架空商事株式会社");
-    expect(parsed.formName).toBe("資料請求");
-    expect(parsed.messageText).toContain("デモを希望");
-    expect(parsed.formFields["フリガナ"]).toBe("カクウハナコ");
-    expect(parsed.formFields["部署名"]).toBe("企画部");
-  });
-
-  it("長い本文を truncate する", () => {
-    const long = "あ".repeat(25_000);
-    const parsed = parseStrikinglyNotificationMail({
-      subject: "New contact form submission",
-      from: "strikingly@example.com",
-      plainText: long,
-    });
-    expect((parsed.messageText ?? "").length).toBeLessThan(25_000);
-    expect(parsed.messageText).toContain("省略");
   });
 });

@@ -90,8 +90,9 @@ Server:
 
 ## Parser / business
 
-Apps Script は transport + 軽い候補判定。  
-Strikingly 解析・候補・割当・顧客化は SalesSystem 側（既存 Phase 11）。
+Apps Script は transport + 軽い候補判定（`html_body` 可・DB非保存）。  
+Strikingly 解析・返信除外・再parse（`parser_version`）・割当・顧客化は SalesSystem 側。  
+`ingest_classification=ignored_non_source` は一覧/badge 対象外（物理削除しない）。
 
 ## status
 
