@@ -22,7 +22,9 @@ export type JobKind =
   | "customer.backfill_default_relationship"
   | "deal.recalculate_next_action"
   | "prospect_csv_import"
-  | "prospect_bulk_assign";
+  | "prospect_bulk_assign"
+  | "prospect_promote"
+  | "customer.backfill_normalized_domain";
 
 export type JobRow = {
   id: string;

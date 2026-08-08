@@ -19,6 +19,8 @@ import { BulkAssignPanel } from "@/features/prospects/bulk-assign-panel";
 import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { formatDateTime } from "@/features/customers/format";
+import { fetchListCallKpis, formatRate } from "@/lib/prospects/kpi";
+import { CALL_RESULT_LABELS, type CallResult } from "@/lib/prospects/call-results";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,9 @@ export default async function ProspectListDetailPage({
   const canEdit = hasPermission(user.role, "prospect.edit");
   const canImport = hasPermission(user.role, "prospect.import");
   const canAssign = hasPermission(user.role, "prospect.assign");
+  const canCall = hasPermission(user.role, "prospect.call");
+  const kpiPeriod =
+    (str(raw, "kpi") as "today" | "7d" | "30d" | "all" | undefined) ?? "30d";
 
   const stageParam = str(raw, "stage") as ProspectMembershipStage | undefined;
   const page = Math.max(Number(str(raw, "page") ?? "1") || 1, 1);
@@ -79,6 +84,13 @@ export default async function ProspectListDetailPage({
 
   const statsMap = await fetchProspectListStats([id]);
   const stats = statsMap.get(id);
+  let callKpi = null as Awaited<ReturnType<typeof fetchListCallKpis>>[number] | null;
+  try {
+    const kpis = await fetchListCallKpis({ listIds: [id], period: kpiPeriod });
+    callKpi = kpis[0] ?? null;
+  } catch {
+    callKpi = null;
+  }
 
   const admin = createAdminClient();
   const { data: users } = await admin
@@ -112,14 +124,24 @@ export default async function ProspectListDetailPage({
             {list.source_name ? ` / ${list.source_name}` : ""} · {list.status}
           </p>
         </div>
-        {canImport ? (
-          <Link
-            href={`/prospect-lists/${id}/import`}
-            className="rounded bg-slate-800 px-2 py-1 text-xs text-white"
-          >
-            CSVをインポート
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {canCall ? (
+            <Link
+              href={`/call-queue?list=${id}`}
+              className="rounded bg-slate-900 px-2 py-1 text-xs text-white"
+            >
+              架電キュー
+            </Link>
+          ) : null}
+          {canImport ? (
+            <Link
+              href={`/prospect-lists/${id}/import`}
+              className="rounded bg-slate-800 px-2 py-1 text-xs text-white"
+            >
+              CSVをインポート
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs">
@@ -132,6 +154,51 @@ export default async function ProspectListDetailPage({
         <Stat label="DNC" value={stats?.dnc_count ?? 0} />
         <Stat label="重複候補" value={stats?.duplicate_review_count ?? 0} />
       </div>
+
+      {callKpi ? (
+        <div className="space-y-1 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-slate-600">
+            <span className="font-semibold text-slate-800">架電KPI</span>
+            {(["today", "7d", "30d", "all"] as const).map((p) => (
+              <Link
+                key={p}
+                href={`?kpi=${p}`}
+                className={
+                  kpiPeriod === p ? "font-semibold underline" : "underline"
+                }
+              >
+                {p === "today"
+                  ? "今日"
+                  : p === "7d"
+                    ? "7日"
+                    : p === "30d"
+                      ? "30日"
+                      : "全期間"}
+              </Link>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Stat label="架電数" value={callKpi.attemptCount} />
+            <Stat label="接触(社数)" value={callKpi.connectedProspectCount} />
+            <Stat label="興味あり" value={callKpi.interestedProspectCount} />
+            <Stat label="アポ" value={callKpi.appointmentProspectCount} />
+            <Stat label="対象外" value={callKpi.disqualifiedProspectCount} />
+            <Stat label="DNC" value={callKpi.dncProspectCount} />
+            <div className="rounded border border-slate-200 bg-white px-2 py-1">
+              <div className="text-[10px] text-slate-500">接触率</div>
+              <div className="font-semibold text-slate-800">
+                {formatRate(callKpi.connectionRate)}
+              </div>
+            </div>
+            <div className="rounded border border-slate-200 bg-white px-2 py-1">
+              <div className="text-[10px] text-slate-500">アポ率</div>
+              <div className="font-semibold text-slate-800">
+                {formatRate(callKpi.appointmentRate)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <form className="space-y-2 text-xs" method="get">
         <div className="flex flex-wrap gap-2">
@@ -248,8 +315,11 @@ export default async function ProspectListDetailPage({
                 <th className="px-2 py-1.5 font-medium">電話</th>
                 <th className="px-2 py-1.5 font-medium">担当者</th>
                 <th className="px-2 py-1.5 font-medium">担当/stage</th>
+                <th className="px-2 py-1.5 font-medium">最終接触</th>
+                <th className="px-2 py-1.5 font-medium">結果</th>
+                <th className="px-2 py-1.5 font-medium">次回</th>
+                <th className="px-2 py-1.5 font-medium">架電</th>
                 <th className="px-2 py-1.5 font-medium">flag</th>
-                <th className="px-2 py-1.5 font-medium">更新</th>
               </tr>
             </thead>
             <tbody>
@@ -287,9 +357,30 @@ export default async function ProspectListDetailPage({
                       canEdit={canEdit}
                     />
                   </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-slate-500">
+                    {membership.last_contact_at
+                      ? formatDateTime(membership.last_contact_at)
+                      : "—"}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {membership.last_call_result
+                      ? CALL_RESULT_LABELS[
+                          membership.last_call_result as CallResult
+                        ] ?? membership.last_call_result
+                      : "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-slate-500">
+                    {membership.next_contact_at
+                      ? formatDateTime(membership.next_contact_at)
+                      : "—"}
+                  </td>
+                  <td className="px-2 py-1.5">{membership.call_count ?? 0}</td>
                   <td className="px-2 py-1.5">
                     {prospect.do_not_contact ? (
                       <span className="text-red-600">DNC</span>
+                    ) : null}{" "}
+                    {prospect.promotion_status === "completed" ? (
+                      <span className="text-emerald-700">正式組織化</span>
                     ) : null}{" "}
                     {prospect.duplicate_review_status === "probable" ? (
                       <span className="text-amber-600">重複?</span>
@@ -302,9 +393,6 @@ export default async function ProspectListDetailPage({
                         既存組織
                       </Link>
                     ) : null}
-                  </td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-slate-500">
-                    {formatDateTime(membership.updated_at)}
                   </td>
                 </tr>
               ))}

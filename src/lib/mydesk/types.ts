@@ -101,6 +101,12 @@ export type MyDeskInquirySummary = {
 export type MyDeskProspectSummary = {
   /** 自分に割当済み・未着手(new) */
   assignedNewCount: number;
+  /** 再架電期限超過 */
+  callOverdueCount: number;
+  /** 本日再架電 */
+  callTodayCount: number;
+  /** 未着手担当 (new/assigned) */
+  callUnstartedCount: number;
 };
 
 export type MyDeskSnapshot = {

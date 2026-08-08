@@ -29,12 +29,16 @@ describe("権限マトリクス(docs/permissions.mdと一致すること)", () =
     }
   });
 
-  it("Prospect権限: viewは全ロール、editはadmin/a/b、import/assign/listsはadmin/a", () => {
+  it("Prospect権限: viewは全ロール、edit/call/promoteはadmin/a/b、import/assign/listsはadmin/a", () => {
     for (const role of ALL_ROLES) {
       expect(hasPermission(role, "prospect.view")).toBe(true);
     }
     expect(hasPermission("b", "prospect.edit")).toBe(true);
     expect(hasPermission("viewer", "prospect.edit")).toBe(false);
+    expect(hasPermission("b", "prospect.call")).toBe(true);
+    expect(hasPermission("viewer", "prospect.call")).toBe(false);
+    expect(hasPermission("b", "prospect.promote")).toBe(true);
+    expect(hasPermission("viewer", "prospect.promote")).toBe(false);
     expect(hasPermission("a", "prospect.import")).toBe(true);
     expect(hasPermission("b", "prospect.import")).toBe(false);
     expect(hasPermission("a", "prospect.assign")).toBe(true);

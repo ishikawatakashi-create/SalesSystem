@@ -40,6 +40,6 @@
 
 単一担当変更は `prospect.edit`（B 可）。一括/均等は `prospect.assign`。
 
-## Phase 13B 境界（未実装）
+## Phase 13B
 
-架電 UI / call_attempts / 昇格 / KPI（接続率・アポ率）等。
+架電 UI / call_attempts / 昇格 / KPI は [phase13b-call-promotion.md](./phase13b-call-promotion.md) / [ADR 0003](./adr/0003-prospect-call-history-operational.md)。

@@ -81,6 +81,8 @@ export type CustomerIndexRow = {
   email: string | null;
   representative_name: string | null;
   website: string | null;
+  /** Derived matching key from website/email host. Notion remains SSoT. */
+  normalized_domain: string | null;
   business_category_ids: string[];
   tag_ids: string[];
   relationship_ids: string[];

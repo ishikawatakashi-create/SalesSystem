@@ -18,6 +18,8 @@ export const PERMISSIONS = {
   "inquiry.edit": ["admin", "a", "b"],
   "prospect.view": ["admin", "a", "b", "viewer"],
   "prospect.edit": ["admin", "a", "b"],
+  "prospect.call": ["admin", "a", "b"],
+  "prospect.promote": ["admin", "a", "b"],
   "prospect.import": ["admin", "a"],
   "prospect.assign": ["admin", "a"],
   "prospect.manage_lists": ["admin", "a"],

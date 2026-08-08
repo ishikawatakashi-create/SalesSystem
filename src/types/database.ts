@@ -233,6 +233,8 @@ export type CustomerIndexRow = {
   email: string | null;
   representative_name: string | null;
   website: string | null;
+  /** Derived matching key (website/email host). Notion SSoT. */
+  normalized_domain: string | null;
   business_category_ids: string[];
   tag_ids: string[];
   relationship_ids: string[];
@@ -561,9 +563,40 @@ export type Database = {
       prospect_list_memberships: TableDef<Record<string, unknown>>;
       prospect_import_jobs: TableDef<Record<string, unknown>>;
       prospect_import_rows: TableDef<Record<string, unknown>>;
+      prospect_call_attempts: TableDef<Record<string, unknown>>;
     };
     Views: Record<string, never>;
     Functions: {
+      claim_next_prospect_call: {
+        Args: {
+          p_user_id: string;
+          p_list_id?: string | null;
+          p_lease_seconds?: number;
+          p_filter?: string;
+        };
+        Returns: Array<Record<string, unknown>>;
+      };
+      release_prospect_call_claim: {
+        Args: { p_membership_id: string; p_user_id: string };
+        Returns: boolean;
+      };
+      prospect_list_call_stats: {
+        Args: {
+          p_list_ids: string[];
+          p_from?: string | null;
+          p_to?: string | null;
+        };
+        Returns: Array<{
+          prospect_list_id: string;
+          attempt_count: number;
+          attempted_prospect_count: number;
+          connected_prospect_count: number;
+          interested_prospect_count: number;
+          appointment_prospect_count: number;
+          disqualified_prospect_count: number;
+          dnc_prospect_count: number;
+        }>;
+      };
       prospect_list_stats: {
         Args: { p_list_ids: string[] };
         Returns: Array<{

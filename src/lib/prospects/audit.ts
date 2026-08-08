@@ -11,7 +11,8 @@ export async function writeProspectAudit(input: {
     | "prospect_list"
     | "prospect_contact"
     | "prospect_membership"
-    | "prospect_import";
+    | "prospect_import"
+    | "prospect_call_attempt";
   entityId: string;
   changedFields?: Record<string, unknown> | null;
   operationSource?: string | null;

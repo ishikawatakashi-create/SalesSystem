@@ -42,6 +42,8 @@ export type GlobalSearchHit = {
   relationshipSemanticKeys?: string[];
   /** Prospect バッジ用 */
   badge?: string;
+  /** 昇格済み Prospect から正式組織へ */
+  secondaryHref?: string;
 };
 
 export type GlobalSearchResult = {

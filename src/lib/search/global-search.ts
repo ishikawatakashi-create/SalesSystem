@@ -82,7 +82,7 @@ export async function globalSearch(
     supabase
       .from("prospects")
       .select(
-        "id,company_name,normalized_domain,prefecture,city,do_not_contact",
+        "id,company_name,normalized_domain,prefecture,city,do_not_contact,promotion_status,promoted_customer_page_id",
       )
       .is("archived_at", null)
       .or(
@@ -231,16 +231,33 @@ export async function globalSearch(
         prefecture: string | null;
         city: string | null;
         do_not_contact: boolean;
+        promotion_status: string | null;
+        promoted_customer_page_id: string | null;
       }>
     ).map((r) => ({
       entity: "prospects" as const,
       pageId: r.id,
       title: r.company_name || "(無題)",
       subtitle:
-        [r.normalized_domain, r.prefecture, r.city].filter(Boolean).join(" / ") ||
-        null,
+        [
+          r.normalized_domain,
+          r.prefecture,
+          r.city,
+          r.promotion_status === "completed" ? "正式組織化済み" : null,
+        ]
+          .filter(Boolean)
+          .join(" / ") || null,
       href: `/prospects/${r.id}`,
-      badge: r.do_not_contact ? "DNC" : "Prospect",
+      badge:
+        r.promotion_status === "completed"
+          ? "正式組織化済み"
+          : r.do_not_contact
+            ? "DNC"
+            : "Prospect",
+      secondaryHref:
+        r.promotion_status === "completed" && r.promoted_customer_page_id
+          ? `/organizations/${r.promoted_customer_page_id}`
+          : undefined,
     })),
   );
 

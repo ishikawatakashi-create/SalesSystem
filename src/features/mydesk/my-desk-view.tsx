@@ -308,6 +308,22 @@ export function MyDeskView({
           href={`/prospect-lists`}
         />
         <KpiSecondary
+          label="再架電期限超過"
+          value={snapshot.prospects.callOverdueCount}
+          href="/call-queue?filter=overdue"
+          danger={snapshot.prospects.callOverdueCount > 0}
+        />
+        <KpiSecondary
+          label="本日再架電"
+          value={snapshot.prospects.callTodayCount}
+          href="/call-queue?filter=today"
+        />
+        <KpiSecondary
+          label="未着手担当"
+          value={snapshot.prospects.callUnstartedCount}
+          href="/call-queue"
+        />
+        <KpiSecondary
           label="未完了"
           value={kpis.openActions}
           href={`/actions?view=all&assignee=${user.id}&open=1`}
@@ -329,6 +345,26 @@ export function MyDeskView({
           href="/activities"
         />
       </div>
+
+      {(snapshot.prospects.callOverdueCount > 0 ||
+        snapshot.prospects.callTodayCount > 0 ||
+        snapshot.prospects.callUnstartedCount > 0) && (
+        <Section title="今日の営業">
+          <div className="flex flex-wrap items-center gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-xs">
+            <span>
+              期限超過 {snapshot.prospects.callOverdueCount} / 本日{" "}
+              {snapshot.prospects.callTodayCount} / 未着手{" "}
+              {snapshot.prospects.callUnstartedCount}
+            </span>
+            <Link
+              href="/call-queue"
+              className="rounded bg-slate-900 px-2 py-1 text-white hover:bg-slate-800"
+            >
+              架電を開始
+            </Link>
+          </div>
+        </Section>
+      )}
 
       {(snapshot.inquiries.newCount > 0 ||
         snapshot.inquiries.unassignedNewCount > 0) && (

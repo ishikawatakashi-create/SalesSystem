@@ -5,15 +5,20 @@ import { AuthError, requirePermission, requireUser } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROSPECT_STAGE_LABELS } from "@/lib/prospects/types";
+import { findFormalOrganizationMatches } from "@/lib/prospects/formal-match";
 import { ProspectDncForm } from "@/features/prospects/dnc-form";
+import { CallHistorySection } from "@/features/prospects/call-history-section";
+import { ProspectPromoteButton } from "@/features/prospects/prospect-promote-button";
 import { formatDateTime } from "@/features/customers/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProspectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   let user;
   try {
@@ -25,6 +30,9 @@ export default async function ProspectDetailPage({
   }
 
   const { id } = await params;
+  const sp = await searchParams;
+  const histAt = Array.isArray(sp.histAt) ? sp.histAt[0] : sp.histAt;
+  const histId = Array.isArray(sp.histId) ? sp.histId[0] : sp.histId;
   const admin = createAdminClient();
   const { data: prospect } = await admin
     .from("prospects")
@@ -82,6 +90,25 @@ export default async function ProspectDetailPage({
   }
 
   const canEdit = hasPermission(user.role, "prospect.edit");
+  const canCall = hasPermission(user.role, "prospect.call");
+  const canPromote =
+    hasPermission(user.role, "prospect.promote") &&
+    hasPermission(user.role, "customer.edit") &&
+    String(prospect.promotion_status) !== "completed";
+
+  const contactEmails = (contacts ?? [])
+    .map((c) => c.email as string | null)
+    .filter((e): e is string => Boolean(e));
+  const liveMatches = await findFormalOrganizationMatches({
+    normalizedDomain: (prospect.normalized_domain as string | null) ?? null,
+    normalizedPhone: (prospect.normalized_phone as string | null) ?? null,
+    contactEmails,
+    companyName: String(prospect.company_name),
+    prefecture: (prospect.prefecture as string | null) ?? null,
+    city: (prospect.city as string | null) ?? null,
+  });
+  const topMatch = liveMatches[0] ?? null;
+  const primaryMembership = (memberships ?? [])[0] ?? null;
 
   return (
     <div className="space-y-4 text-xs">
@@ -99,16 +126,98 @@ export default async function ProspectDetailPage({
               DNC
             </span>
           ) : null}
-          {prospect.formal_org_match_page_id ? (
+          {prospect.promotion_status === "completed" &&
+          prospect.promoted_customer_page_id ? (
             <Link
-              href={`/organizations/${String(prospect.formal_org_match_page_id)}`}
-              className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-800 underline"
+              href={`/organizations/${String(prospect.promoted_customer_page_id)}`}
+              className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800 underline"
             >
-              既存組織候補
+              正式組織化済み
             </Link>
+          ) : null}
+          {prospect.phone_invalid ? (
+            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">
+              番号要確認
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {canCall && primaryMembership ? (
+            <Link
+              href={`/call-queue/${String(primaryMembership.id)}`}
+              className="rounded bg-slate-900 px-2 py-1 text-white"
+            >
+              架電する
+            </Link>
+          ) : null}
+          {canPromote ? (
+            <ProspectPromoteButton
+              prospectId={id}
+              membershipId={
+                primaryMembership ? String(primaryMembership.id) : null
+              }
+              companyName={String(prospect.company_name)}
+              formalMatchPageId={
+                topMatch?.pageId ??
+                (prospect.formal_org_match_page_id as string | null)
+              }
+              formalMatchConfidence={
+                topMatch?.confidence ??
+                (prospect.formal_org_match_confidence as string | null)
+              }
+              contacts={(contacts ?? []).map((c) => ({
+                id: String(c.id),
+                name: String(c.name),
+                department: (c.department as string | null) ?? null,
+                title: (c.title as string | null) ?? null,
+                phone: (c.phone as string | null) ?? null,
+                email: (c.email as string | null) ?? null,
+              }))}
+              nextContactAt={
+                (primaryMembership?.next_contact_at as string | null) ?? null
+              }
+            />
           ) : null}
         </div>
       </div>
+
+      <section className="rounded border border-slate-200 bg-white p-3">
+        <h2 className="mb-1 font-semibold">正式組織</h2>
+        {prospect.promotion_status === "completed" &&
+        prospect.promoted_customer_page_id ? (
+          <p>
+            登録済み:{" "}
+            <Link
+              href={`/organizations/${String(prospect.promoted_customer_page_id)}`}
+              className="underline"
+            >
+              組織を見る
+            </Link>
+          </p>
+        ) : topMatch ? (
+          <p>
+            候補: {topMatch.displayName}（{topMatch.confidence} /{" "}
+            {topMatch.reason}）{" "}
+            <Link
+              href={`/organizations/${topMatch.pageId}`}
+              className="underline"
+            >
+              組織を見る
+            </Link>
+          </p>
+        ) : (
+          <p className="text-slate-500">未登録</p>
+        )}
+        {prospect.promotion_status === "pending" ||
+        prospect.promotion_status === "failed" ? (
+          <p className="mt-1 text-amber-800">
+            昇格ステータス: {String(prospect.promotion_status)}
+            {prospect.promotion_error
+              ? ` — ${String(prospect.promotion_error)}`
+              : ""}
+          </p>
+        ) : null}
+      </section>
 
       <section className="grid gap-2 rounded border border-slate-200 bg-white p-3 sm:grid-cols-2">
         <Field label="Web" value={prospect.website_url as string | null} />
@@ -184,6 +293,21 @@ export default async function ProspectDetailPage({
                           "担当あり"
                         : "未割当"}
                     </span>
+                    {m.call_count ? (
+                      <span className="text-slate-500">
+                        架電 {Number(m.call_count)}回
+                      </span>
+                    ) : null}
+                    {m.next_contact_at ? (
+                      <span className="text-slate-500">
+                        次回 {formatDateTime(String(m.next_contact_at))}
+                      </span>
+                    ) : null}
+                    {m.last_contact_at ? (
+                      <span className="text-slate-500">
+                        最終 {formatDateTime(String(m.last_contact_at))}
+                      </span>
+                    ) : null}
                   </div>
                   {Object.keys(attrs).length > 0 ? (
                     <details>
@@ -202,6 +326,12 @@ export default async function ProspectDetailPage({
         )}
       </section>
 
+      <CallHistorySection
+        prospectId={id}
+        cursorCompletedAt={histAt ?? null}
+        cursorId={histId ?? null}
+      />
+
       {canEdit ? (
         <ProspectDncForm
           prospectId={id}
@@ -211,8 +341,7 @@ export default async function ProspectDetailPage({
       ) : null}
 
       <p className="text-slate-400">
-        更新: {formatDateTime(String(prospect.updated_at))} ·
-        架電履歴・正式組織昇格は Phase 13B
+        更新: {formatDateTime(String(prospect.updated_at))}
       </p>
     </div>
   );

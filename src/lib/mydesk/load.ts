@@ -21,6 +21,7 @@ import type {
   MyDeskDealItem,
   MyDeskSnapshot,
 } from "@/lib/mydesk/types";
+import { countMyCallQueue } from "@/lib/prospects/call-queue";
 
 export { formatYen, jstToday } from "@/lib/mydesk/pure";
 
@@ -455,6 +456,18 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
         .is("archived_at", null),
     ]);
 
+  let callOverdueCount = 0;
+  let callTodayCount = 0;
+  let callUnstartedCount = 0;
+  try {
+    const callCounts = await countMyCallQueue({ userId: user.id });
+    callOverdueCount = callCounts.overdue;
+    callTodayCount = callCounts.today;
+    callUnstartedCount = callCounts.unstarted;
+  } catch {
+    // call queue tables may be unavailable during partial deploy
+  }
+
   return {
     today,
     kpis: {
@@ -486,6 +499,9 @@ export async function loadMyDesk(user: AppUserRow): Promise<MyDeskSnapshot> {
     },
     prospects: {
       assignedNewCount: prospectAssignedNewRes.count ?? 0,
+      callOverdueCount,
+      callTodayCount,
+      callUnstartedCount,
     },
   };
 }

@@ -6,6 +6,7 @@ import {
   normalizeEmailOrNull,
   normalizePhone,
 } from "@/lib/normalize";
+import { normalizeDomain } from "@/lib/normalize/domain";
 
 /**
  * Notionドメイン → customer_index upsert行。
@@ -58,6 +59,9 @@ export function customerDomainToIndexRow(input: {
     email: normalizeEmailOrNull(input.customer.email),
     representative_name: input.customer.representativeName,
     website: input.customer.website,
+    normalized_domain:
+      normalizeDomain(input.customer.website) ??
+      normalizeDomain(input.customer.email),
     business_category_ids: input.customer.businessCategoryPageIds,
     tag_ids: input.customer.tagPageIds,
     relationship_ids: input.customer.relationshipPageIds ?? [],
@@ -104,6 +108,11 @@ export const CUSTOMER_INDEX_FIELD_MAP = [
   { domain: "email", column: "email", note: "lower/trim" },
   { domain: "representativeName", column: "representative_name", note: "" },
   { domain: "website", column: "website", note: "" },
+  {
+    domain: "website|email(normalized host)",
+    column: "normalized_domain",
+    note: "derived matching key",
+  },
   {
     domain: "businessCategoryPageIds",
     column: "business_category_ids",

@@ -22,6 +22,7 @@ export const PROSPECT_MEMBERSHIP_STAGES = [
   "working",
   "qualified",
   "disqualified",
+  "converted",
 ] as const;
 export type ProspectMembershipStage =
   (typeof PROSPECT_MEMBERSHIP_STAGES)[number];
@@ -32,7 +33,21 @@ export const PROSPECT_STAGE_LABELS: Record<ProspectMembershipStage, string> = {
   working: "対応中",
   qualified: "見込あり",
   disqualified: "対象外",
+  converted: "正式組織化済み",
 };
+
+export const PROSPECT_PROMOTION_STATUSES = [
+  "none",
+  "pending",
+  "organization_created",
+  "contacts_done",
+  "activity_done",
+  "action_done",
+  "completed",
+  "failed",
+] as const;
+export type ProspectPromotionStatus =
+  (typeof PROSPECT_PROMOTION_STATUSES)[number];
 
 export const DUPLICATE_REVIEW_STATUSES = [
   "none",
@@ -92,6 +107,14 @@ export type ProspectRow = {
   formal_org_match_page_id: string | null;
   formal_org_match_external_id: string | null;
   formal_org_match_confidence: "high" | "probable" | null;
+  promotion_status: ProspectPromotionStatus;
+  promoted_customer_page_id: string | null;
+  promoted_customer_external_id: string | null;
+  promoted_at: string | null;
+  promoted_by: string | null;
+  promotion_error: string | null;
+  promotion_request_id: string | null;
+  phone_invalid: boolean;
   search_text: string;
   created_by: string | null;
   created_at: string;
@@ -127,6 +150,13 @@ export type ProspectListMembershipRow = {
   source_row_hash: string | null;
   source_attributes: Record<string, unknown>;
   notes: string | null;
+  next_contact_at: string | null;
+  last_contact_at: string | null;
+  last_call_result: string | null;
+  call_count: number;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  claim_expires_at: string | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;

@@ -13,6 +13,8 @@ import { csvImportHandler } from "@/lib/jobs/handlers/csv-import";
 import { storageCleanupHandler } from "@/lib/jobs/handlers/storage-cleanup";
 import { prospectCsvImportHandler } from "@/lib/jobs/handlers/prospect-csv-import";
 import { prospectBulkAssignHandler } from "@/lib/jobs/handlers/prospect-bulk-assign";
+import { prospectPromoteHandler } from "@/lib/jobs/handlers/prospect-promote";
+import { backfillNormalizedDomainHandler } from "@/lib/jobs/handlers/backfill-normalized-domain";
 
 /**
  * kindごとのハンドラー登録。
@@ -59,3 +61,8 @@ registerJobHandler(
 );
 registerJobHandler("prospect_csv_import", prospectCsvImportHandler);
 registerJobHandler("prospect_bulk_assign", prospectBulkAssignHandler);
+registerJobHandler("prospect_promote", prospectPromoteHandler);
+registerJobHandler(
+  "customer.backfill_normalized_domain",
+  backfillNormalizedDomainHandler,
+);

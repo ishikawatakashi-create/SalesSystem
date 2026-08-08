@@ -15,7 +15,8 @@ export function resolveNavGroup(pathname: string): NavGroupId {
     pathname.startsWith("/customers") ||
     pathname.startsWith("/contacts") ||
     pathname.startsWith("/prospect-lists") ||
-    pathname.startsWith("/prospects")
+    pathname.startsWith("/prospects") ||
+    pathname.startsWith("/call-queue")
   ) {
     return "customers";
   }
