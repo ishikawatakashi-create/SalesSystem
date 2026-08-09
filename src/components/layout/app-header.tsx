@@ -116,6 +116,13 @@ export function AppHeader({
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
           <GlobalSearchBox />
+          <Link
+            href="/help"
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            aria-label="ヘルプ"
+          >
+            ? ヘルプ
+          </Link>
           <UserMenu
             displayName={displayName}
             roleLabel={roleLabel}

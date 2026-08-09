@@ -35,7 +35,7 @@ export function resolveNavGroup(pathname: string): NavGroupId {
     return "contracts";
   }
   if (pathname.startsWith("/admin")) return "admin";
-  if (pathname.startsWith("/search")) return null;
+  if (pathname.startsWith("/search") || pathname.startsWith("/help")) return null;
   return null;
 }
 

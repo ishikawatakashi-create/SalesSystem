@@ -1,0 +1,647 @@
+import type { HelpArticle } from "@/lib/help/types";
+
+/**
+ * アプリ内ヘルプ記事（社員向け文言の SSoT）。
+ * 内部コード名はできるだけ出さない。
+ */
+export const HELP_ARTICLES: HelpArticle[] = [
+  {
+    slug: "quick-start",
+    title: "はじめてガイド（まずこれだけ）",
+    category: "getting-started",
+    summary:
+      "SalesSystemは、組織・問い合わせ・営業リスト・架電・対応履歴・案件などをまとめて扱う社内システムです。最初に覚えることだけをまとめます。",
+    featured: true,
+    keywords: ["はじめ", "新人", "クイック", "基本", "マイデスク"],
+    related: [
+      "where-to-register",
+      "three-flows",
+      "mydesk",
+      "prospect-vs-organization",
+    ],
+    steps: [
+      "ログインしたら「マイデスク」を開く",
+      "正式に付き合う会社・団体は「組織」へ登録する",
+      "大量の営業先候補は「営業リスト」へ入れる（いきなり組織へ入れない）",
+      "Webフォームから来たものは「お問い合わせ」で処理する",
+      "営業候補への電話は「今日の営業 / 架電キュー」で行う",
+      "電話したら必ず結果を保存する（保存して次へ）",
+      "次に電話する日時があれば「次回連絡」を入れる",
+      "正式組織でやったことは「対応履歴」に残す",
+      "次にやることは「次回アクション」に入れる",
+      "迷ったら検索してから新規作成する",
+    ],
+    tips: [
+      "見込顧客（組織の関係性）と営業候補（営業リスト側）は別物です",
+      "請求書の作成・発行は freee で行います",
+    ],
+  },
+  {
+    slug: "where-to-register",
+    title: "どこに登録する？（早見表）",
+    category: "getting-started",
+    summary: "状況ごとの登録先をすぐ判断するための早見表です。",
+    featured: true,
+    keywords: ["どこ", "登録", "早見", "判断", "CSV", "問い合わせ"],
+    related: ["quick-start", "prospect-vs-organization", "create-organization"],
+    body: [
+      "契約中の会社 → 組織（顧客）",
+      "具体的な商談中 → 組織（見込顧客）",
+      "出版社・テレビ・Webメディア → 組織（メディア）",
+      "自治体 → 組織（自治体）",
+      "大学・研究室 → 組織（学校・研究機関）",
+      "協業・紹介パートナー → 組織（パートナー）",
+      "顧客でもありパートナーでもある → 同じ組織に関係性を複数付ける",
+      "営業用の大量CSV（例: 5000社） → 営業リスト",
+      "展示会で集めた営業候補 → 営業リスト",
+      "スクレイピングした候補リスト → 営業リスト",
+      "Webフォームから来た相談 → お問い合わせ",
+      "正式組織への電話・訪問 → 対応履歴",
+      "営業候補への電話 → 架電結果",
+      "これからやること（正式組織） → 次回アクション",
+      "営業候補の再架電予定 → 次回連絡",
+      "具体的な導入商談 → 案件",
+      "契約情報 → 契約",
+      "重大トラブル → クレーム",
+      "会社名しか覚えていない → 全体検索",
+      "今日やることの確認 → マイデスク",
+    ],
+  },
+  {
+    slug: "three-flows",
+    title: "3つの基本フロー",
+    category: "getting-started",
+    summary: "まず覚えるべき一本道は、問い合わせ・新規営業・既存顧客対応の3本です。",
+    featured: true,
+    keywords: ["フロー", "流れ", "一本道", "問い合わせ", "架電", "顧客"],
+    related: [
+      "handle-inquiry",
+      "call-prospect",
+      "handle-existing-customer",
+      "promote-prospect",
+    ],
+    body: [
+      "【A. 問い合わせ】お問い合わせ → 担当を決める → 既存組織を確認 → 紐付けまたは新規作成 → 返信（Gmail下書き） → 対応履歴 → 次回アクション",
+      "【B. 新規営業】営業リスト → 担当割当 → 架電 → 結果保存 → 再架電 → 興味あり/アポ → 正式組織へ昇格",
+      "【C. 既存顧客対応】検索 → 組織 → 対応 → 対応履歴 → 次回アクション → 必要なら案件",
+    ],
+  },
+  {
+    slug: "mydesk",
+    title: "マイデスクの見方",
+    category: "getting-started",
+    summary:
+      "ログイン後にまず見る画面です。今日やること、今日の営業、自分の案件、新着お問い合わせなどを確認できます。",
+    featured: true,
+    keywords: ["マイデスク", "今日", "KPI", "今日の営業", "今日やること"],
+    related: ["call-prospect", "handle-inquiry", "create-action"],
+    steps: [
+      "画面上部の「マイデスク」を開く",
+      "「今日やること」で期限超過・本日期限の次回アクションを確認する",
+      "件数があれば「今日の営業」から架電を開始する",
+      "「新着お問い合わせ」があれば未確認・未割当を確認する",
+      "自分の案件や要確認があれば優先度の高いものから対応する",
+    ],
+    tips: [
+      "朝の起点はマイデスクにすると迷いにくいです",
+      "管理者には会社全体の簡易サマリも表示されます",
+    ],
+  },
+  {
+    slug: "prospect-vs-organization",
+    title: "見込顧客と営業候補の違い",
+    category: "getting-started",
+    summary:
+      "いちばん混同しやすい用語です。営業候補はリスト上の候補、見込顧客は正式な組織の関係性です。",
+    featured: true,
+    keywords: ["見込顧客", "営業候補", "違い", "昇格", "組織"],
+    related: ["promote-prospect", "create-organization", "import-prospect-csv"],
+    body: [
+      "営業候補: まだ大量営業リスト内で電話してみる段階の候補です。",
+      "見込顧客: 正式な「組織」として管理する段階で付ける関係性です。",
+      "例: 介護施設CSV 3000社 → 営業候補 → 電話 → アポ獲得 → 正式組織へ昇格 → 見込顧客",
+      "ナビの「見込顧客」は組織一覧のフィルタ、「営業候補」は営業リスト側のプールです。",
+    ],
+    tips: [
+      "アポが取れても自動では組織になりません。手動で昇格します。",
+    ],
+  },
+  {
+    slug: "three-assignees",
+    title: "「担当者」は3種類ある",
+    category: "organizations",
+    summary:
+      "先方担当者・自社担当者・権限の「担当者」は別物です。同じ日本語でも意味が違います。",
+    featured: true,
+    keywords: ["担当者", "先方", "自社", "権限", "混同"],
+    related: ["create-contact", "permissions-overview"],
+    body: [
+      "株式会社さくらケアの例:",
+      "先方担当者 → 山田様（相手会社の人）",
+      "自社担当者 → 石川（うちの社員。案件や次回アクションの担当）",
+      "石川のシステム権限 → 担当者（ログイン権限の役割名）",
+      "組織の「担当者」メニューは基本的に先方担当者です。",
+    ],
+  },
+  {
+    slug: "create-organization",
+    title: "顧客・組織を登録したい",
+    category: "organizations",
+    summary:
+      "正式に付き合う会社・団体は「組織」へ登録し、関係性（顧客・見込顧客・メディアなど）を付けます。",
+    featured: true,
+    keywords: ["組織", "顧客", "登録", "顧客登録", "関係性", "メディア", "自治体"],
+    related: ["where-to-register", "create-contact", "search-company"],
+    steps: [
+      "検索で既存がないか確認する",
+      "組織 → 新規作成を開く",
+      "会社名など基本情報を入力する",
+      "関係性を選ぶ（例: 顧客 / 見込顧客 / メディア / 自治体）",
+      "保存後、必要なら先方担当者を追加する",
+    ],
+    tips: [
+      "関係性は複数付けられます（顧客かつパートナーなど）",
+      "未選択の新規作成は「顧客」が自動付与されます",
+      "大量CSVは組織ではなく営業リストへ",
+    ],
+  },
+  {
+    slug: "create-contact",
+    title: "先方担当者を登録したい",
+    category: "organizations",
+    summary: "組織に所属する相手側の人物を登録します。",
+    keywords: ["先方", "担当者", "連絡先", "氏名"],
+    related: ["three-assignees", "create-organization"],
+    steps: [
+      "対象の組織を開く",
+      "担当者を追加する",
+      "氏名・部署・電話・メールなどを入力する",
+      "退職した場合は無効化する（履歴保全のため消し切らない）",
+    ],
+  },
+  {
+    slug: "handle-inquiry",
+    title: "問い合わせが来た",
+    category: "inquiries",
+    summary:
+      "Webフォームからの相談は「お問い合わせ」受信箱で処理します。通常のGmail全部が入るわけではありません。",
+    featured: true,
+    keywords: ["問い合わせ", "お問い合わせ", "未確認", "振分", "返信"],
+    related: [
+      "inquiry-existing-org",
+      "inquiry-reply",
+      "create-activity",
+      "create-organization",
+    ],
+    steps: [
+      "対応 → お問い合わせを開く",
+      "「未確認」または「未確認+対応中」を確認する",
+      "自分を担当にする、または同僚へ振り分ける",
+      "既存組織候補を確認する",
+      "既存なら紐付け、新規なら組織を作成する",
+      "必要ならGmail返信下書きを作成し、Gmail上で送信する",
+      "対応履歴として登録し、次回アクションを入れる",
+    ],
+    tips: [
+      "対応不要（営業メール・spamなど）は理由を残して状態変更",
+      "お問い合わせと営業候補の自動統合はありません",
+    ],
+  },
+  {
+    slug: "inquiry-existing-org",
+    title: "問い合わせ元が既存顧客だった",
+    category: "inquiries",
+    summary: "新しい組織を作らず、既存組織へ紐付けます。",
+    keywords: ["既存", "紐付け", "顧客", "問い合わせ"],
+    related: ["handle-inquiry", "search-company"],
+    steps: [
+      "お問い合わせ詳細の「既存組織候補」を見る",
+      "メール・電話の強い一致があればそれを選ぶ",
+      "「既存組織へ紐付け」を実行する",
+      "対応履歴として登録する",
+    ],
+    tips: ["会社名だけの参考候補は、住所や電話も見て判断してください"],
+  },
+  {
+    slug: "inquiry-reply",
+    title: "問い合わせにGmailで返信したい",
+    category: "inquiries",
+    summary:
+      "SalesSystemは返信下書きを作るだけです。送信は人がGmailで行います。",
+    keywords: ["返信", "Gmail", "下書き", "From"],
+    related: ["handle-inquiry"],
+    steps: [
+      "お問い合わせ詳細を開く",
+      "送信元（From）を選ぶ",
+      "「Gmail返信下書きを作成」を押す",
+      "Gmailで下書きを開き、内容を確認して送信する",
+    ],
+    tips: [
+      "自動送信ではありません",
+      "取込設定が未完了の環境では下書き機能が使えないことがあります",
+    ],
+  },
+  {
+    slug: "import-prospect-csv",
+    title: "営業リスト / CSVを取り込みたい",
+    category: "sales",
+    summary:
+      "大量の営業先は営業リストを作り、CSVインポートします。正式組織へ直接入れません。",
+    featured: true,
+    keywords: ["CSV", "営業リスト", "インポート", "500社", "取込"],
+    related: ["assign-prospects", "call-prospect", "where-to-register"],
+    audience: "ops",
+    steps: [
+      "組織メニュー → 営業リストを開く",
+      "「営業リストを作成」でリスト名を付ける",
+      "リスト詳細の「CSVをインポート」を開く",
+      "CSVを選び、列マッピングを確認する（会社名は必須）",
+      "プレビューを見て「インポート実行」",
+      "件数を確認し、担当割当してから架電する",
+    ],
+    tips: [
+      "管理メニューの「CSV取込」は正式データ移行用で、用途が違います",
+      "同じ会社が別リストにあっても、会社本体はできるだけ1つに寄せます",
+    ],
+  },
+  {
+    slug: "assign-prospects",
+    title: "営業先を担当へ割り当てたい",
+    category: "sales",
+    summary: "営業リスト上の候補を社員へ割り当てます。均等割当もできます。",
+    featured: true,
+    keywords: ["割当", "均等", "担当", "営業リスト"],
+    related: ["import-prospect-csv", "call-prospect"],
+    audience: "ops",
+    steps: [
+      "営業リスト詳細を開く",
+      "必要なら都道府県などで絞り込む",
+      "一括割当で担当者を選ぶ",
+      "単一担当または均等割当を選ぶ",
+      "「実行」する",
+    ],
+    tips: [
+      "対象は「表示中の行」です。一覧の全件ではありません",
+      "未割当のみが既定です",
+    ],
+  },
+  {
+    slug: "call-prospect",
+    title: "営業先へ電話したい",
+    category: "sales",
+    summary:
+      "自分の担当営業先へ順番に電話し、結果を記録します。自動発信はありません。",
+    featured: true,
+    keywords: ["電話", "架電", "今日の営業", "保存して次へ", "結果"],
+    related: [
+      "recalls",
+      "do-not-contact",
+      "promote-prospect",
+      "call-results",
+    ],
+    steps: [
+      "マイデスクの「今日の営業」または「架電キュー」を開く",
+      "「架電を開始」を押す",
+      "表示された電話番号へ手で電話する",
+      "架電結果を選ぶ",
+      "必要ならメモ・次回連絡日時を入れる",
+      "「保存して次へ」で次の会社へ進む",
+    ],
+    tips: [
+      "電話は自動発信されません",
+      "Ctrl/Cmd + Enter で保存して次へ",
+      "数字キー 1〜7 で主な結果を選べます",
+      "折返し希望は次回日時が必須です",
+    ],
+  },
+  {
+    slug: "call-results",
+    title: "架電結果の選び方",
+    category: "sales",
+    summary: "結果ごとの意味と、その後の動きです。",
+    keywords: [
+      "不通",
+      "担当者不在",
+      "興味あり",
+      "アポ",
+      "資料送付",
+      "興味なし",
+    ],
+    related: ["call-prospect", "do-not-contact", "recalls"],
+    body: [
+      "不通 / 話中 → 対応中。次回連絡は任意",
+      "受付止まり / 担当者不在 → 対応中。次回連絡を推奨",
+      "折返し希望 → 対応中。次回連絡が必須",
+      "接触 → 対応中",
+      "資料送付 → 対応中。メールは自動送信されません",
+      "興味あり / アポ獲得 → 見込あり。正式組織への昇格を検討（自動昇格なし）",
+      "興味なし → 対象外。営業連絡不要（DNC）にはしません",
+      "番号違い → 番号要確認",
+      "営業連絡不要 → DNC。どのリストでも再架電対象外",
+    ],
+  },
+  {
+    slug: "recalls",
+    title: "再架電したい",
+    category: "sales",
+    summary:
+      "次回連絡日時を入れると、期限超過・本日の再架電としてキューに現れます。",
+    featured: true,
+    keywords: ["再架電", "次回連絡", "明日", "折返し", "期限超過"],
+    related: ["call-prospect", "call-results"],
+    steps: [
+      "架電結果を選ぶ（例: 担当者不在）",
+      "「次回連絡」に日時を入れる（例: 明日 15:00）",
+      "保存する",
+      "予定時刻が来たら架電キュー / マイデスクの再架電に出る",
+    ],
+    tips: [
+      "未来の予定は、既定のキュー対象には出ません（時間到来後に出ます）",
+      "折返し希望は日時必須です",
+    ],
+  },
+  {
+    slug: "do-not-contact",
+    title: "営業連絡不要と言われた",
+    category: "sales",
+    summary:
+      "「興味なし」ではなく「営業連絡不要」を選びます。会社全体の再架電対象から外れます。",
+    featured: true,
+    keywords: ["DNC", "営業連絡不要", "興味なし", "二度と"],
+    related: ["call-results", "call-prospect"],
+    steps: [
+      "架電結果で「営業連絡不要」を選ぶ（または営業候補詳細でDNC設定）",
+      "理由が分かればメモや理由欄に残す",
+      "保存する",
+    ],
+    tips: [
+      "興味なし = 今回の対象外",
+      "営業連絡不要 = 今後の営業架電対象から外す（影響が大きい）",
+      "同じ会社が別リストにあっても再架電対象になりません",
+    ],
+  },
+  {
+    slug: "promote-prospect",
+    title: "アポを取った / 正式組織へ昇格したい",
+    category: "sales",
+    summary:
+      "興味あり・アポ獲得のあとは、手動で正式組織へ昇格します。自動では顧客になりません。",
+    featured: true,
+    keywords: ["アポ", "昇格", "正式組織", "見込", "興味あり"],
+    related: [
+      "prospect-vs-organization",
+      "create-activity",
+      "create-deal",
+      "call-prospect",
+    ],
+    steps: [
+      "架電結果で「興味あり」または「アポ獲得」を保存する",
+      "「正式組織へ昇格」を開く",
+      "既存組織候補があれば紐付け、なければ新規作成（関係性は見込顧客が基本）",
+      "正式担当者・直近の活動・次回アクション引き継ぎを確認する",
+      "必要なら案件も作成（既定はOFF）",
+      "昇格を開始する",
+    ],
+    tips: [
+      "社名だけの一致は自動同一判定しません。重複に注意",
+      "昇格後は正式組織側で対応履歴・案件を運用します",
+    ],
+  },
+  {
+    slug: "handle-existing-customer",
+    title: "既存顧客に対応したい",
+    category: "activities",
+    summary: "検索で組織を開き、対応履歴と次回アクションを残します。",
+    featured: true,
+    keywords: ["既存", "顧客対応", "フォロー", "訪問"],
+    related: ["search-company", "create-activity", "create-action", "create-deal"],
+    steps: [
+      "全体検索または組織一覧で会社を開く",
+      "対応内容を実施する（電話・訪問・メールなど）",
+      "対応履歴を登録する",
+      "次にやることは次回アクションへ入れる",
+      "具体商談なら案件を更新または作成する",
+    ],
+  },
+  {
+    slug: "create-activity",
+    title: "対応履歴を残したい",
+    category: "activities",
+    summary:
+      "対応履歴は「過去に何をしたか」の記録です。これからやることは次回アクションへ。",
+    featured: true,
+    keywords: ["対応履歴", "活動", "過去", "記録"],
+    related: ["create-action", "activity-vs-action"],
+    steps: [
+      "組織・案件・対応メニューから対応履歴を新規作成する",
+      "タイトル・対応日時・要約/本文を入力する",
+      "必要なら続けて次回アクションを登録する",
+    ],
+    tips: [
+      "「次回アクション(入力記録)」は履歴用メモで、正本のToDoではありません",
+      "対応履歴の削除機能はありません",
+    ],
+  },
+  {
+    slug: "create-action",
+    title: "次回アクションを入れたい",
+    category: "activities",
+    summary: "次回アクションは「これからやること」のToDoです。",
+    featured: true,
+    keywords: ["次回アクション", "ToDo", "期限", "未来", "忘れない"],
+    related: ["create-activity", "activity-vs-action", "mydesk"],
+    steps: [
+      "対応 → 次回アクション、または組織/案件から新規作成する",
+      "内容・期限・自社担当者を入れる",
+      "完了したら「完了」ボタンを押す",
+    ],
+    tips: ["マイデスクの「今日やること」に表示されます"],
+  },
+  {
+    slug: "activity-vs-action",
+    title: "対応履歴と次回アクションの違い",
+    category: "activities",
+    summary: "対応履歴=過去、次回アクション=未来、と覚えると迷いません。",
+    featured: true,
+    keywords: ["違い", "過去", "未来", "入力記録"],
+    related: ["create-activity", "create-action"],
+    body: [
+      "対応履歴の例: 8/9 山田様へ電話。料金資料を送付。",
+      "次回アクションの例: 8/12 山田様へ再度連絡。",
+      "対応履歴フォーム内の「次回アクション(入力記録)」はスナップショットです。",
+      "実際のToDoは「次回アクション」として別途登録します。",
+    ],
+  },
+  {
+    slug: "create-deal",
+    title: "商談を案件にしたい",
+    category: "deals",
+    summary:
+      "興味ありだけでは作らず、導入条件・金額・台数など具体話が始まったら案件化します。",
+    featured: true,
+    keywords: ["案件", "商談", "見込み", "受注"],
+    related: ["promote-prospect", "create-activity", "create-contract"],
+    steps: [
+      "対象の組織を開く（営業候補なら先に正式組織へ昇格）",
+      "案件を新規作成する",
+      "案件名・ステージ・自社担当者・見込み金額などを入れる",
+      "進捗に応じて対応履歴・次回アクションを更新する",
+    ],
+    tips: [
+      "Web問い合わせが来ただけでは通常まだ案件にしません",
+      "昇格時の案件作成は既定OFFです",
+    ],
+  },
+  {
+    slug: "create-contract",
+    title: "契約を登録したい",
+    category: "contracts",
+    summary:
+      "契約情報（期間・金額・支払状況・契約書URLなど）を管理します。請求書発行は freee です。",
+    keywords: ["契約", "金額", "自動更新", "freee", "請求"],
+    related: ["create-deal", "out-of-scope"],
+    steps: [
+      "契約メニュー、または組織/案件から契約を作成する",
+      "契約名・期間・金額・自動更新・契約書URLなどを入力する",
+      "請求書の作成・発行・管理は freee で行う",
+    ],
+    tips: ["SalesSystemに請求書作成機能はありません"],
+  },
+  {
+    slug: "create-complaint",
+    title: "重大トラブルをクレーム登録したい",
+    category: "contracts",
+    summary: "重要度や期限管理が必要な不具合・苦情はクレームで管理します。",
+    keywords: ["クレーム", "不具合", "トラブル", "重要度"],
+    related: ["create-activity"],
+    steps: [
+      "クレームを新規作成する",
+      "重要度・対応状況・対応責任者・期限を入れる",
+      "対応完了後に完了日を入れる",
+    ],
+    tips: ["軽い確認電話は対応履歴で十分なことが多いです"],
+  },
+  {
+    slug: "search-company",
+    title: "会社を探したい",
+    category: "search",
+    summary:
+      "ヘッダの検索から、組織・営業候補・担当者などを横断検索できます。",
+    featured: true,
+    keywords: ["検索", "探す", "会社名", "重複"],
+    related: ["where-to-register", "create-organization"],
+    steps: [
+      "ヘッダの検索欄に会社名や人名を入れる",
+      "結果が「組織」と「営業候補」に分かれていないか確認する",
+      "既存があればそれを開き、なければ新規作成を検討する",
+    ],
+    tips: ["新規作成の前に検索するのが重複防止の基本です"],
+  },
+  {
+    slug: "permissions-overview",
+    title: "ユーザー権限の違い",
+    category: "permissions",
+    summary: "管理者 / 運用責任者 / 担当者 / 閲覧者の役割の違いです。",
+    keywords: ["権限", "管理者", "運用責任者", "担当者", "閲覧者"],
+    related: ["three-assignees", "admin-users"],
+    body: [
+      "管理者: システム全体の設定・ユーザー管理・同期・取込設定など",
+      "運用責任者: 日常業務に加え、営業リスト作成・CSV取込・一括割当など運用まわり",
+      "担当者: 顧客対応・問い合わせ・架電・記録などの日常業務",
+      "閲覧者: 登録情報の閲覧のみ（編集・振分け不可）",
+    ],
+  },
+  {
+    slug: "out-of-scope",
+    title: "現在 SalesSystem 単体で行わないこと",
+    category: "getting-started",
+    summary: "誤解しやすい「できないこと」を短くまとめます。",
+    keywords: ["できない", "対象外", "自動発信", "請求書", "メール"],
+    related: ["create-contract", "call-prospect"],
+    body: [
+      "自動発信（電話は手でかけます）",
+      "資料送付などに伴う自動メール送信",
+      "一斉メール配信",
+      "問い合わせと営業候補の自動統合",
+      "名刺読み取り",
+      "大規模BIダッシュボード",
+      "請求書の作成・発行・管理（freeeで行います）",
+    ],
+  },
+  {
+    slug: "admin-users",
+    title: "ユーザーを招待・管理したい",
+    category: "admin",
+    summary: "管理者向け。招待制のため、自由登録はできません。",
+    audience: "admin",
+    keywords: ["ユーザー", "招待", "権限変更", "無効化"],
+    related: ["permissions-overview", "admin-sync"],
+    steps: [
+      "管理 → ユーザー管理を開く",
+      "メール・氏名・権限を指定して招待する",
+      "退職時は無効化する",
+    ],
+  },
+  {
+    slug: "admin-sync",
+    title: "同期状況を確認したい",
+    category: "admin",
+    summary: "管理者向け。正式データの同期状態を確認します。",
+    audience: "admin",
+    keywords: ["同期", "エラー", "再実行"],
+    related: ["admin-imports"],
+    steps: [
+      "管理 → 同期管理を開く",
+      "エラーがあれば内容を確認し、必要なら再実行する",
+    ],
+  },
+  {
+    slug: "admin-imports",
+    title: "正式データのCSV移行をしたい",
+    category: "admin",
+    summary:
+      "管理者・運用責任者向け。既存CRM等の正式データ移行用です。営業リストCSVとは別です。",
+    audience: "ops",
+    keywords: ["CSV取込", "移行", "正式データ"],
+    related: ["import-prospect-csv"],
+    steps: [
+      "管理 → CSV取込を開く",
+      "テンプレートを確認する",
+      "新規取込でマッピング・検証・取込を進める",
+    ],
+    tips: ["営業候補の大量リストは営業リスト側のCSVを使います"],
+  },
+  {
+    slug: "admin-gmail",
+    title: "お問い合わせ取込設定",
+    category: "admin",
+    summary: "管理者向け。Webフォーム由来のお問い合わせ取込を設定・監視します。",
+    audience: "admin",
+    keywords: ["取込", "Gmail", "Apps Script", "heartbeat"],
+    related: ["handle-inquiry"],
+    steps: [
+      "管理 → お問い合わせ取込を開く",
+      "設定状態と稼働状況を確認する",
+    ],
+  },
+];
+
+export function getHelpArticle(slug: string): HelpArticle | undefined {
+  return HELP_ARTICLES.find((a) => a.slug === slug);
+}
+
+export function listHelpArticles(options?: {
+  includeAdmin?: boolean;
+  category?: string;
+}): HelpArticle[] {
+  const includeAdmin = options?.includeAdmin ?? false;
+  return HELP_ARTICLES.filter((a) => {
+    if (a.category === "admin" && !includeAdmin) return false;
+    if (options?.category && a.category !== options.category) return false;
+    return true;
+  });
+}
+
+export function listFeaturedArticles(includeAdmin = false): HelpArticle[] {
+  return listHelpArticles({ includeAdmin }).filter((a) => a.featured);
+}

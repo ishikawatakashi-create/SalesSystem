@@ -1,4 +1,5 @@
 import { AppHeader } from "@/components/layout/app-header";
+import { ContextHelpSlot } from "@/features/help/context-help-slot";
 import { redirect } from "next/navigation";
 import { requireUser, AuthError } from "@/lib/auth/require";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -44,7 +45,10 @@ export default async function MainLayout({
         showInquiries={showInquiries}
         inquiryNewCount={inquiryNewCount}
       />
-      <main className="mx-auto max-w-7xl p-4">{children}</main>
+      <main className="mx-auto max-w-7xl p-4">
+        <ContextHelpSlot />
+        {children}
+      </main>
     </div>
   );
 }

@@ -213,6 +213,11 @@ export function GlobalSearchBox() {
                           アーカイブ
                         </span>
                       )}
+                      {hit.badge && (
+                        <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] font-normal text-slate-700">
+                          {hit.badge === "Prospect" ? "営業候補" : hit.badge}
+                        </span>
+                      )}
                     </span>
                     {hit.relationshipSemanticKeys &&
                       hit.relationshipSemanticKeys.length > 0 && (
@@ -226,6 +231,11 @@ export function GlobalSearchBox() {
                     {hit.subtitle && (
                       <span className="truncate text-[11px] text-slate-500">
                         {hit.subtitle}
+                      </span>
+                    )}
+                    {hit.entity === "prospects" && hit.secondaryHref && (
+                      <span className="mt-0.5 text-[10px] text-slate-500">
+                        正式組織あり
                       </span>
                     )}
                   </button>

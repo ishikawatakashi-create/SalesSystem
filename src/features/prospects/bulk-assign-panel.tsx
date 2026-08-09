@@ -24,6 +24,13 @@ export function BulkAssignPanel({
   return (
     <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs">
       <p className="mb-1 font-medium text-slate-700">一括割当（表示中の行）</p>
+      <p className="mb-1.5 text-[11px] text-slate-600">
+        対象: 表示中の{" "}
+        <span className="font-semibold text-slate-800">
+          {membershipIds.length}件
+        </span>
+        （一覧の全件ではありません）
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <select
           multiple

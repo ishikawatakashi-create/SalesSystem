@@ -288,8 +288,8 @@ export function ActivityFormFields({
           />
         </Field>
       </div>
-      <p className="text-[10px] text-slate-400">
-        入力記録は履歴のスナップショットです。正本の次回アクションは別途登録されます。
+      <p className="text-[11px] text-slate-500">
+        ※これは履歴用の記録です。実際のToDoは「次回アクション」に登録します。
       </p>
 
       {mode === "create" && showNextActionOption && (

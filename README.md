@@ -7,13 +7,14 @@
 
 ## 現在の状態
 
-**Phase 13A(Prospect Pool / 営業リスト基盤)実装中。** 正式組織は Notion、営業候補は Supabase。[docs/phase13a-prospect-pool.md](./docs/phase13a-prospect-pool.md) / [ADR 0002](./docs/adr/0002-prospect-pool-supabase.md)。
+**Phase 13A（営業リスト / 営業候補）および Phase 13B（架電キュー / 昇格）まで実装済み。** 正式組織は Notion、営業候補は Supabase。[docs/phase13a-prospect-pool.md](./docs/phase13a-prospect-pool.md) / [docs/phase13b-call-promotion.md](./docs/phase13b-call-promotion.md)。
 
 - Production: `https://sales-system-weld.vercel.app`
-- 主要URL: `/` / `/organizations` / `/prospect-lists` / `/prospects` / `/inquiries` / `/deals` / `/admin/sync` / `/admin/imports`（`/customers` は互換）
+- 主要URL: `/` / `/organizations` / `/prospect-lists` / `/prospects` / `/call-queue` / `/inquiries` / `/deals` / `/help` / `/admin/sync` / `/admin/imports`（`/customers` は互換）
 - 取込: `POST /api/integrations/inquiries/apps-script`（HMAC）
 - Apps Script: `integrations/apps-script/strikingly-inquiries/`
-- 実装済み: Phase 1〜12 + 13A（架電 UI / 昇格は Phase 13B）
+- 実装済み: Phase 1〜12 + 13A + 13B
+- **社員向け使い方**: [docs/user-guide/](./docs/user-guide/)（クイックスタート / マニュアル / FAQ / 用語集）。アプリ内は `/help`
 - 運用: [docs/operations-runbook.md](./docs/operations-runbook.md) / [docs/release-checklist.md](./docs/release-checklist.md)
 
 ### Auth Admin APIの注意(実測)

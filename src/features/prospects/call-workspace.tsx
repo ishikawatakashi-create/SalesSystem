@@ -433,6 +433,11 @@ export function CallWorkspace(props: Props) {
             </button>
           ))}
         </div>
+        {result === "send_materials" ? (
+          <p className="text-[11px] text-amber-800">
+            ※メールは自動送信されません。資料送付はご自身で行い、結果だけ記録します。
+          </p>
+        ) : null}
         <button
           type="button"
           className="text-slate-600 underline"

@@ -130,6 +130,11 @@ export default async function SearchPage({
                             アーカイブ
                           </span>
                         )}
+                        {hit.badge && (
+                          <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] font-normal text-slate-700">
+                            {hit.badge === "Prospect" ? "営業候補" : hit.badge}
+                          </span>
+                        )}
                       </span>
                       {hit.relationshipSemanticKeys &&
                         hit.relationshipSemanticKeys.length > 0 && (
@@ -143,6 +148,11 @@ export default async function SearchPage({
                       {hit.subtitle && (
                         <span className="text-[11px] text-slate-500">
                           {hit.subtitle}
+                        </span>
+                      )}
+                      {hit.entity === "prospects" && hit.secondaryHref && (
+                        <span className="text-[10px] text-slate-500">
+                          正式組織化済み（組織ページあり）
                         </span>
                       )}
                     </Link>
