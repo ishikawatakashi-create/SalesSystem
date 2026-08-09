@@ -64,7 +64,7 @@ describe("権限マトリクス(docs/permissions.mdと一致すること)", () =
     expect(hasPermission("viewer", "action.edit")).toBe(false);
   });
 
-  it("営業Bは記録中心(一括更新・CSV・監査ログ・管理系は不可)", () => {
+  it("担当者(b)は記録中心(一括更新・CSV・監査ログ・管理系は不可)", () => {
     expect(hasPermission("b", "customer.edit")).toBe(true);
     expect(hasPermission("b", "activity.edit")).toBe(true);
     expect(hasPermission("b", "bulk.update")).toBe(false);

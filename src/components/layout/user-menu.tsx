@@ -58,6 +58,16 @@ export function UserMenu({
           <li role="none" className="px-3 py-1.5 text-slate-500">
             {roleLabel}
           </li>
+          <li role="none">
+            <Link
+              role="menuitem"
+              href="/settings/profile"
+              className="block px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              プロフィール
+            </Link>
+          </li>
           {adminItems.length > 0 && (
             <>
               <li role="separator" className="my-1 border-t border-slate-100" />

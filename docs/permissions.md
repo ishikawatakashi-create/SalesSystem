@@ -1,10 +1,13 @@
 # 権限設計
 
-改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。2026-08-06 Auth Admin `createUser` がHookを迂回することを実測し、server-onlyラッパー集約方針を追記。2026-08-07 マイデスク/検索の全ロール利用と「自分の案件」=`deal_index.staff_user_ids` 含む `app_users.id` を追記。
+改訂履歴: 2026-08-05 設計レビュー反映(Secret keyのRLSバイパス前提の整理、user_invitations、Before User Created Hook、provisioning_status)。2026-08-06 認証技術スパイク暫定完了([auth-spike-results.md](./auth-spike-results.md)。Google OAuthブラウザE2Eは本番公開前確認事項)。2026-08-06 Auth Admin `createUser` がHookを迂回することを実測し、server-onlyラッパー集約方針を追記。2026-08-07 マイデスク/検索の全ロール利用と「自分の案件」=`deal_index.staff_user_ids` 含む `app_users.id` を追記。2026-08-09 UIロール表示名を 管理者/運用責任者/担当者/閲覧者 に統一（内部 code は admin/a/b/viewer のまま。`src/lib/auth/role-labels.ts`）。
 
 ## 1. 権限の基本方針
 
-- 権限は4段階: **管理者(admin) / A権限(a) / B権限(b) / 閲覧専用(viewer)**。雇用形態を示す権限名は使用しない。
+- 権限は4段階。**内部 role code**: `admin` / `a` / `b` / `viewer`（DB・permission 判定では変更しない）。
+- **UI 表示名**: 管理者 / 運用責任者 / 担当者 / 閲覧者（`src/lib/auth/role-labels.ts`）。「営業A/B」「A権限/B権限」は通常UIでは使わない。
+- 雇用形態を示す権限名は使用しない。
+- 表示名(`app_users.display_name`)の変更: admin は全員、それ以外は自分のみ。権限判定に display_name を使わない。
 - 一般公開の自由登録は不可。管理者が招待したユーザーのみ利用できる。
 - 権限制御は必ず3層で実施する。ただし各層の守備範囲が異なることを正しく理解する。
   1. **UI**: 権限のない操作のボタン・メニューを非表示または無効化(利便性のため。防御はしない)
@@ -16,7 +19,7 @@
 
 ○=可、×=不可
 
-| 操作 | 管理者 | A権限 | B権限 | 閲覧専用 |
+| 操作 | 管理者 | 運用責任者 | 担当者 | 閲覧者 |
 |---|:-:|:-:|:-:|:-:|
 | **閲覧** | | | | |
 | 全顧客閲覧 | ○ | ○ | ○ | ○ |

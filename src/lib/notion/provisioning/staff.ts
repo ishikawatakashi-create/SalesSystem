@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Client } from "@notionhq/client";
 
+import { getAppRoleLabel } from "@/lib/auth/role-labels";
 import { newRequestId } from "@/lib/notion/ids";
 import { logNotionError, logNotionInfo } from "@/lib/notion/logger";
 import { staffExternalId } from "@/lib/notion/provisioning/staff-id";
@@ -68,7 +69,14 @@ export async function provisionStaffPage(input: {
           },
           メールアドレス: { email: input.user.email },
           ロール: {
-            rich_text: [{ text: { content: input.user.role } }],
+            rich_text: [
+              {
+                text: {
+                  // Notion 表示用。内部 code は app_users.role のまま
+                  content: getAppRoleLabel(input.user.role),
+                },
+              },
+            ],
           },
           "所属・役割": {
             rich_text: [

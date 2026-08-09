@@ -7,9 +7,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/auth/normalize-email";
 import { invitationExpiresAt } from "@/lib/auth/config";
 import { inviteUserByEmailSafe } from "@/lib/auth/admin-api";
+import { updateUserDisplayName } from "@/lib/auth/update-display-name";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/display-name";
 
 export type ActionResult =
-  | { ok: true; message: string }
+  | { ok: true; message: string; displayName?: string }
   | { ok: false; message: string };
 
 const inviteSchema = z.object({
@@ -18,7 +20,7 @@ const inviteSchema = z.object({
     .string()
     .trim()
     .min(1, "表示名を入力してください")
-    .max(100, "表示名は100文字以内にしてください"),
+    .max(DISPLAY_NAME_MAX_LENGTH, `表示名は${DISPLAY_NAME_MAX_LENGTH}文字以内にしてください`),
   role: z.enum(["admin", "a", "b", "viewer"]),
 });
 
@@ -181,4 +183,130 @@ export async function revokeInvitationAction(
 
   revalidatePath("/admin/users");
   return { ok: true, message: "招待を取り消しました。" };
+}
+
+const renameSchema = z.object({
+  /** 信用しない。server 側で session と照合する */
+  targetUserId: z.uuid(),
+  displayName: z.string(),
+});
+
+/**
+ * 表示名変更。
+ * admin は全員、それ以外は自分自身のみ。
+ * UI 非表示だけでなくここで必ず拒否する。
+ */
+export async function updateDisplayNameAction(
+  input: unknown,
+): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return { ok: false, message: e.message };
+    }
+    throw e;
+  }
+
+  const parsed = renameSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "入力内容を確認してください" };
+  }
+
+  const result = await updateUserDisplayName({
+    actor: {
+      id: user.id,
+      role: user.role,
+      display_name: user.display_name,
+    },
+    targetUserId: parsed.data.targetUserId,
+    displayName: parsed.data.displayName,
+  });
+
+  if (!result.ok) return result;
+
+  revalidatePath("/admin/users");
+  revalidatePath("/settings/profile");
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: "表示名を更新しました",
+    displayName: result.displayName,
+  };
+}
+
+const inviteRenameSchema = z.object({
+  invitationId: z.uuid(),
+  displayName: z.string(),
+});
+
+/** 未受諾(pending)招待の表示名のみ admin が編集可能 */
+export async function updateInvitationDisplayNameAction(
+  input: unknown,
+): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return { ok: false, message: e.message };
+    }
+    throw e;
+  }
+
+  const parsed = inviteRenameSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "入力内容を確認してください" };
+  }
+
+  const { validateDisplayName } = await import("@/lib/auth/display-name");
+  const validated = validateDisplayName(parsed.data.displayName);
+  if (!validated.ok) return validated;
+
+  const admin = createAdminClient();
+  const { data: inv, error: readErr } = await admin
+    .from("user_invitations")
+    .select("id,display_name,status")
+    .eq("id", parsed.data.invitationId)
+    .maybeSingle();
+  if (readErr || !inv) {
+    return { ok: false, message: "招待が見つかりません" };
+  }
+  if (inv.status !== "pending") {
+    return {
+      ok: false,
+      message: "受諾済み・取消済み・期限切れの招待表示名は変更できません",
+    };
+  }
+
+  const oldName = String(inv.display_name ?? "");
+  const { error } = await admin
+    .from("user_invitations")
+    .update({ display_name: validated.value })
+    .eq("id", inv.id)
+    .eq("status", "pending");
+  if (error) {
+    return { ok: false, message: "招待の表示名を更新できませんでした" };
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    actor_name: user.display_name,
+    action: "user_invitation.display_name_change",
+    entity_type: "user_invitation",
+    notion_page_id: null,
+    changed_fields: {
+      invitation_id: inv.id,
+      old_display_name: oldName,
+      new_display_name: validated.value,
+    },
+    operation_source: "app",
+    request_id: null,
+    batch_id: null,
+  });
+
+  revalidatePath("/admin/users");
+  return { ok: true, message: "招待の表示名を更新しました", displayName: validated.value };
 }
