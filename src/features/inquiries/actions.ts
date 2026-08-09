@@ -59,6 +59,20 @@ export async function assignInquiryAction(input: {
       .maybeSingle();
     if (!before) return { ok: false, message: "お問い合わせが見つかりません" };
 
+    if (input.userId) {
+      const { data: assignee, error: assigneeError } = await admin
+        .from("app_users")
+        .select("id,is_active")
+        .eq("id", input.userId)
+        .maybeSingle();
+      if (assigneeError || !assignee?.is_active) {
+        return {
+          ok: false,
+          message: "利用停止中のユーザーは新しい担当者に指定できません",
+        };
+      }
+    }
+
     let nextStatus: InquiryStatus = before.status as InquiryStatus;
     if (input.userId && before.status === "new") {
       nextStatus = "in_progress";

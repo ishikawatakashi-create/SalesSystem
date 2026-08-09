@@ -52,13 +52,27 @@ export default async function InquiriesPage({
   const admin = createAdminClient();
   const { data: users } = await admin
     .from("app_users")
-    .select("id,display_name")
-    .eq("is_active", true)
+    .select("id,display_name,is_active")
     .order("display_name");
-  const assignees = (users ?? []).map((u) => ({
+  const activeAssignees = (users ?? []).filter((u) => u.is_active).map((u) => ({
     id: u.id,
     label: u.display_name,
   }));
+  const assigneesForCurrent = (assignedUserId: string | null) => {
+    const inactive = (users ?? []).find(
+      (candidate) => candidate.id === assignedUserId && !candidate.is_active,
+    );
+    return inactive
+      ? [
+          ...activeAssignees,
+          {
+            id: inactive.id,
+            label: `${inactive.display_name}（利用停止）`,
+            disabled: true,
+          },
+        ]
+      : activeAssignees;
+  };
 
   return (
     <div className="space-y-3">
@@ -67,7 +81,7 @@ export default async function InquiriesPage({
         <span className="text-xs text-slate-500">{total}件</span>
       </div>
       <Suspense fallback={null}>
-        <InquiryToolbar assignees={assignees} />
+        <InquiryToolbar assignees={activeAssignees} />
       </Suspense>
       {rows.length === 0 ? (
         <CompactEmptyState message="該当するお問い合わせはありません。" />
@@ -119,7 +133,7 @@ export default async function InquiriesPage({
                     assignedUserId={r.assigned_user_id}
                     status={r.status as InquiryStatus}
                     canEdit={canEdit}
-                    assignees={assignees}
+                    assignees={assigneesForCurrent(r.assigned_user_id)}
                   />
                 </tr>
               ))}

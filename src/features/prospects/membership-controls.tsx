@@ -25,7 +25,7 @@ export function MembershipControls({
   listId: string;
   stage: ProspectMembershipStage;
   assignedUserId: string | null;
-  assignees: Array<{ id: string; label: string }>;
+  assignees: Array<{ id: string; label: string; disabled?: boolean }>;
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -103,7 +103,7 @@ export function MembershipControls({
         >
           <option value="">未割当</option>
           {assignees.map((a) => (
-            <option key={a.id} value={a.id}>
+            <option key={a.id} value={a.id} disabled={a.disabled}>
               {a.label}
             </option>
           ))}

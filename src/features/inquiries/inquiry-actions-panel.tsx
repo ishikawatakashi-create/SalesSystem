@@ -48,7 +48,7 @@ export function InquiryActionsPanel({
   linkedActivityPageId: string | null;
   canEdit: boolean;
   currentUserId: string;
-  assignees: Array<{ id: string; label: string }>;
+  assignees: Array<{ id: string; label: string; disabled?: boolean }>;
   candidates: CustomerCandidate[];
   inquiryTypeText?: string | null;
 }) {
@@ -100,7 +100,7 @@ export function InquiryActionsPanel({
           >
             <option value="">未割当</option>
             {assignees.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={a.id} disabled={a.disabled}>
                 {a.label}
               </option>
             ))}

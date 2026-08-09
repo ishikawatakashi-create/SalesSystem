@@ -8,6 +8,9 @@ import { countActivePendingInvitations } from "@/lib/auth/invitation-status";
 import { InviteForm } from "./invite-form";
 import { InvitationList } from "./invitation-list";
 import { RegisteredUsersTable } from "@/features/admin/users/registered-users-table";
+import { DirectUserCreateDialog } from "@/features/admin/users/direct-user-create-dialog";
+import { AUTH_PASSWORD_MIN_LENGTH } from "@/lib/auth/admin-user-service";
+import { listAuthUserActivity } from "@/lib/auth/admin-api";
 import type { AppRole } from "@/types/database";
 
 /** Server Component のリクエスト時刻スナップショット（render purity 回避） */
@@ -30,7 +33,12 @@ export default async function AdminUsersPage() {
   }
 
   const admin = createAdminClient();
-  const [{ data: invitations }, { data: users }, unprovisionedUsers] =
+  const [
+    { data: invitations },
+    { data: users },
+    unprovisionedUsers,
+    authActivity,
+  ] =
     await Promise.all([
       admin
         .from("user_invitations")
@@ -43,6 +51,7 @@ export default async function AdminUsersPage() {
         .order("created_at", { ascending: false })
         .limit(200),
       listUnprovisionedAuthUsers(),
+      listAuthUserActivity(),
     ]);
 
   // Server Component: リクエスト処理中に一度だけ現在時刻を取る
@@ -58,17 +67,11 @@ export default async function AdminUsersPage() {
         <h1 className="text-base font-bold">ユーザー管理</h1>
       </div>
 
-      <details className="rounded border border-slate-200 bg-white">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-800">
-          ユーザーを招待
-        </summary>
-        <div className="border-t border-slate-100 px-3 py-3">
-          <InviteForm />
-        </div>
-      </details>
-
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-800">登録済みユーザー</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-800">登録済みユーザー</h2>
+          <DirectUserCreateDialog passwordMinLength={AUTH_PASSWORD_MIN_LENGTH} />
+        </div>
         <RegisteredUsersTable
           users={(users ?? []).map((u) => ({
             id: String(u.id),
@@ -77,11 +80,22 @@ export default async function AdminUsersPage() {
             role: u.role as AppRole,
             is_active: Boolean(u.is_active),
             provisioning_status: String(u.provisioning_status),
+            last_sign_in_at: authActivity.get(String(u.id))?.lastSignInAt ?? null,
           }))}
           currentUserId={user.id}
           isAdmin={user.role === "admin"}
+          passwordMinLength={AUTH_PASSWORD_MIN_LENGTH}
         />
       </section>
+
+      <details className="rounded border border-slate-200 bg-white">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-700">
+          メールで招待
+        </summary>
+        <div className="border-t border-slate-100 px-3 py-3">
+          <InviteForm />
+        </div>
+      </details>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-800">

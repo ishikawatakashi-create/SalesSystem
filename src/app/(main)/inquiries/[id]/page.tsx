@@ -50,9 +50,17 @@ export default async function InquiryDetailPage({
   const admin = createAdminClient();
   const { data: users } = await admin
     .from("app_users")
-    .select("id,display_name")
-    .eq("is_active", true)
+    .select("id,display_name,is_active")
     .order("display_name");
+  const assignees = (users ?? [])
+    .filter((candidate) => candidate.is_active || candidate.id === inquiry.assigned_user_id)
+    .map((candidate) => ({
+      id: candidate.id,
+      label: candidate.is_active
+        ? candidate.display_name
+        : `${candidate.display_name}（利用停止）`,
+      disabled: !candidate.is_active,
+    }));
 
   const basicFormKeys = new Set([
     "フリガナ",
@@ -205,10 +213,7 @@ export default async function InquiryDetailPage({
             linkedActivityPageId={inquiry.linked_activity_page_id}
             canEdit={canEdit}
             currentUserId={user.id}
-            assignees={(users ?? []).map((u) => ({
-              id: u.id,
-              label: u.display_name,
-            }))}
+            assignees={assignees}
             candidates={candidates}
             inquiryTypeText={
               String(

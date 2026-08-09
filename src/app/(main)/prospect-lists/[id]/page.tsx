@@ -95,13 +95,27 @@ export default async function ProspectListDetailPage({
   const admin = createAdminClient();
   const { data: users } = await admin
     .from("app_users")
-    .select("id,display_name")
-    .eq("is_active", true)
+    .select("id,display_name,is_active")
     .order("display_name");
-  const assignees = (users ?? []).map((u) => ({
+  const activeAssignees = (users ?? []).filter((u) => u.is_active).map((u) => ({
     id: String(u.id),
     label: String(u.display_name),
   }));
+  const assigneesForCurrent = (assignedUserId: string | null) => {
+    const inactive = (users ?? []).find(
+      (candidate) => candidate.id === assignedUserId && !candidate.is_active,
+    );
+    return inactive
+      ? [
+          ...activeAssignees,
+          {
+            id: String(inactive.id),
+            label: `${inactive.display_name}（利用停止）`,
+            disabled: true,
+          },
+        ]
+      : activeAssignees;
+  };
 
   const advanced =
     [str(raw, "prefecture"), str(raw, "industry")].filter(Boolean).length +
@@ -226,7 +240,7 @@ export default async function ProspectListDetailPage({
             className="rounded border border-slate-200 px-1 py-1"
           >
             <option value="">すべての担当</option>
-            {assignees.map((a) => (
+            {activeAssignees.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label}
               </option>
@@ -297,7 +311,7 @@ export default async function ProspectListDetailPage({
         <BulkAssignPanel
           listId={id}
           membershipIds={items.map((i) => i.membership.id)}
-          assignees={assignees}
+          assignees={activeAssignees}
         />
       ) : null}
 
@@ -353,7 +367,7 @@ export default async function ProspectListDetailPage({
                       listId={id}
                       stage={membership.stage}
                       assignedUserId={membership.assigned_user_id}
-                      assignees={assignees}
+                      assignees={assigneesForCurrent(membership.assigned_user_id)}
                       canEdit={canEdit}
                     />
                   </td>

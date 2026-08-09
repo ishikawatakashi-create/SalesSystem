@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncAuthUserDisplayName } from "@/lib/auth/admin-api";
 import { validateDisplayName } from "@/lib/auth/display-name";
 import type { AppUserRow } from "@/types/database";
 
@@ -63,8 +64,9 @@ export async function updateUserDisplayName(input: {
 
   // Auth user_metadata も揃える（表示の補助。正は app_users）
   try {
-    await admin.auth.admin.updateUserById(input.targetUserId, {
-      user_metadata: { display_name: validated.value },
+    await syncAuthUserDisplayName({
+      userId: input.targetUserId,
+      displayName: validated.value,
     });
   } catch (e) {
     console.error("auth metadata display_name sync failed", e);

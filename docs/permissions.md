@@ -8,7 +8,7 @@
 - **UI 表示名**: 管理者 / 運用責任者 / 担当者 / 閲覧者（`src/lib/auth/role-labels.ts`）。「営業A/B」「A権限/B権限」は通常UIでは使わない。
 - 雇用形態を示す権限名は使用しない。
 - 表示名(`app_users.display_name`)の変更: admin は全員、それ以外は自分のみ。権限判定に display_name を使わない。
-- 一般公開の自由登録は不可。管理者が招待したユーザーのみ利用できる。
+- 一般公開の自由登録は不可。管理者による直接作成、または管理者が発行した招待からのみ利用開始できる。
 - 権限制御は必ず3層で実施する。ただし各層の守備範囲が異なることを正しく理解する。
   1. **UI**: 権限のない操作のボタン・メニューを非表示または無効化(利便性のため。防御はしない)
   2. **サーバー**: すべてのServer Action / Route Handlerの冒頭で `requireUser()` + `requirePermission(action)` を通過。**Notionへの更新、およびSecret key(`sb_secret_...`)経由のSupabase書込はRLSでは守られないため、この層+Zod検証+監査ログ+冪等化(write_operations)が実質的な防御線である**
@@ -131,6 +131,7 @@ await requirePermission(user, 'customer.edit'); // 権限外は403相当のエ�
 
 1. Supabaseダッシュボードで **メール・Google両方のサインアップを無効化**(Allow new users to sign up = OFF)。
 2. 管理者が管理画面からメールアドレス・氏名・ロールを入力して招待 → サーバーで `user_invitations` 行を作成し、`auth.admin.inviteUserByEmail()`(Secret key、サーバー専用)で招待メールを送信。
+   - 実運用の主要導線では、管理者が表示名・メール・初期パスワード・ロールを入力して直接作成できる。`begin_direct_user_provisioning`で管理者権限・Auth/app_users重複・request_idをDB検証した後にだけAdmin APIを呼び、`complete_direct_user_provisioning`でapp_users・role・audit・担当者provisioning jobを原子的に確定する。途中失敗時は未完成Auth identityを補償削除し、削除にも失敗した場合はbanして検知対象に残す。
 3. **未招待ユーザーの作成拒否**: Supabase Authの **Before User Created Hook** で、公式ペイロードの `event.user.email` のみを正規化して有効な `user_invitations` と照合する。メールが欠落・空の場合はフォールバックせず拒否する(フェイルクローズ)。一致しなければユーザー作成自体を拒否し、Google OAuth経由でも未招待アカウントを `auth.users` に残さない。成功時は空JSONを返す。Hook関数は`SECURITY DEFINER set search_path=''`、参照先は`public.user_invitations`へスキーマ修飾し、EXECUTEは`supabase_auth_admin`だけに許可する。
 4. 招待受諾(初回ログイン成立)後のプロビジョニング: `app_users` 行作成 → Notion自社担当者ページ作成。複数システムにまたがり原子的でないため、`app_users.provisioning_status` で進行を記録し、**部分失敗は再試行ジョブ(kind=`user_provisioning`)で完遂**する。認証スパイク中はAuth+`app_users`作成済みの`profile_created`を暫定的に利用可能とし、Notion接続後は自社担当者ページ作成と`notion_staff_page_id`保存をもって`completed`へ遷移する。既存`profile_created`は同ジョブでバックフィルする。
 5. Googleログインは**招待済みメールアドレスと一致するユーザーのみ**成立する。auth callbackで `app_users` に存在しない・無効なユーザーはセッション破棄+エラー表示(多重防御)。
@@ -143,7 +144,7 @@ await requirePermission(user, 'customer.edit'); // 権限外は403相当のエ�
 - **公開経路**(`signUp` / Google OAuth等)では Before User Created Hook が発火し、未招待メールは403で拒否される。
 - **`auth.admin.createUser` は Hook を迂回する**(実測)。Admin APIで未招待ユーザーを作成できてしまうため、アプリから直接呼び出してはならない。
 - `auth.admin.createUser` / `inviteUserByEmail` / 同等のAdminユーザー作成APIは **`src/lib/auth/admin-api.ts` の server-only ラッパーへ集約**する。新規コードでの `admin.auth.admin.*` 直接呼び出しは禁止し、静的検査テストで検出する。
-- ラッパーは通常のユーザー作成前に、**呼び出し元が管理者権限を持つこと**、**pendingかつ期限内の招待が存在すること**、**メールが一致すること**をサーバー側で検証する。検証を通らない場合はAuth APIを呼ばない。
+- 招待ラッパーは、**呼び出し元が管理者権限を持つこと**、**pendingかつ期限内の招待が存在すること**、**メールが一致すること**をサーバー側で検証する。直接作成は招待を作らず、代わりにDB予約RPCで管理者権限・Auth/app_users重複・request_idを検証する。いずれも検証前にAuth APIを呼ばない。
 - **初回管理者bootstrap**だけ例外: `app_users` に `is_active` な admin が0件であり、かつ環境変数等で**明示された管理者メール**と一致する場合に限り許可する。それ以外のbootstrapは拒否する。
 - 招待・bootstrap・Admin経由のユーザー作成は `audit_logs` へ記録する(`user.invite` / `user.bootstrap` 等)。
 - Secret key、仮パスワード、トークン、Authorizationヘッダー、個人情報をログへ出力しない。
@@ -158,6 +159,8 @@ await requirePermission(user, 'customer.edit'); // 権限外は403相当のエ�
 
 以下は必ず監査ログ(`audit_logs`)へ記録する。
 
-- ユーザー招待 / 無効化 / 再有効化(`user.invite` / `user.deactivate` / `user.activate`)
+- ユーザー直接作成 / 初期role設定(`user.direct_create` / `user.role_assign`)
+- ユーザー招待 / 利用停止 / 再有効化(`user.invite` / `user.disable` / `user.reenable`)
 - ロール変更(`user.role_change`、before/after付き)
+- 管理者によるパスワード再設定(`user.password_reset_by_admin`。パスワード値は記録しない)
 - 権限拒否された管理系操作の試行(`auth.denied`、必要最小限の情報のみ)

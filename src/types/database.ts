@@ -114,6 +114,7 @@ export type AppUserRow = {
   role: AppRole;
   department_role: string | null;
   is_active: boolean;
+  disabled_at: string | null;
   provisioning_status: ProvisioningStatus;
   provisioning_error: string | null;
   notion_staff_page_id: string | null;
@@ -518,6 +519,17 @@ export type Database = {
             "email" | "normalized_email" | "display_name" | "role"
           >
       >;
+      user_admin_operations: TableDef<{
+        request_id: string;
+        kind: "direct_create";
+        actor_id: string;
+        normalized_email: string;
+        status: "processing" | "completed" | "failed";
+        target_user_id: string | null;
+        error_code: string | null;
+        created_at: string;
+        completed_at: string | null;
+      }>;
       jobs: TableDef<JobRow>;
       job_items: TableDef<Record<string, unknown>>;
       audit_logs: TableDef<AuditLogRow>;
@@ -567,6 +579,56 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      begin_direct_user_provisioning: {
+        Args: {
+          p_actor_id: string;
+          p_request_id: string;
+          p_email: string;
+        };
+        Returns: string;
+      };
+      complete_direct_user_provisioning: {
+        Args: {
+          p_actor_id: string;
+          p_request_id: string;
+          p_user_id: string;
+          p_email: string;
+          p_display_name: string;
+          p_role: AppRole;
+        };
+        Returns: AppUserRow;
+      };
+      fail_direct_user_provisioning: {
+        Args: {
+          p_actor_id: string;
+          p_request_id: string;
+          p_error_code: string;
+        };
+        Returns: boolean;
+      };
+      set_app_user_active: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_active: boolean;
+        };
+        Returns: AppUserRow;
+      };
+      change_app_user_role: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_role: AppRole;
+        };
+        Returns: AppUserRow;
+      };
+      record_admin_password_reset: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+        };
+        Returns: boolean;
+      };
       claim_next_prospect_call: {
         Args: {
           p_user_id: string;

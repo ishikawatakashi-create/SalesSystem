@@ -31,7 +31,7 @@ export function InquiryListControls({
   assignedUserId: string | null;
   status: InquiryStatus;
   canEdit: boolean;
-  assignees: Array<{ id: string; label: string }>;
+  assignees: Array<{ id: string; label: string; disabled?: boolean }>;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -87,7 +87,7 @@ export function InquiryListControls({
         >
           <option value="">未割当</option>
           {assignees.map((a) => (
-            <option key={a.id} value={a.id}>
+            <option key={a.id} value={a.id} disabled={a.disabled}>
               {a.label}
             </option>
           ))}

@@ -65,6 +65,7 @@ create unique index user_invitations_pending_email_uniq
 | role | app_role not null default 'viewer' | |
 | department_role | text | 所属・役割 |
 | is_active | boolean not null default true | |
+| disabled_at | timestamptz | 利用停止日時。再有効化時はnull |
 | **provisioning_status** | provisioning_status not null default 'pending' | 下記の部分失敗管理 |
 | provisioning_error | text | |
 | notion_staff_page_id | text unique | 自社担当者DBの対応ページID |
@@ -73,6 +74,10 @@ create unique index user_invitations_pending_email_uniq
 
 - **プロビジョニングの部分失敗対策**: 招待受諾時の「Auth作成 → app_users作成 → Notion自社担当者ページ作成」は複数システムにまたがり原子的でない。Auth作成後の`app_users`作成と招待の`accepted`遷移は`accept_invitation_and_provision` RPCで原子的に実行し、状態を`profile_created`とする。認証スパイク中は`profile_created`を暫定的に利用可能とする。Notion接続後は**再試行ジョブ(kind=`user_provisioning`)**が自社担当者ページを作成し、`notion_staff_page_id`保存と同時に`completed`へ遷移する。既存`profile_created`もバックフィル対象とする。`pending` / `auth_created` / `failed`は利用不可。
 - **未プロビジョニングAuthユーザー**: `auth.users`に存在して`app_users`に存在しないユーザーは管理画面で検知し、人間が確認する。初期版では自動削除せず、自動削除ジョブは別途承認なしに実装しない。
+
+### user_admin_operations
+
+管理者による直接ユーザー作成の二重送信・部分失敗を管理するserver-onlyテーブル。`request_id`をPKとし、`processing / completed / failed`、正規化メール、actor、作成されたtarget userだけを保持する。パスワードは保持しない。処理中メールには部分unique indexを置き、Auth作成後のapp_users・role・audit・`user_provisioning` job確定はDB RPC内で原子的に行う。RLSを有効化し、`service_role`以外には権限を与えない。
 
 ## 3. 検索インデックス(Notionキャッシュ)
 

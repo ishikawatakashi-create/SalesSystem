@@ -25,6 +25,17 @@ export async function setMembershipAssignee(input: {
   if (readErr) throw new Error(readErr.message);
   if (!current) throw new Error("membership not found");
 
+  if (input.assignedUserId) {
+    const { data: assignee, error: assigneeError } = await admin
+      .from("app_users")
+      .select("id,is_active")
+      .eq("id", input.assignedUserId)
+      .maybeSingle();
+    if (assigneeError || !assignee?.is_active) {
+      throw new Error("利用停止中のユーザーは新しい担当者に指定できません");
+    }
+  }
+
   const patch: Record<string, unknown> = {
     assigned_user_id: input.assignedUserId,
   };

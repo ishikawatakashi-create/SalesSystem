@@ -21,11 +21,11 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("Auth Admin API直接使用の禁止", () => {
-  it("admin-api.ts以外で auth.admin.createUser / inviteUserByEmail を直接呼ばない", () => {
+  it("admin-api.ts以外で Auth Admin user mutationを直接呼ばない", () => {
     const files = walk(join(ROOT, "src")).concat(walk(join(ROOT, "scripts")));
     const offenders: string[] = [];
     const pattern =
-      /\.auth\.admin\.(createUser|inviteUserByEmail|generateLink)\s*\(/;
+      /\.auth\.admin\.(createUser|inviteUserByEmail|generateLink|updateUserById|deleteUser)\s*\(/;
 
     for (const file of files) {
       const normalized = file.replace(/\\/g, "/");

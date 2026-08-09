@@ -19,6 +19,134 @@ export type InviteByEmailInput = {
   invitationId: string;
 };
 
+export type AuthAdminResult =
+  | { ok: true }
+  | { ok: false; code: "duplicate" | "not_found" | "auth_error" };
+
+export type CreatedAuthUserResult =
+  | { ok: true; userId: string }
+  | { ok: false; code: "duplicate" | "auth_error" };
+
+/**
+ * Direct provisioning用のAuth identity作成。
+ * 呼出元は admin-user-service のDB予約・権限検査を通過済みであること。
+ * passwordはAuthへ渡すだけで、ログ・DB・auditへは渡さない。
+ */
+export async function createDirectAuthUser(input: {
+  email: string;
+  password: string;
+  displayName: string;
+}): Promise<CreatedAuthUserResult> {
+  const admin = createAdminClient();
+  const created = await admin.auth.admin.createUser({
+    email: normalizeEmail(input.email),
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { display_name: input.displayName },
+  });
+  if (created.error || !created.data.user) {
+    const code = String(created.error?.code ?? "").toLowerCase();
+    const message = String(created.error?.message ?? "").toLowerCase();
+    if (
+      code.includes("already") ||
+      code.includes("exists") ||
+      message.includes("already") ||
+      message.includes("exists") ||
+      message.includes("registered")
+    ) {
+      return { ok: false, code: "duplicate" };
+    }
+    return { ok: false, code: "auth_error" };
+  }
+  return { ok: true, userId: created.data.user.id };
+}
+
+/** profile作成前に失敗したDirect Auth userだけを補償削除する。 */
+export async function deleteIncompleteAuthUser(
+  userId: string,
+): Promise<AuthAdminResult> {
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (!error) return { ok: true };
+  const code = String(error.code ?? "").toLowerCase();
+  if (code.includes("not_found")) return { ok: false, code: "not_found" };
+  return { ok: false, code: "auth_error" };
+}
+
+export async function setAuthUserDisabled(input: {
+  userId: string;
+  disabled: boolean;
+}): Promise<
+  | { ok: true; previouslyBanned: boolean }
+  | { ok: false; code: "not_found" | "auth_error" }
+> {
+  const admin = createAdminClient();
+  const current = await admin.auth.admin.getUserById(input.userId);
+  if (current.error || !current.data.user) {
+    const code = String(current.error?.code ?? "").toLowerCase();
+    return {
+      ok: false,
+      code: code.includes("not_found") ? "not_found" : "auth_error",
+    };
+  }
+  const bannedUntil = current.data.user.banned_until;
+  const previouslyBanned = Boolean(
+    bannedUntil && new Date(bannedUntil).getTime() > Date.now(),
+  );
+  const updated = await admin.auth.admin.updateUserById(input.userId, {
+    ban_duration: input.disabled ? "876000h" : "none",
+  });
+  if (updated.error) return { ok: false, code: "auth_error" };
+  return { ok: true, previouslyBanned };
+}
+
+export async function resetAuthUserPassword(input: {
+  userId: string;
+  password: string;
+}): Promise<AuthAdminResult> {
+  const admin = createAdminClient();
+  const updated = await admin.auth.admin.updateUserById(input.userId, {
+    password: input.password,
+  });
+  if (!updated.error) return { ok: true };
+  const code = String(updated.error.code ?? "").toLowerCase();
+  return {
+    ok: false,
+    code: code.includes("not_found") ? "not_found" : "auth_error",
+  };
+}
+
+/** app_usersがSSoT。Auth metadataは表示補助としてbest-effort同期する。 */
+export async function syncAuthUserDisplayName(input: {
+  userId: string;
+  displayName: string;
+}): Promise<AuthAdminResult> {
+  const admin = createAdminClient();
+  const updated = await admin.auth.admin.updateUserById(input.userId, {
+    user_metadata: { display_name: input.displayName },
+  });
+  return updated.error
+    ? { ok: false, code: "auth_error" }
+    : { ok: true };
+}
+
+export async function listAuthUserActivity(): Promise<
+  Map<string, { lastSignInAt: string | null }>
+> {
+  const admin = createAdminClient();
+  const result = new Map<string, { lastSignInAt: string | null }>();
+  const perPage = 1_000;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) break;
+    for (const user of data.users) {
+      result.set(user.id, { lastSignInAt: user.last_sign_in_at ?? null });
+    }
+    if (data.users.length < perPage) break;
+  }
+  return result;
+}
+
 /**
  * Auth Admin APIの唯一の入口。
  * createUser / inviteUserByEmail の直接呼び出しを禁止し、ここへ集約する。

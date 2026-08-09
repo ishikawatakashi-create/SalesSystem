@@ -9,10 +9,151 @@ import { invitationExpiresAt } from "@/lib/auth/config";
 import { inviteUserByEmailSafe } from "@/lib/auth/admin-api";
 import { updateUserDisplayName } from "@/lib/auth/update-display-name";
 import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/display-name";
+import {
+  changeUserRole,
+  getUserDisableImpact,
+  provisionUserDirectly,
+  resetUserPasswordByAdmin,
+  setUserActiveState,
+  type DisableImpact,
+} from "@/lib/auth/admin-user-service";
 
 export type ActionResult =
-  | { ok: true; message: string; displayName?: string }
+  | {
+      ok: true;
+      message: string;
+      displayName?: string;
+      userId?: string;
+      impact?: DisableImpact;
+    }
   | { ok: false; message: string };
+
+export async function createUserDirectAction(input: unknown): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const result = await provisionUserDirectly({
+    actor: {
+      id: user.id,
+      role: user.role,
+      is_active: user.is_active,
+      display_name: user.display_name,
+    },
+    requestId: String(raw.requestId ?? ""),
+    displayName: String(raw.displayName ?? ""),
+    email: String(raw.email ?? ""),
+    password: String(raw.password ?? ""),
+    role: String(raw.role ?? "") as "admin" | "a" | "b" | "viewer",
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/admin/users");
+  return { ok: true, message: result.message, userId: result.userId };
+}
+
+const targetUserSchema = z.object({ targetUserId: z.uuid() });
+
+export async function getDisableImpactAction(input: unknown): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+  const parsed = targetUserSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "ユーザーが見つかりません" };
+  const result = await getUserDisableImpact({
+    actor: user,
+    targetUserId: parsed.data.targetUserId,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  return { ok: true, message: result.message, impact: result.impact };
+}
+
+const activeStateSchema = targetUserSchema.extend({ active: z.boolean() });
+
+export async function setUserActiveAction(input: unknown): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+  const parsed = activeStateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "入力内容を確認してください" };
+  const result = await setUserActiveState({
+    actor: user,
+    targetUserId: parsed.data.targetUserId,
+    active: parsed.data.active,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
+  return result;
+}
+
+const roleChangeSchema = targetUserSchema.extend({
+  role: z.enum(["admin", "a", "b", "viewer"]),
+});
+
+export async function changeUserRoleAction(input: unknown): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+  const parsed = roleChangeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "入力内容を確認してください" };
+  const result = await changeUserRole({
+    actor: user,
+    targetUserId: parsed.data.targetUserId,
+    role: parsed.data.role,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
+  return result;
+}
+
+const passwordResetSchema = targetUserSchema.extend({
+  password: z.string(),
+  confirmation: z.string(),
+});
+
+export async function resetUserPasswordAction(input: unknown): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+  const parsed = passwordResetSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "入力内容を確認してください" };
+  if (parsed.data.password !== parsed.data.confirmation) {
+    return { ok: false, message: "確認用パスワードが一致しません" };
+  }
+  const result = await resetUserPasswordByAdmin({
+    actor: user,
+    targetUserId: parsed.data.targetUserId,
+    password: parsed.data.password,
+  });
+  return result.ok ? result : { ok: false, message: result.message };
+}
 
 const inviteSchema = z.object({
   email: z.email("メールアドレスの形式が正しくありません"),

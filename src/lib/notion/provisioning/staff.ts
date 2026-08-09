@@ -29,6 +29,8 @@ export async function provisionStaffPage(input: {
   staffDataSourceId: string;
   user: StaffProvisionInput;
   dryRun?: boolean;
+  /** Auth利用を維持したままbackground retryする場合にtrue */
+  keepProfileUsableOnFailure?: boolean;
 }): Promise<{ status: "completed" | "dry_run" | "failed"; pageId?: string }> {
   const requestId = newRequestId();
   const externalId = staffExternalId(input.user.userId);
@@ -125,7 +127,9 @@ export async function provisionStaffPage(input: {
     await admin
       .from("app_users")
       .update({
-        provisioning_status: "failed",
+        provisioning_status: input.keepProfileUsableOnFailure
+          ? "profile_created"
+          : "failed",
         provisioning_error: "staff_provision_failed",
       })
       .eq("id", input.user.userId);
