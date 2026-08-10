@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProvisioned } from "@/lib/auth/provisioning";
+import { appUrl } from "@/lib/env";
 
 /**
  * 認証コールバック。以下のすべての着地点を兼ねる:
@@ -13,7 +14,10 @@ import { ensureProvisioned } from "@/lib/auth/provisioning";
  * 失敗時はサインアウトしてログイン画面へ戻す(Hookの多重防御)。
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // Host headerやpreview URLではなくcanonical URLへ必ず戻す。
+  // 本番設定不備時はappUrl()がfail-closedし、localhostへは転送しない。
+  const origin = appUrl();
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;

@@ -66,8 +66,10 @@ npm run build      # 本番ビルド
 4. **Google OAuth**
    - Google Cloud ConsoleでOAuthクライアントを作成し、SupabaseのAuthentication → Providers → Googleに Client ID / Secret を設定する。リダイレクトURLはSupabaseが表示するもの(`https://<project>.supabase.co/auth/v1/callback`)を登録する。
 5. **Auth URL設定**
-   - Authentication → URL Configuration で Site URL(本番URL)とRedirect URLs(`http://localhost:3000/auth/callback` 等)を設定する。
-   - Authentication → Email Templates → Invite userのリンクを、`token_hash`と`type=invite`を`/auth/callback`へ渡すSSR用テンプレートに設定する。例: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`。実際のSite URL/許可済みRedirect URLと一致させる。
+   - Authentication → URL Configuration で Site URLを本番canonical URLにし、Redirect URLsへ本番URL配下(`https://example.com/**`)を登録する。本番の許可リストへlocalhostを登録しない。
+   - 招待APIはcanonical app URLから`/auth/invite`を生成して`redirectTo`へ明示する。Supabase標準Invite user template(`{{ .ConfirmationURL }}`)はimplicit fragmentを返すため、`/auth/invite`がcookie sessionへ変換し、`/auth/callback`で招待受諾・profile作成後に`/auth/set-password`へ進む。
+   - custom SMTPを設定してInvite user templateを編集できる場合は、SSR用に`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`を使用できる。`{{ .SiteURL }}`固定はAPIの`redirectTo`を無視するため使用しない。`redirectTo`自体がcallback routeを含むので、テンプレート側で`/auth/callback`を重ねて付けない。
+   - Vercel Productionには`APP_URL=https://<production-domain>`を設定する(既存`NEXT_PUBLIC_APP_URL`も利用可)。デプロイ環境ではlocalhost設定・localhost fallbackを拒否する。
 6. **SMTP設定(推奨)**
    - 招待・パスワード再設定メールを確実に届けるため、本番運用前にカスタムSMTPを設定する(Supabase既定のメール送信はレート制限が厳しい)。
 7. **最初の管理者の招待(bootstrap)**

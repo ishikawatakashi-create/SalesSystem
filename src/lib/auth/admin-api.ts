@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/auth/normalize-email";
 import { invitationExpiresAt } from "@/lib/auth/config";
-import { appUrl } from "@/lib/env";
+import { inviteRedirectUrl } from "@/lib/env";
 
 export type AdminApiActor = {
   id: string;
@@ -185,7 +185,9 @@ export async function inviteUserByEmailSafe(
     normalized,
     {
       data: { display_name: input.displayName },
-      redirectTo: `${appUrl()}/auth/callback`,
+      // Supabase標準テンプレート({{ .ConfirmationURL }})はimplicit flowで
+      // URL fragmentへsessionを返すため、まずブラウザ側routeでcookie化する。
+      redirectTo: inviteRedirectUrl(),
     },
   );
   if (inviteError) {
