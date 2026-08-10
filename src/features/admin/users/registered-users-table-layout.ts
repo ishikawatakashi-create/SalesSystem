@@ -1,7 +1,7 @@
 export const USER_TABLE_SCROLL_THRESHOLD = 10;
 
 const USER_TABLE_MAX_HEIGHT_CLASS =
-  "max-h-[min(33rem,calc(100vh-12rem))]";
+  "max-h-[min(29rem,calc(100vh-12rem))]";
 
 export function shouldScrollUserTable(userCount: number): boolean {
   return userCount > USER_TABLE_SCROLL_THRESHOLD;

@@ -25,7 +25,7 @@ describe("registered users table layout", () => {
     expect(shouldScrollUserTable(11)).toBe(true);
     expect(shouldScrollUserTable(15)).toBe(true);
     expect(getUserTableContainerClass({ nested: false, userCount: 11 })).toContain(
-      "max-h-[min(33rem,calc(100vh-12rem))] overflow-auto",
+      "max-h-[min(29rem,calc(100vh-12rem))] overflow-auto",
     );
   });
 
