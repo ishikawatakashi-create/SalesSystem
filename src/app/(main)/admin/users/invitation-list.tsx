@@ -42,6 +42,7 @@ export function InvitationList({
           allowEditName
           allowRevoke
           allowArchive={false}
+          nowMs={nowMs}
           empty="有効な招待はありません"
         />
       </div>
@@ -55,6 +56,7 @@ export function InvitationList({
             allowEditName={false}
             allowRevoke={false}
             allowArchive
+            nowMs={nowMs}
             empty=""
           />
         </details>
@@ -68,6 +70,7 @@ function InviteTable(props: {
   allowEditName: boolean;
   allowRevoke: boolean;
   allowArchive: boolean;
+  nowMs: number;
   empty: string;
 }) {
   const router = useRouter();
@@ -211,7 +214,12 @@ function InviteTable(props: {
                 )}
               </td>
               <td className="px-3 py-2">{getAppRoleLabel(inv.role)}</td>
-              <td className="px-3 py-2">{STATUS_LABELS[inv.status]}</td>
+              <td className="px-3 py-2">
+                {inv.status === "pending" &&
+                new Date(inv.expires_at).getTime() < props.nowMs
+                  ? STATUS_LABELS.expired
+                  : STATUS_LABELS[inv.status]}
+              </td>
               <td className="px-3 py-2">
                 {new Date(inv.expires_at).toLocaleString("ja-JP", {
                   timeZone: "Asia/Tokyo",
