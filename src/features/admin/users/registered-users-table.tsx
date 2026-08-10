@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { DisplayNameEditor } from "@/features/admin/users/display-name-editor";
@@ -14,6 +14,11 @@ import { isFixtureUserAccount } from "@/lib/auth/display-name";
 import { APP_ROLE_OPTIONS, getAppRoleLabel } from "@/lib/auth/role-labels";
 import type { DisableImpact } from "@/lib/auth/admin-user-service";
 import type { AppRole } from "@/types/database";
+import {
+  getUserTableContainerClass,
+  getUserTableHeaderClass,
+  shouldScrollUserTable,
+} from "@/features/admin/users/registered-users-table-layout";
 
 export type RegisteredUserRow = {
   id: string;
@@ -117,10 +122,20 @@ function UserTable(props: {
   onMessage: (message: Message) => void;
   nested?: boolean;
 }) {
+  const scrollable = shouldScrollUserTable(props.users.length);
+
   return (
-    <div className={props.nested ? "overflow-x-auto" : "overflow-x-auto rounded border border-slate-200 bg-white"}>
+    <div
+      className={getUserTableContainerClass({
+        nested: Boolean(props.nested),
+        userCount: props.users.length,
+      })}
+      data-testid={props.nested ? undefined : "registered-users-table"}
+      data-user-count={props.users.length}
+      data-scrollable={scrollable ? "true" : "false"}
+    >
       <table className="min-w-[860px] w-full text-left text-xs">
-        <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <thead className={getUserTableHeaderClass(props.users.length)}>
           <tr>
             <th className="px-3 py-2 font-medium">表示名</th>
             <th className="px-3 py-2 font-medium">メールアドレス</th>
@@ -207,6 +222,11 @@ function UserActions(props: {
   onMessage: (message: Message) => void;
 }) {
   const router = useRouter();
+  const generatedMenuId = useId().replace(/:/g, "");
+  const menuId = `user-actions-${generatedMenuId}`;
+  const menuAnchorName = `--${menuId}`;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<"role" | "password" | "disable" | null>(null);
   const [role, setRole] = useState<AppRole>(props.user.role);
   const [password, setPassword] = useState("");
@@ -214,6 +234,13 @@ function UserActions(props: {
   const [impact, setImpact] = useState<DisableImpact | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  function closeMenu(): void {
+    const menu = menuRef.current;
+    if (menu?.matches(":popover-open")) {
+      menu.hidePopover();
+    }
+  }
 
   function finish(result: { ok: boolean; message: string }): void {
     props.onMessage({ ok: result.ok, text: result.message });
@@ -227,6 +254,7 @@ function UserActions(props: {
   }
 
   function prepareDisable(): void {
+    closeMenu();
     startTransition(async () => {
       const result = await getDisableImpactAction({ targetUserId: props.user.id });
       if (!result.ok || !result.impact) {
@@ -239,6 +267,7 @@ function UserActions(props: {
   }
 
   function reactivate(): void {
+    closeMenu();
     if (!window.confirm(`${props.user.display_name}さんを再有効化しますか？`)) return;
     startTransition(async () => {
       finish(await setUserActiveAction({ targetUserId: props.user.id, active: true }));
@@ -247,16 +276,43 @@ function UserActions(props: {
 
   return (
     <div className="relative inline-block text-left">
-      <details>
-        <summary className="cursor-pointer list-none rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
-          •••
-        </summary>
-        <div className="absolute right-0 z-20 mt-1 w-44 rounded border border-slate-200 bg-white p-1 text-left shadow-lg">
+      <button
+        type="button"
+        className="cursor-pointer rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+        aria-label={`${props.user.display_name}の操作`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuId}
+        popoverTarget={menuId}
+        popoverTargetAction="toggle"
+        style={{ anchorName: menuAnchorName }}
+      >
+        •••
+      </button>
+      <div
+        ref={menuRef}
+        id={menuId}
+        popover="auto"
+        role="menu"
+        aria-label={`${props.user.display_name}の操作メニュー`}
+        onToggle={(event) =>
+          setMenuOpen(event.currentTarget.matches(":popover-open"))
+        }
+        className="fixed inset-auto z-50 m-0 mt-1 w-44 rounded border border-slate-200 bg-white p-1 text-left text-xs shadow-lg"
+        style={{
+          positionAnchor: menuAnchorName,
+          top: "anchor(bottom)",
+          right: "anchor(right)",
+          positionTryFallbacks: "flip-block, flip-inline",
+        }}
+      >
           {props.user.id !== props.currentUserId ? (
             <button
               type="button"
+              role="menuitem"
               className="block w-full rounded px-2 py-1.5 text-left hover:bg-slate-50"
               onClick={() => {
+                closeMenu();
                 setRole(props.user.role);
                 setModal("role");
               }}
@@ -266,8 +322,12 @@ function UserActions(props: {
           ) : null}
           <button
             type="button"
+            role="menuitem"
             className="block w-full rounded px-2 py-1.5 text-left hover:bg-slate-50"
-            onClick={() => setModal("password")}
+            onClick={() => {
+              closeMenu();
+              setModal("password");
+            }}
           >
             パスワードを再設定
           </button>
@@ -275,6 +335,7 @@ function UserActions(props: {
             props.user.id !== props.currentUserId ? (
               <button
                 type="button"
+                role="menuitem"
                 disabled={pending}
                 className="block w-full rounded px-2 py-1.5 text-left text-red-700 hover:bg-red-50"
                 onClick={prepareDisable}
@@ -285,6 +346,7 @@ function UserActions(props: {
           ) : (
             <button
               type="button"
+              role="menuitem"
               disabled={pending}
               className="block w-full rounded px-2 py-1.5 text-left text-green-700 hover:bg-green-50"
               onClick={reactivate}
@@ -292,8 +354,7 @@ function UserActions(props: {
               再有効化
             </button>
           )}
-        </div>
-      </details>
+      </div>
 
       {modal === "role" ? (
         <Modal title={`${props.user.display_name}さんの権限を変更`} close={() => setModal(null)} pending={pending}>
