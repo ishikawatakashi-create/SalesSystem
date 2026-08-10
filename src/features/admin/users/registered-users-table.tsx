@@ -7,12 +7,14 @@ import { DisplayNameEditor } from "@/features/admin/users/display-name-editor";
 import {
   changeUserRoleAction,
   getDisableImpactAction,
+  permanentlyDeleteUserAction,
   resetUserPasswordAction,
   setUserActiveAction,
 } from "@/features/admin/users/actions";
 import { isFixtureUserAccount } from "@/lib/auth/display-name";
 import { APP_ROLE_OPTIONS, getAppRoleLabel } from "@/lib/auth/role-labels";
 import type { DisableImpact } from "@/lib/auth/admin-user-service";
+import type { PermanentDeleteReason } from "@/lib/auth/permanent-user-deletion-service";
 import type { AppRole } from "@/types/database";
 import {
   getUserTableContainerClass,
@@ -28,6 +30,10 @@ export type RegisteredUserRow = {
   is_active: boolean;
   provisioning_status: string;
   last_sign_in_at: string | null;
+  permanent_delete: {
+    eligible: boolean;
+    reasonCode: string;
+  } | null;
 };
 
 type Message = { ok: boolean; text: string };
@@ -227,12 +233,16 @@ function UserActions(props: {
   const menuAnchorName = `--${menuId}`;
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [modal, setModal] = useState<"role" | "password" | "disable" | null>(null);
+  const [modal, setModal] = useState<
+    "role" | "password" | "disable" | "permanent-delete" | null
+  >(null);
   const [role, setRole] = useState<AppRole>(props.user.role);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [impact, setImpact] = useState<DisableImpact | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [deleteReason, setDeleteReason] = useState<PermanentDeleteReason>("re-register");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [pending, startTransition] = useTransition();
 
   function closeMenu(): void {
@@ -249,6 +259,7 @@ function UserActions(props: {
       setPassword("");
       setConfirmation("");
       setShowPassword(false);
+      setDeleteConfirmation("");
       router.refresh();
     }
   }
@@ -354,6 +365,35 @@ function UserActions(props: {
               再有効化
             </button>
           )}
+          {props.user.permanent_delete ? (
+            <>
+              <div className="my-1 border-t border-slate-100" />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={pending || !props.user.permanent_delete.eligible}
+                title={
+                  props.user.permanent_delete.eligible
+                    ? "誤招待・テスト登録・登録し直し専用"
+                    : permanentDeleteReasonLabel(props.user.permanent_delete.reasonCode)
+                }
+                className="block w-full rounded px-2 py-1.5 text-left text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+                onClick={() => {
+                  closeMenu();
+                  setDeleteReason("re-register");
+                  setDeleteConfirmation("");
+                  setModal("permanent-delete");
+                }}
+              >
+                完全削除
+                <span className="mt-0.5 block text-[10px] font-normal">
+                  {props.user.permanent_delete.eligible
+                    ? "誤招待・テスト登録・登録し直し専用"
+                    : permanentDeleteReasonLabel(props.user.permanent_delete.reasonCode)}
+                </span>
+              </button>
+            </>
+          ) : null}
       </div>
 
       {modal === "role" ? (
@@ -467,6 +507,70 @@ function UserActions(props: {
           />
         </Modal>
       ) : null}
+
+      {modal === "permanent-delete" ? (
+        <Modal
+          title={`${props.user.display_name}さんを完全に削除しますか？`}
+          close={() => {
+            setDeleteConfirmation("");
+            setModal(null);
+          }}
+          pending={pending}
+        >
+          <div className="rounded border border-red-200 bg-red-50 p-3 text-xs leading-6 text-red-950">
+            <p>この操作では、SalesSystemのユーザー情報とログインアカウントを完全に削除します。</p>
+            <p className="mt-2">削除後は、同じメールアドレスで新しいユーザーとして登録し直せます。</p>
+            <p className="mt-2 font-semibold">この操作は元に戻せません。</p>
+          </div>
+          <p className="text-xs text-slate-600">
+            通常の退職・休止では「利用停止」を使用してください。完全削除は誤招待・テスト登録・登録し直し専用です。
+          </p>
+          <label className="block text-xs font-medium text-slate-700">
+            削除理由
+            <select
+              value={deleteReason}
+              disabled={pending}
+              onChange={(event) => setDeleteReason(event.target.value as PermanentDeleteReason)}
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="re-register">直接作成で登録し直す</option>
+              <option value="mistaken_invitation">誤って招待した</option>
+              <option value="test">テスト登録を削除する</option>
+            </select>
+          </label>
+          <label className="block text-xs font-medium text-slate-700">
+            確認のため「削除する」と入力してください
+            <input
+              value={deleteConfirmation}
+              disabled={pending}
+              autoComplete="off"
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              className="mt-1 w-full rounded border border-red-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <ModalButtons
+            pending={pending}
+            confirmDisabled={deleteConfirmation !== "削除する"}
+            confirmLabel="完全に削除"
+            danger
+            close={() => {
+              setDeleteConfirmation("");
+              setModal(null);
+            }}
+            confirm={() =>
+              startTransition(async () => {
+                finish(
+                  await permanentlyDeleteUserAction({
+                    targetUserId: props.user.id,
+                    reason: deleteReason,
+                    confirmation: deleteConfirmation,
+                  }),
+                );
+              })
+            }
+          />
+        </Modal>
+      ) : null}
     </div>
   );
 }
@@ -503,6 +607,7 @@ function ModalButtons(props: {
   close: () => void;
   confirm: () => void;
   danger?: boolean;
+  confirmDisabled?: boolean;
 }) {
   return (
     <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
@@ -511,7 +616,7 @@ function ModalButtons(props: {
       </button>
       <button
         type="button"
-        disabled={props.pending}
+        disabled={props.pending || props.confirmDisabled}
         onClick={props.confirm}
         className={`rounded px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 ${
           props.danger ? "bg-red-700 hover:bg-red-800" : "bg-primary hover:bg-primary-hover"
@@ -521,6 +626,16 @@ function ModalButtons(props: {
       </button>
     </div>
   );
+}
+
+function permanentDeleteReasonLabel(reasonCode: string): string {
+  if (reasonCode === "storage_owned") return "紐づくファイルがあるため削除できません";
+  if (reasonCode === "self_delete") return "自分自身は削除できません";
+  if (reasonCode === "last_admin") return "最後の有効管理者は削除できません";
+  if (reasonCode === "business_references" || reasonCode === "notion_staff_profile_exists") {
+    return "業務履歴があるため利用停止してください";
+  }
+  return "安全条件を確認できないため削除できません";
 }
 
 function formatLastSignIn(value: string | null): string {

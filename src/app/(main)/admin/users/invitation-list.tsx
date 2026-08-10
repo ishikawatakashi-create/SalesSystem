@@ -233,7 +233,7 @@ function InviteTable(props: {
                     onClick={() => setCancelTarget(inv)}
                     className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"
                   >
-                    招待を取り消す
+                    招待を取り消して完全削除
                   </button>
                 ) : props.allowArchive ? (
                   <button
@@ -281,11 +281,11 @@ function InviteTable(props: {
               id="cancel-invitation-title"
               className="text-sm font-semibold text-slate-900"
             >
-              この招待を取り消しますか？
+              この招待を取り消して完全削除しますか？
             </h3>
             <p className="mt-3 whitespace-pre-line text-xs leading-6 text-slate-600">
               {
-                "まだ受諾されていない招待を無効にします。\n登録済みユーザーには影響しません。"
+                "まだ受諾されていない招待を無効にし、招待時に作成された未確認のログインアカウントを削除します。\n登録済みユーザーには影響しません。"
               }
             </p>
             <p className="mt-2 text-xs text-slate-500">{cancelTarget.email}</p>
@@ -304,7 +304,7 @@ function InviteTable(props: {
                 onClick={() => handleRevoke(cancelTarget.id)}
                 className="rounded bg-red-700 px-3 py-2 text-xs font-medium text-white hover:bg-red-800 disabled:opacity-50"
               >
-                招待を取り消す
+                招待を取り消して完全削除
               </button>
             </div>
           </div>

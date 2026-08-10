@@ -254,6 +254,27 @@ describe("user lifecycle security", () => {
     });
   });
 
+  it("re-enables Auth and the existing app profile without recreating the user", async () => {
+    mocks.fromResults.push({
+      data: { id: TARGET_ID, role: "b", is_active: false },
+      error: null,
+    });
+    mocks.setAuthUserDisabled.mockResolvedValue({ ok: true, previouslyBanned: true });
+    mocks.rpcHandlers.set("set_app_user_active", async () => ({ data: {}, error: null }));
+
+    const result = await setUserActiveState({
+      actor: ADMIN,
+      targetUserId: TARGET_ID,
+      active: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.setAuthUserDisabled).toHaveBeenCalledWith({
+      userId: TARGET_ID,
+      disabled: false,
+    });
+  });
+
   it("rejects self-demotion", async () => {
     const result = await changeUserRole({
       actor: ADMIN,

@@ -34,6 +34,10 @@ export type PendingInviteAuthDeletionResult =
       code: "activated" | "mapping_mismatch" | "auth_error";
     };
 
+export type RegisteredInviteAuthDeletionResult =
+  | { ok: true; outcome: "deleted" | "not_found" }
+  | { ok: false; code: "mapping_mismatch" | "auth_error" };
+
 /**
  * Direct provisioning用のAuth identity作成。
  * 呼出元は admin-user-service のDB予約・権限検査を通過済みであること。
@@ -126,6 +130,52 @@ export async function deletePendingInvitedAuthUser(input: {
   const message = String(deleted.error.message ?? "").toLowerCase();
   if (code.includes("not_found") || message.includes("not found")) {
     return { ok: true, outcome: "not_found" };
+  }
+  return { ok: false, code: "auth_error" };
+}
+
+/**
+ * 受諾済みの招待由来ユーザー専用のhard delete。
+ * DB側で業務参照0とprofile削除を完了した後でも、AuthのID・email・招待IDを
+ * 再検証する。soft deleteでは同じemailの再登録を保証できないため使用しない。
+ */
+export async function deleteRegisteredInvitedAuthUser(input: {
+  userId: string;
+  invitationId: string;
+  normalizedEmail: string;
+}): Promise<RegisteredInviteAuthDeletionResult> {
+  const admin = createAdminClient();
+  const current = await admin.auth.admin.getUserById(input.userId);
+  if (current.error || !current.data.user) {
+    const code = String(current.error?.code ?? "").toLowerCase();
+    const message = String(current.error?.message ?? "").toLowerCase();
+    if (code.includes("not_found") || message.includes("not found")) {
+      return { ok: true, outcome: "not_found" };
+    }
+    return { ok: false, code: "auth_error" };
+  }
+
+  const authUser = current.data.user;
+  if (
+    normalizeEmail(authUser.email ?? "") !== input.normalizedEmail ||
+    String(authUser.user_metadata?.invitation_id ?? "") !== input.invitationId ||
+    !authUser.invited_at
+  ) {
+    return { ok: false, code: "mapping_mismatch" };
+  }
+
+  // falseを明示し、同じemailで再登録可能なhard deleteに固定する。
+  const deleted = await admin.auth.admin.deleteUser(input.userId, false);
+  if (!deleted.error) return { ok: true, outcome: "deleted" };
+
+  // 通信切断などで応答だけ失われた場合も、実状態を再読して冪等に確定する。
+  const after = await admin.auth.admin.getUserById(input.userId);
+  if (after.error || !after.data.user) {
+    const code = String(after.error?.code ?? "").toLowerCase();
+    const message = String(after.error?.message ?? "").toLowerCase();
+    if (code.includes("not_found") || message.includes("not found")) {
+      return { ok: true, outcome: "deleted" };
+    }
   }
   return { ok: false, code: "auth_error" };
 }

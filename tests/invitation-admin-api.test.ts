@@ -48,6 +48,7 @@ vi.mock("@/lib/env", () => ({
 }));
 
 import {
+  deleteRegisteredInvitedAuthUser,
   deletePendingInvitedAuthUser,
   inviteUserByEmailSafe,
 } from "@/lib/auth/admin-api";
@@ -75,6 +76,62 @@ beforeEach(() => {
   mocks.queryResults.length = 0;
   mocks.auditInsert.mockReset();
   mocks.auditInsert.mockResolvedValue({ data: null, error: null });
+});
+
+describe("accepted invited Auth user hard cleanup", () => {
+  it("hard-deletes only the exact Auth/email/invitation identity", async () => {
+    mocks.getUserById.mockResolvedValue({
+      data: { user: pendingUser({ email_confirmed_at: "2026-08-10T01:00:00Z" }) },
+      error: null,
+    });
+    mocks.deleteUser.mockResolvedValue({ data: {}, error: null });
+
+    const result = await deleteRegisteredInvitedAuthUser({
+      userId: USER_ID,
+      invitationId: INVITATION_ID,
+      normalizedEmail: "fixture@example.invalid",
+    });
+
+    expect(result).toEqual({ ok: true, outcome: "deleted" });
+    expect(mocks.deleteUser).toHaveBeenCalledWith(USER_ID, false);
+  });
+
+  it("refuses an Auth/app_users/invitation identity mismatch", async () => {
+    mocks.getUserById.mockResolvedValue({
+      data: { user: pendingUser({ email: "other@example.invalid" }) },
+      error: null,
+    });
+
+    const result = await deleteRegisteredInvitedAuthUser({
+      userId: USER_ID,
+      invitationId: INVITATION_ID,
+      normalizedEmail: "fixture@example.invalid",
+    });
+
+    expect(result).toEqual({ ok: false, code: "mapping_mismatch" });
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("treats a lost delete response as success only after Auth is confirmed absent", async () => {
+    mocks.getUserById
+      .mockResolvedValueOnce({ data: { user: pendingUser() }, error: null })
+      .mockResolvedValueOnce({
+        data: { user: null },
+        error: { code: "user_not_found", message: "User not found" },
+      });
+    mocks.deleteUser.mockResolvedValue({
+      data: null,
+      error: { code: "network_error", message: "lost response" },
+    });
+
+    const result = await deleteRegisteredInvitedAuthUser({
+      userId: USER_ID,
+      invitationId: INVITATION_ID,
+      normalizedEmail: "fixture@example.invalid",
+    });
+
+    expect(result).toEqual({ ok: true, outcome: "deleted" });
+  });
 });
 
 describe("invite Auth mapping", () => {

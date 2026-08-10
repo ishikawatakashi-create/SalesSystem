@@ -21,6 +21,10 @@ import {
   setUserActiveState,
   type DisableImpact,
 } from "@/lib/auth/admin-user-service";
+import {
+  permanentlyDeleteInvitedUser,
+  type PermanentDeleteReason,
+} from "@/lib/auth/permanent-user-deletion-service";
 
 export type ActionResult =
   | {
@@ -101,6 +105,37 @@ export async function setUserActiveAction(input: unknown): Promise<ActionResult>
     active: parsed.data.active,
   });
   if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/admin/users");
+  revalidatePath("/", "layout");
+  return result;
+}
+
+const permanentDeleteSchema = targetUserSchema.extend({
+  reason: z.enum(["re-register", "mistaken_invitation", "test"]),
+  confirmation: z.literal("削除する"),
+});
+
+export async function permanentlyDeleteUserAction(
+  input: unknown,
+): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, message: e.message };
+    throw e;
+  }
+
+  const parsed = permanentDeleteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "確認入力と削除理由を確認してください。" };
+  }
+  const result = await permanentlyDeleteInvitedUser({
+    actor: user,
+    targetUserId: parsed.data.targetUserId,
+    reason: parsed.data.reason as PermanentDeleteReason,
+  });
   revalidatePath("/admin/users");
   revalidatePath("/", "layout");
   return result;

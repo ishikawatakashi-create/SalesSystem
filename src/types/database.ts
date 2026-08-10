@@ -150,6 +150,28 @@ export type UserInvitationRow = {
   created_at: string;
 };
 
+export type UserPermanentDeletionOperationRow = {
+  target_user_id: string;
+  actor_id: string;
+  actor_name: string | null;
+  normalized_email: string;
+  invitation_id: string;
+  reason: "re-register" | "mistaken_invitation" | "test";
+  status:
+    | "prepared"
+    | "profile_deleted"
+    | "auth_delete_failed"
+    | "restore_failed"
+    | "completed";
+  app_user_snapshot: Record<string, unknown>;
+  invitation_snapshot: Record<string, unknown>;
+  reference_counts: Record<string, unknown>;
+  error_detail: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
 export type JobRow = {
   id: string;
   kind: string;
@@ -543,6 +565,7 @@ export type Database = {
         created_at: string;
         completed_at: string | null;
       }>;
+      user_permanent_deletion_operations: TableDef<UserPermanentDeletionOperationRow>;
       jobs: TableDef<JobRow>;
       job_items: TableDef<Record<string, unknown>>;
       audit_logs: TableDef<AuditLogRow>;
@@ -705,6 +728,54 @@ export type Database = {
       };
       archive_invitation_history: {
         Args: { p_actor_id: string; p_invitation_id: string };
+        Returns: string;
+      };
+      user_permanent_delete_reference_counts: {
+        Args: { p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      evaluate_user_permanent_deletion: {
+        Args: { p_actor_id: string; p_target_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      list_user_permanent_delete_eligibility: {
+        Args: { p_actor_id: string };
+        Returns: Array<{
+          target_user_id: string;
+          eligible: boolean;
+          reason_code: string;
+        }>;
+      };
+      prepare_user_permanent_deletion: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_reason: string;
+        };
+        Returns: Record<string, unknown>;
+      };
+      restore_user_after_permanent_delete_failure: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_detail?: string | null;
+        };
+        Returns: string;
+      };
+      record_permanent_delete_restore_failure: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_detail?: string | null;
+        };
+        Returns: boolean;
+      };
+      finalize_user_permanent_deletion: {
+        Args: {
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_auth_outcome: string;
+        };
         Returns: string;
       };
       accept_invitation_and_provision: {

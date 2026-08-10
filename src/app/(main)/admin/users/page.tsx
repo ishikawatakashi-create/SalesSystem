@@ -11,6 +11,7 @@ import { RegisteredUsersTable } from "@/features/admin/users/registered-users-ta
 import { DirectUserCreateDialog } from "@/features/admin/users/direct-user-create-dialog";
 import { AUTH_PASSWORD_MIN_LENGTH } from "@/lib/auth/admin-user-service";
 import { listAuthUserActivity } from "@/lib/auth/admin-api";
+import { listPermanentDeleteEligibility } from "@/lib/auth/permanent-user-deletion-service";
 import type { AppRole } from "@/types/database";
 
 /** Server Component のリクエスト時刻スナップショット（render purity 回避） */
@@ -38,6 +39,7 @@ export default async function AdminUsersPage() {
     { data: users },
     unprovisionedUsers,
     authActivity,
+    permanentDeleteEligibility,
   ] =
     await Promise.all([
       admin
@@ -53,6 +55,7 @@ export default async function AdminUsersPage() {
         .limit(200),
       listUnprovisionedAuthUsers(),
       listAuthUserActivity(),
+      listPermanentDeleteEligibility({ actor: user }),
     ]);
 
   // Server Component: リクエスト処理中に一度だけ現在時刻を取る
@@ -82,6 +85,12 @@ export default async function AdminUsersPage() {
             is_active: Boolean(u.is_active),
             provisioning_status: String(u.provisioning_status),
             last_sign_in_at: authActivity.get(String(u.id))?.lastSignInAt ?? null,
+            permanent_delete: u.invitation_id
+              ? permanentDeleteEligibility.get(String(u.id)) ?? {
+                  eligible: false,
+                  reasonCode: "state_ambiguous",
+                }
+              : null,
           }))}
           currentUserId={user.id}
           isAdmin={user.role === "admin"}
