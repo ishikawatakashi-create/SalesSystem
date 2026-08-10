@@ -298,12 +298,12 @@ function UserActions(props: {
         onToggle={(event) =>
           setMenuOpen(event.currentTarget.matches(":popover-open"))
         }
-        className="fixed inset-auto z-50 m-0 mt-1 w-44 rounded border border-slate-200 bg-white p-1 text-left text-xs shadow-lg"
+        className="fixed inset-auto z-50 m-0 mr-1 w-44 rounded border border-slate-200 bg-white p-1 text-left text-xs shadow-lg"
         style={{
           positionAnchor: menuAnchorName,
-          top: "anchor(bottom)",
-          right: "anchor(right)",
-          positionTryFallbacks: "flip-block, flip-inline",
+          top: "anchor(top)",
+          right: "anchor(left)",
+          positionTryFallbacks: "flip-inline, flip-block",
         }}
       >
           {props.user.id !== props.currentUserId ? (

@@ -47,6 +47,11 @@ describe("registered user action menu contract", () => {
     expect(source).not.toContain("document.addEventListener");
   });
 
+  it("popoverをtriggerの左へ出し、別rowの操作ボタンを覆わない", () => {
+    expect(source).toContain('top: "anchor(top)"');
+    expect(source).toContain('right: "anchor(left)"');
+  });
+
   it("menu項目はdialog/actionへ進む前にpopoverを閉じる", () => {
     expect(source).toMatch(/closeMenu\(\);\s+setRole/);
     expect(source).toMatch(/closeMenu\(\);\s+setModal\("password"\)/);
