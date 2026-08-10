@@ -88,7 +88,7 @@ export function RegisteredUsersTable(props: {
           className="rounded border border-amber-200 bg-amber-50/40"
           open={showFixtures}
           onToggle={(event) =>
-            setShowFixtures((event.target as HTMLDetailsElement).open)
+            setShowFixtures(event.currentTarget.open)
           }
         >
           <summary className="cursor-pointer px-3 py-2 text-xs text-amber-900">

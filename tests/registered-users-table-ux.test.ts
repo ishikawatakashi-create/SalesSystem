@@ -52,6 +52,13 @@ describe("registered user action menu contract", () => {
     expect(source).toContain('right: "anchor(left)"');
   });
 
+  it("子popoverのtoggleでfixture detailsを閉じない", () => {
+    expect(source).toContain("setShowFixtures(event.currentTarget.open)");
+    expect(source).not.toContain(
+      "setShowFixtures((event.target as HTMLDetailsElement).open)",
+    );
+  });
+
   it("menu項目はdialog/actionへ進む前にpopoverを閉じる", () => {
     expect(source).toMatch(/closeMenu\(\);\s+setRole/);
     expect(source).toMatch(/closeMenu\(\);\s+setModal\("password"\)/);
