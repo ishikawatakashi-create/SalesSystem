@@ -10,6 +10,10 @@ import { inviteUserByEmailSafe } from "@/lib/auth/admin-api";
 import { updateUserDisplayName } from "@/lib/auth/update-display-name";
 import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/display-name";
 import {
+  archiveInvitationHistory,
+  cancelPendingInvitation,
+} from "@/lib/auth/invitation-admin-service";
+import {
   changeUserRole,
   getUserDisableImpact,
   provisionUserDirectly,
@@ -284,12 +288,13 @@ export async function inviteUserAction(
 
 const revokeSchema = z.object({ invitationId: z.uuid() });
 
-/** 招待の取消(pending → revoked)。取消後はそのメールでの新規ログインが不可になる。 */
+/** pending招待の安全な取消。Auth削除条件はserver-only serviceとDB RPCで再検証する。 */
 export async function revokeInvitationAction(
   input: unknown,
 ): Promise<ActionResult> {
+  let user;
   try {
-    const user = await requireUser();
+    user = await requireUser();
     requirePermission(user, "user.manage");
   } catch (e) {
     if (e instanceof AuthError) {
@@ -303,27 +308,41 @@ export async function revokeInvitationAction(
     return { ok: false, message: "指定された招待が見つかりません。" };
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("user_invitations")
-    .update({ status: "revoked", revoked_at: new Date().toISOString() })
-    .eq("id", parsed.data.invitationId)
-    .eq("status", "pending")
-    .select("id");
-
-  if (error) {
-    console.error("招待の取消に失敗しました", error);
-    return {
-      ok: false,
-      message: "招待を取り消せませんでした。時間をおいて再度お試しください。",
-    };
-  }
-  if (!data || data.length === 0) {
-    return { ok: false, message: "取消できる状態の招待が見つかりません。" };
-  }
+  const result = await cancelPendingInvitation({
+    actor: user,
+    invitationId: parsed.data.invitationId,
+  });
 
   revalidatePath("/admin/users");
-  return { ok: true, message: "招待を取り消しました。" };
+  return result;
+}
+
+/** 受諾済み・取消済み・期限切れの招待履歴だけを管理画面から非表示にする。 */
+export async function archiveInvitationHistoryAction(
+  input: unknown,
+): Promise<ActionResult> {
+  let user;
+  try {
+    user = await requireUser();
+    requirePermission(user, "user.manage");
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return { ok: false, message: e.message };
+    }
+    throw e;
+  }
+
+  const parsed = revokeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "指定された招待が見つかりません。" };
+  }
+
+  const result = await archiveInvitationHistory({
+    actor: user,
+    invitationId: parsed.data.invitationId,
+  });
+  revalidatePath("/admin/users");
+  return result;
 }
 
 const renameSchema = z.object({

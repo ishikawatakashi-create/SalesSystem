@@ -27,6 +27,13 @@ export type CreatedAuthUserResult =
   | { ok: true; userId: string }
   | { ok: false; code: "duplicate" | "auth_error" };
 
+export type PendingInviteAuthDeletionResult =
+  | { ok: true; outcome: "deleted" | "not_found" }
+  | {
+      ok: false;
+      code: "activated" | "mapping_mismatch" | "auth_error";
+    };
+
 /**
  * Direct provisioning用のAuth identity作成。
  * 呼出元は admin-user-service のDB予約・権限検査を通過済みであること。
@@ -70,6 +77,56 @@ export async function deleteIncompleteAuthUser(
   if (!error) return { ok: true };
   const code = String(error.code ?? "").toLowerCase();
   if (code.includes("not_found")) return { ok: false, code: "not_found" };
+  return { ok: false, code: "auth_error" };
+}
+
+/**
+ * 招待取消専用。Auth側でも未確認・未ログイン・招待ID一致を再確認し、
+ * 1つでも曖昧ならdeleteUserを呼ばない。
+ */
+export async function deletePendingInvitedAuthUser(input: {
+  userId: string;
+  invitationId: string;
+  normalizedEmail: string;
+}): Promise<PendingInviteAuthDeletionResult> {
+  const admin = createAdminClient();
+  const current = await admin.auth.admin.getUserById(input.userId);
+  if (current.error || !current.data.user) {
+    const code = String(current.error?.code ?? "").toLowerCase();
+    const message = String(current.error?.message ?? "").toLowerCase();
+    if (code.includes("not_found") || message.includes("not found")) {
+      return { ok: true, outcome: "not_found" };
+    }
+    return { ok: false, code: "auth_error" };
+  }
+
+  const authUser = current.data.user;
+  const metadataInvitationId = String(
+    authUser.user_metadata?.invitation_id ?? "",
+  );
+  if (
+    normalizeEmail(authUser.email ?? "") !== input.normalizedEmail ||
+    metadataInvitationId !== input.invitationId ||
+    !authUser.invited_at
+  ) {
+    return { ok: false, code: "mapping_mismatch" };
+  }
+  if (
+    authUser.email_confirmed_at ||
+    authUser.confirmed_at ||
+    authUser.last_sign_in_at
+  ) {
+    return { ok: false, code: "activated" };
+  }
+
+  const deleted = await admin.auth.admin.deleteUser(input.userId);
+  if (!deleted.error) return { ok: true, outcome: "deleted" };
+
+  const code = String(deleted.error.code ?? "").toLowerCase();
+  const message = String(deleted.error.message ?? "").toLowerCase();
+  if (code.includes("not_found") || message.includes("not found")) {
+    return { ok: true, outcome: "not_found" };
+  }
   return { ok: false, code: "auth_error" };
 }
 
@@ -155,7 +212,7 @@ export async function listAuthUserActivity(): Promise<
  */
 export async function inviteUserByEmailSafe(
   input: InviteByEmailInput,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<{ ok: true; userId: string } | { ok: false; message: string }> {
   if (!input.actor.is_active || input.actor.role !== "admin") {
     return { ok: false, message: "管理者権限が必要です" };
   }
@@ -181,17 +238,43 @@ export async function inviteUserByEmailSafe(
     return { ok: false, message: "招待メールと一致しません" };
   }
 
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    normalized,
-    {
-      data: { display_name: input.displayName },
-      // Supabase標準テンプレート({{ .ConfirmationURL }})はimplicit flowで
-      // URL fragmentへsessionを返すため、まずブラウザ側routeでcookie化する。
-      redirectTo: inviteRedirectUrl(),
-    },
-  );
-  if (inviteError) {
+  const { data: inviteData, error: inviteError } =
+    await admin.auth.admin.inviteUserByEmail(
+      normalized,
+      {
+        data: {
+          display_name: input.displayName,
+          invitation_id: input.invitationId,
+          invitation_source: "sales_system",
+        },
+        // Supabase標準テンプレート({{ .ConfirmationURL }})はimplicit flowで
+        // URL fragmentへsessionを返すため、まずブラウザ側routeでcookie化する。
+        redirectTo: inviteRedirectUrl(),
+      },
+    );
+  if (inviteError || !inviteData.user) {
     return { ok: false, message: "招待メールを送信できませんでした" };
+  }
+
+  const { data: linked, error: linkError } = await admin
+    .from("user_invitations")
+    .update({ auth_user_id: inviteData.user.id })
+    .eq("id", input.invitationId)
+    .eq("status", "pending")
+    .is("auth_user_id", null)
+    .select("id")
+    .maybeSingle();
+  if (linkError || !linked) {
+    // メールは送信済みでも、対応関係を永続化できなければリンクを無効化する。
+    await deletePendingInvitedAuthUser({
+      userId: inviteData.user.id,
+      invitationId: input.invitationId,
+      normalizedEmail: normalized,
+    });
+    return {
+      ok: false,
+      message: "招待ユーザーとの対応を安全に保存できませんでした",
+    };
   }
 
   await admin.from("audit_logs").insert({
@@ -201,6 +284,7 @@ export async function inviteUserByEmailSafe(
     entity_type: "user_invitation",
     changed_fields: {
       invitation_id: input.invitationId,
+      auth_user_id: inviteData.user.id,
       role: input.role,
     },
     operation_source: "admin_api_wrapper",
@@ -209,7 +293,7 @@ export async function inviteUserByEmailSafe(
     notion_page_id: null,
   });
 
-  return { ok: true };
+  return { ok: true, userId: inviteData.user.id };
 }
 
 /**

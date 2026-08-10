@@ -43,6 +43,7 @@ export default async function AdminUsersPage() {
       admin
         .from("user_invitations")
         .select("*")
+        .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(100),
       admin
@@ -90,22 +91,25 @@ export default async function AdminUsersPage() {
 
       <details className="rounded border border-slate-200 bg-white">
         <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-700">
-          メールで招待
+          メール招待機能
+          <span className="ml-2 font-normal text-slate-500">補助機能</span>
         </summary>
-        <div className="border-t border-slate-100 px-3 py-3">
-          <InviteForm />
+        <div className="space-y-4 border-t border-slate-100 px-3 py-3">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-800">メールで招待</h2>
+            <InviteForm />
+          </section>
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-800">
+              招待中
+              <span className="ml-2 font-normal text-slate-500">
+                {activeInviteCount}件
+              </span>
+            </h2>
+            <InvitationList invitations={invitations ?? []} />
+          </section>
         </div>
       </details>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-800">
-          招待中
-          <span className="ml-2 font-normal text-slate-500">
-            {activeInviteCount}件
-          </span>
-        </h2>
-        <InvitationList invitations={invitations ?? []} />
-      </section>
 
       <details className="rounded border border-slate-200 bg-white">
         <summary className="cursor-pointer px-3 py-2 text-xs text-slate-600">

@@ -4,6 +4,7 @@ import {
   isInvitationUsable,
   shouldExpire,
 } from "@/lib/auth/invitation-logic";
+import { splitVisibleInvitations } from "@/lib/auth/invitation-status";
 import type { InvitationStatus } from "@/types/database";
 
 const NOW = new Date("2026-08-05T12:00:00Z");
@@ -64,5 +65,49 @@ describe("shouldExpire(期限切れジョブの対象判定)", () => {
     expect(shouldExpire({ status: "revoked", expires_at: PAST }, NOW)).toBe(
       false,
     );
+  });
+});
+
+describe("招待管理画面の表示分割", () => {
+  const base = {
+    id: "11111111-1111-4111-8111-111111111111",
+    email: "fixture@example.invalid",
+    normalized_email: "fixture@example.invalid",
+    display_name: "fixture",
+    role: "viewer" as const,
+    invited_by: null,
+    accepted_at: null,
+    revoked_at: null,
+    auth_user_id: null,
+    archived_at: null,
+    archived_by: null,
+    auth_cleanup_status: "not_requested" as const,
+    auth_cleanup_detail: null,
+    created_at: "2026-08-05T00:00:00Z",
+  };
+
+  it("cancelled invitation disappears from pending and moves to history", () => {
+    const { active, history } = splitVisibleInvitations(
+      [{ ...base, status: "revoked", expires_at: FUTURE }],
+      NOW.getTime(),
+    );
+    expect(active).toHaveLength(0);
+    expect(history).toHaveLength(1);
+  });
+
+  it("archived invitation history is hidden entirely", () => {
+    const { active, history } = splitVisibleInvitations(
+      [
+        {
+          ...base,
+          status: "accepted",
+          expires_at: PAST,
+          archived_at: "2026-08-06T00:00:00Z",
+        },
+      ],
+      NOW.getTime(),
+    );
+    expect(active).toHaveLength(0);
+    expect(history).toHaveLength(0);
   });
 });

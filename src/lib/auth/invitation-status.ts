@@ -16,3 +16,15 @@ export function countActivePendingInvitations(
   return invitations.filter((inv) => isActivePendingInvitation(inv, nowMs))
     .length;
 }
+
+/** archived_at がある履歴は管理画面から完全に除外する。 */
+export function splitVisibleInvitations(
+  invitations: UserInvitationRow[],
+  nowMs: number,
+): { active: UserInvitationRow[]; history: UserInvitationRow[] } {
+  const visible = invitations.filter((inv) => inv.archived_at === null);
+  return {
+    active: visible.filter((inv) => isActivePendingInvitation(inv, nowMs)),
+    history: visible.filter((inv) => !isActivePendingInvitation(inv, nowMs)),
+  };
+}

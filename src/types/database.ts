@@ -14,6 +14,14 @@ export type ProvisioningStatus =
 
 export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
 
+export type InvitationAuthCleanupStatus =
+  | "not_requested"
+  | "pending"
+  | "deleted"
+  | "not_found"
+  | "skipped"
+  | "failed";
+
 export type SyncStatus =
   | "synced"
   | "pending"
@@ -134,6 +142,11 @@ export type UserInvitationRow = {
   expires_at: string;
   accepted_at: string | null;
   revoked_at: string | null;
+  auth_user_id: string | null;
+  archived_at: string | null;
+  archived_by: string | null;
+  auth_cleanup_status: InvitationAuthCleanupStatus;
+  auth_cleanup_detail: string | null;
   created_at: string;
 };
 
@@ -672,6 +685,27 @@ export type Database = {
           dnc_count: number;
           duplicate_review_count: number;
         }>;
+      };
+      invitation_user_has_business_references: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      prepare_invitation_cancellation: {
+        Args: { p_actor_id: string; p_invitation_id: string };
+        Returns: Record<string, unknown>;
+      };
+      record_invitation_auth_cleanup: {
+        Args: {
+          p_actor_id: string;
+          p_invitation_id: string;
+          p_cleanup_status: "deleted" | "not_found" | "skipped" | "failed";
+          p_detail?: string | null;
+        };
+        Returns: boolean;
+      };
+      archive_invitation_history: {
+        Args: { p_actor_id: string; p_invitation_id: string };
+        Returns: string;
       };
       accept_invitation_and_provision: {
         Args: {
