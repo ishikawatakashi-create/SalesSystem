@@ -38,6 +38,159 @@ export type RegisteredInviteAuthDeletionResult =
   | { ok: true; outcome: "deleted" | "not_found" }
   | { ok: false; code: "mapping_mismatch" | "auth_error" };
 
+type ProductionFixtureAuthResult<
+  T extends object | undefined = undefined,
+> =
+  | (T extends object ? { ok: true } & T : { ok: true })
+  | {
+      ok: false;
+      code: "fixture_guard" | "mapping_mismatch" | "not_found" | "auth_error";
+    };
+
+const PRODUCTION_FIXTURE_EMAIL_SUFFIX = "@example.invalid";
+const PRODUCTION_FIXTURE_DISPLAY_PREFIX = "Codex完全削除fixture";
+
+function isProductionDeletionFixture(input: {
+  email: string;
+  displayName?: string;
+}): boolean {
+  return (
+    normalizeEmail(input.email).endsWith(PRODUCTION_FIXTURE_EMAIL_SUFFIX) &&
+    (input.displayName === undefined ||
+      input.displayName.startsWith(PRODUCTION_FIXTURE_DISPLAY_PREFIX))
+  );
+}
+
+/**
+ * Production fixture E2E専用。実メールを拒否し、送信せずに招待URLを生成する。
+ * Auth Admin mutationは通常コードと同じくこのserver-only moduleへ集約する。
+ */
+export async function generateProductionFixtureInviteLink(input: {
+  email: string;
+  displayName: string;
+  invitationId: string;
+}): Promise<
+  ProductionFixtureAuthResult<{ userId: string; actionLink: string }>
+> {
+  if (!isProductionDeletionFixture(input)) {
+    return { ok: false, code: "fixture_guard" };
+  }
+  const admin = createAdminClient();
+  const generated = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: normalizeEmail(input.email),
+    options: {
+      redirectTo: inviteRedirectUrl(),
+      data: {
+        display_name: input.displayName,
+        invitation_id: input.invitationId,
+        invitation_source: "sales_system",
+        fixture: true,
+      },
+    },
+  });
+  if (generated.error || !generated.data.user) {
+    return { ok: false, code: "auth_error" };
+  }
+  return {
+    ok: true,
+    userId: generated.data.user.id,
+    actionLink: generated.data.properties.action_link,
+  };
+}
+
+/** Production fixture E2E専用の直接作成。通常の管理画面からは呼ばない。 */
+export async function createProductionFixtureDirectAuthUser(input: {
+  email: string;
+  password: string;
+  displayName: string;
+}): Promise<ProductionFixtureAuthResult<{ userId: string }>> {
+  if (!isProductionDeletionFixture(input)) {
+    return { ok: false, code: "fixture_guard" };
+  }
+  const admin = createAdminClient();
+  const created = await admin.auth.admin.createUser({
+    email: normalizeEmail(input.email),
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { display_name: input.displayName, fixture: true },
+  });
+  if (created.error || !created.data.user) {
+    return { ok: false, code: "auth_error" };
+  }
+  return { ok: true, userId: created.data.user.id };
+}
+
+/** Production fixture E2E専用。ID・email・fixture metadata一致時だけ状態を変える。 */
+export async function updateProductionFixtureAuthUser(input: {
+  userId: string;
+  email: string;
+  password?: string;
+  emailConfirm?: boolean;
+  disabled?: boolean;
+}): Promise<ProductionFixtureAuthResult> {
+  if (!isProductionDeletionFixture({ email: input.email })) {
+    return { ok: false, code: "fixture_guard" };
+  }
+  const admin = createAdminClient();
+  const current = await admin.auth.admin.getUserById(input.userId);
+  if (current.error || !current.data.user) {
+    const code = String(current.error?.code ?? "").toLowerCase();
+    return {
+      ok: false,
+      code: code.includes("not_found") ? "not_found" : "auth_error",
+    };
+  }
+  if (
+    normalizeEmail(current.data.user.email ?? "") !== normalizeEmail(input.email) ||
+    current.data.user.user_metadata?.fixture !== true
+  ) {
+    return { ok: false, code: "mapping_mismatch" };
+  }
+  const updated = await admin.auth.admin.updateUserById(input.userId, {
+    ...(input.password === undefined ? {} : { password: input.password }),
+    ...(input.emailConfirm === undefined
+      ? {}
+      : { email_confirm: input.emailConfirm }),
+    ...(input.disabled === undefined
+      ? {}
+      : { ban_duration: input.disabled ? "876000h" : "none" }),
+  });
+  return updated.error
+    ? { ok: false, code: "auth_error" }
+    : { ok: true };
+}
+
+/** Production fixture E2Eの補償専用。fixture identity一致時だけhard deleteする。 */
+export async function deleteProductionFixtureAuthUser(input: {
+  userId: string;
+  email: string;
+}): Promise<ProductionFixtureAuthResult<{ outcome: "deleted" | "not_found" }>> {
+  if (!isProductionDeletionFixture({ email: input.email })) {
+    return { ok: false, code: "fixture_guard" };
+  }
+  const admin = createAdminClient();
+  const current = await admin.auth.admin.getUserById(input.userId);
+  if (current.error || !current.data.user) {
+    const code = String(current.error?.code ?? "").toLowerCase();
+    const message = String(current.error?.message ?? "").toLowerCase();
+    if (code.includes("not_found") || message.includes("not found")) {
+      return { ok: true, outcome: "not_found" };
+    }
+    return { ok: false, code: "auth_error" };
+  }
+  if (
+    normalizeEmail(current.data.user.email ?? "") !== normalizeEmail(input.email) ||
+    current.data.user.user_metadata?.fixture !== true
+  ) {
+    return { ok: false, code: "mapping_mismatch" };
+  }
+  const deleted = await admin.auth.admin.deleteUser(input.userId, false);
+  return deleted.error
+    ? { ok: false, code: "auth_error" }
+    : { ok: true, outcome: "deleted" };
+}
+
 /**
  * Direct provisioning用のAuth identity作成。
  * 呼出元は admin-user-service のDB予約・権限検査を通過済みであること。

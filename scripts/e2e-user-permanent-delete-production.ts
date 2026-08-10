@@ -1,6 +1,22 @@
 import { randomUUID } from "node:crypto";
 
+/**
+ * Production fixture E2E:
+ * $env:NODE_OPTIONS='--require ./scripts/shims/mock-server-only.cjs'
+ * $env:NEXT_PUBLIC_APP_URL='https://sales-system-weld.vercel.app'
+ * npx tsx --env-file=.env.local scripts/e2e-user-permanent-delete-production.ts
+ */
+
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+import {
+  createProductionFixtureDirectAuthUser,
+  deletePendingInvitedAuthUser,
+  deleteProductionFixtureAuthUser,
+  deleteRegisteredInvitedAuthUser,
+  generateProductionFixtureInviteLink,
+  updateProductionFixtureAuthUser,
+} from "@/lib/auth/admin-api";
 
 const PRODUCTION_URL = "https://sales-system-weld.vercel.app";
 const FIXTURE_PREFIX = "Codex完全削除fixture";
@@ -46,23 +62,15 @@ async function createInviteFixture(input: {
       .single(),
   );
 
-  const generated = await input.admin.auth.admin.generateLink({
-    type: "invite",
+  const generated = await generateProductionFixtureInviteLink({
     email: input.email,
-    options: {
-      redirectTo: `${PRODUCTION_URL}/auth/invite`,
-      data: {
-        display_name: input.displayName,
-        invitation_id: invitation.id,
-        invitation_source: "sales_system",
-        fixture: true,
-      },
-    },
+    displayName: input.displayName,
+    invitationId: String(invitation.id),
   });
-  if (generated.error || !generated.data.user) {
-    throw new Error(`generate invite fixture: ${generated.error?.message ?? "no user"}`);
+  if (!generated.ok) {
+    throw new Error(`generate invite fixture: ${generated.code}`);
   }
-  const actionLink = generated.data.properties.action_link;
+  const actionLink = generated.actionLink;
   assert(!actionLink.includes("localhost"), "fixture invite URL contains localhost");
   assert(
     decodeURIComponent(actionLink).includes(`${PRODUCTION_URL}/auth/invite`),
@@ -73,12 +81,12 @@ async function createInviteFixture(input: {
     "link invitation Auth id",
     input.admin
       .from("user_invitations")
-      .update({ auth_user_id: generated.data.user.id })
+      .update({ auth_user_id: generated.userId })
       .eq("id", invitation.id)
       .select("id")
       .single(),
   );
-  return { invitationId: String(invitation.id), userId: generated.data.user.id };
+  return { invitationId: String(invitation.id), userId: generated.userId };
 }
 
 async function hardDeleteAcceptedFixture(input: {
@@ -104,8 +112,12 @@ async function hardDeleteAcceptedFixture(input: {
       authUser.data.user.user_metadata?.invitation_id === prepared.invitation_id,
     "accepted fixture Auth identity mismatch",
   );
-  const deleted = await input.admin.auth.admin.deleteUser(input.targetUserId, false);
-  if (deleted.error) throw new Error(`delete accepted fixture Auth: ${deleted.error.message}`);
+  const deleted = await deleteRegisteredInvitedAuthUser({
+    userId: input.targetUserId,
+    invitationId: String(prepared.invitation_id),
+    normalizedEmail: String(prepared.normalized_email),
+  });
+  if (!deleted.ok) throw new Error(`delete accepted fixture Auth: ${deleted.code}`);
 
   await requireData(
     "finalize accepted fixture deletion",
@@ -186,8 +198,12 @@ async function main() {
     );
     assert(cancellation.state === "ready_for_auth_cleanup", "pending fixture was not cancellable");
     assert(cancellation.auth_user_id === inviteA.userId, "pending fixture Auth id mismatch");
-    const pendingDeleted = await admin.auth.admin.deleteUser(inviteA.userId, false);
-    if (pendingDeleted.error) throw new Error(`delete pending fixture Auth: ${pendingDeleted.error.message}`);
+    const pendingDeleted = await deletePendingInvitedAuthUser({
+      userId: inviteA.userId,
+      invitationId: inviteA.invitationId,
+      normalizedEmail: emailA,
+    });
+    if (!pendingDeleted.ok) throw new Error(`delete pending fixture Auth: ${pendingDeleted.code}`);
     await requireData(
       "record pending Auth cleanup",
       admin.rpc("record_invitation_auth_cleanup", {
@@ -216,16 +232,15 @@ async function main() {
       }),
     );
     assert(begun === "started", "same-email direct create did not start");
-    const authCreated = await admin.auth.admin.createUser({
+    const authCreated = await createProductionFixtureDirectAuthUser({
       email: emailA,
       password,
-      email_confirm: true,
-      user_metadata: { display_name: displayA, fixture: true },
+      displayName: displayA,
     });
-    if (authCreated.error || !authCreated.data.user) {
-      throw new Error(`same-email Auth create: ${authCreated.error?.message ?? "no user"}`);
+    if (!authCreated.ok) {
+      throw new Error(`same-email Auth create: ${authCreated.code}`);
     }
-    directUserId = authCreated.data.user.id;
+    directUserId = authCreated.userId;
     assert(directUserId !== inviteA.userId, "same-email direct create reused the old Auth UUID");
     await requireData(
       "complete same-email direct create",
@@ -252,11 +267,13 @@ async function main() {
       email: emailB,
       displayName: displayB,
     });
-    const acceptedAuth = await admin.auth.admin.updateUserById(inviteB.userId, {
+    const acceptedAuth = await updateProductionFixtureAuthUser({
+      userId: inviteB.userId,
+      email: emailB,
       password,
-      email_confirm: true,
+      emailConfirm: true,
     });
-    if (acceptedAuth.error) throw new Error(`confirm accepted fixture: ${acceptedAuth.error.message}`);
+    if (!acceptedAuth.ok) throw new Error(`confirm accepted fixture: ${acceptedAuth.code}`);
     await requireData(
       "accept fixture invitation",
       admin.rpc("accept_invitation_and_provision", {
@@ -281,10 +298,12 @@ async function main() {
       p_reason: "test",
     });
     assert(rejected.error?.message.includes("business_references"), "business reference did not reject hard delete");
-    const authDisabled = await admin.auth.admin.updateUserById(inviteB.userId, {
-      ban_duration: "876000h",
+    const authDisabled = await updateProductionFixtureAuthUser({
+      userId: inviteB.userId,
+      email: emailB,
+      disabled: true,
     });
-    if (authDisabled.error) throw new Error(`disable fixture Auth: ${authDisabled.error.message}`);
+    if (!authDisabled.ok) throw new Error(`disable fixture Auth: ${authDisabled.code}`);
     await requireData(
       "disable fixture profile",
       admin.rpc("set_app_user_active", {
@@ -305,10 +324,12 @@ async function main() {
       admin.from("action_index").delete().eq("notion_page_id", actionFixtureId),
     );
     actionFixtureId = null;
-    const authEnabled = await admin.auth.admin.updateUserById(inviteB.userId, {
-      ban_duration: "none",
+    const authEnabled = await updateProductionFixtureAuthUser({
+      userId: inviteB.userId,
+      email: emailB,
+      disabled: false,
     });
-    if (authEnabled.error) throw new Error(`re-enable fixture Auth: ${authEnabled.error.message}`);
+    if (!authEnabled.ok) throw new Error(`re-enable fixture Auth: ${authEnabled.code}`);
     await requireData(
       "re-enable fixture profile",
       admin.rpc("set_app_user_active", {
@@ -373,7 +394,11 @@ async function main() {
           0,
         );
         if (total === 0) {
-          await admin.auth.admin.updateUserById(inviteB.userId, { ban_duration: "none" });
+          await updateProductionFixtureAuthUser({
+            userId: inviteB.userId,
+            email: emailB,
+            disabled: false,
+          });
           if (profile.data) {
             await admin.rpc("set_app_user_active", {
               p_actor_id: actorId,
@@ -393,7 +418,10 @@ async function main() {
           auth.data.user?.email === emailB &&
           auth.data.user.user_metadata?.fixture === true
         ) {
-          await admin.auth.admin.deleteUser(inviteB.userId, false);
+          await deleteProductionFixtureAuthUser({
+            userId: inviteB.userId,
+            email: emailB,
+          });
         }
       }
     }
@@ -429,10 +457,17 @@ async function main() {
             auth.data.user?.email === emailA &&
             auth.data.user.user_metadata?.fixture === true
           ) {
-            await admin.auth.admin.deleteUser(directUserId, false);
+            await deleteProductionFixtureAuthUser({
+              userId: directUserId,
+              email: emailA,
+            });
           }
         } else {
-          await admin.auth.admin.updateUserById(directUserId, { ban_duration: "876000h" });
+          await updateProductionFixtureAuthUser({
+            userId: directUserId,
+            email: emailA,
+            disabled: true,
+          });
           await admin.rpc("set_app_user_active", {
             p_actor_id: actorId,
             p_target_user_id: directUserId,
