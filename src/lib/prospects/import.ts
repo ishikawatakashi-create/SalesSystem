@@ -6,16 +6,21 @@ import { decodeCsvBuffer } from "@/lib/csv/encoding";
 import { parseCsv } from "@/lib/csv/parser";
 import { normalizeEmailOrNull } from "@/lib/normalize/email";
 import { normalizeUrl } from "@/lib/normalize/url";
-import { enqueueJob } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { writeProspectAudit } from "@/lib/prospects/audit";
+import {
+  findFormalOrganizationMatches,
+  type FormalOrgMatch,
+} from "@/lib/prospects/formal-match";
 import {
   type ProspectColumnMapping,
   suggestProspectMapping,
   unmappedHeaders,
 } from "@/lib/prospects/import-mapping";
-import { filterSourceAttributes } from "@/lib/prospects/normalize";
-import { upsertProspectFromImport } from "@/lib/prospects/upsert";
+import {
+  filterSourceAttributes,
+  normalizePersonNameForCompare,
+  stagedToNormalized,
+} from "@/lib/prospects/normalize";
 import type { ProspectStagedRow } from "@/lib/prospects/types";
 
 const IMPORT_BUCKET = "imports";
@@ -29,6 +34,37 @@ export const PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE =
   "営業リストの状態を確認できませんでした。画面を再読み込みして、もう一度お試しください。";
 const PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE =
   "取込先の営業リストを確認できませんでした。画面を再読み込みして、CSVを選び直してください。";
+const PROSPECT_IMPORT_INVALID_STATE_MESSAGE =
+  "CSVの取込状態が変わっています。画面を再読み込みして、もう一度お試しください。";
+const PROSPECT_IMPORT_NOT_FOUND_MESSAGE =
+  "CSVの取込処理が見つかりません。画面を再読み込みして、CSVを選び直してください。";
+export const PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE =
+  "CSV取込処理を安全に続行できませんでした。自動で再試行します。";
+const PROSPECT_IMPORT_ALREADY_STARTED_MESSAGE =
+  "CSVの取込はすでに開始されています。営業リストへ戻って処理状況を確認してください。";
+const PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE =
+  "CSVの取込開始処理が進行中です。少し待ってから営業リストを確認してください。";
+
+type ProspectImportRpcResult = Record<string, unknown> & {
+  outcome?: string;
+};
+
+export type AtomicProspectImportRowPayload = {
+  rowId: string;
+  rowNumber: number;
+  core: ReturnType<typeof stagedToNormalized>["core"];
+  contact: ReturnType<typeof stagedToNormalized>["contact"] & {
+    normalizedName: string;
+  };
+  sourceRowHash: string;
+  sourceAttributes: Record<string, unknown>;
+  externalRecordId: string | null;
+  notes: string | null;
+  formalMatch: Pick<
+    FormalOrgMatch,
+    "pageId" | "externalId" | "confidence" | "reason"
+  > | null;
+};
 
 export function isTerminalProspectImportErrorMessage(message: string): boolean {
   return (
@@ -65,7 +101,8 @@ async function markProspectImportJobUnavailable(
       error_message: message,
       finished_at: new Date().toISOString(),
     })
-    .eq("id", importJobId);
+    .eq("id", importJobId)
+    .in("status", ["uploaded", "mapped", "validating"]);
 }
 
 async function assertImportJobListAcceptsImport(input: {
@@ -162,6 +199,133 @@ export function validateStagedRow(staged: ProspectStagedRow): {
   return { ok: errors.length === 0, warnings, errors };
 }
 
+function rpcObject(value: unknown): ProspectImportRpcResult {
+  return value && typeof value === "object"
+    ? (value as ProspectImportRpcResult)
+    : {};
+}
+
+function rpcNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+export function prospectImportStartOutcomeError(
+  outcome: string | undefined,
+): string | null {
+  if (["started", "already_started", "already_completed"].includes(outcome ?? "")) {
+    return null;
+  }
+  if (outcome === "list_unavailable") {
+    return PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE;
+  }
+  if (outcome === "list_mismatch") {
+    return PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE;
+  }
+  if (outcome === "import_not_found") {
+    return PROSPECT_IMPORT_NOT_FOUND_MESSAGE;
+  }
+  return PROSPECT_IMPORT_INVALID_STATE_MESSAGE;
+}
+
+export function buildAtomicProspectImportRowPayload(input: {
+  rowId: string;
+  rowNumber: number;
+  staged: ProspectStagedRow;
+  formalMatch: FormalOrgMatch | null;
+}): AtomicProspectImportRowPayload {
+  const normalized = stagedToNormalized(input.staged);
+  return {
+    rowId: input.rowId,
+    rowNumber: input.rowNumber,
+    core: normalized.core,
+    contact: {
+      ...normalized.contact,
+      normalizedName: normalizePersonNameForCompare(normalized.contact.name),
+    },
+    sourceRowHash: normalized.sourceRowHash,
+    sourceAttributes: normalized.sourceAttributes,
+    externalRecordId: input.staged.externalRecordId,
+    notes: input.staged.notes,
+    formalMatch: input.formalMatch
+      ? {
+          pageId: input.formalMatch.pageId,
+          externalId: input.formalMatch.externalId,
+          confidence: input.formalMatch.confidence,
+          reason: input.formalMatch.reason,
+        }
+      : null,
+  };
+}
+
+export async function failProspectImportJobIfCurrent(input: {
+  importJobId: string;
+  listId: string;
+  queueJobId: string;
+  workerId: string;
+  actorId: string;
+  actorName: string;
+}): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc(
+    "fail_prospect_import_job_if_current",
+    {
+      p_import_job_id: input.importJobId,
+      p_list_id: input.listId,
+      p_queue_job_id: input.queueJobId,
+      p_worker_id: input.workerId,
+      p_actor_id: input.actorId,
+      p_actor_name: input.actorName,
+    },
+  );
+  if (error) throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
+
+  const outcome = rpcObject(data).outcome;
+  if (outcome === "failed") return true;
+  if (
+    [
+      "terminal_noop",
+      "stale_noop",
+      "lease_lost",
+      "retry_remaining",
+      "list_unavailable",
+      "list_mismatch",
+      "import_not_found",
+      "invalid_state",
+      "queue_mismatch",
+    ].includes(String(outcome))
+  ) {
+    return false;
+  }
+  throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
+}
+
+async function prepareAtomicProspectImportRows(input: {
+  rows: Array<Record<string, unknown>>;
+  heartbeat?: () => Promise<boolean>;
+}): Promise<AtomicProspectImportRowPayload[]> {
+  const prepared: AtomicProspectImportRowPayload[] = [];
+  for (const row of input.rows) {
+    if (input.heartbeat && !(await input.heartbeat())) {
+      throw new Error("lease_lost");
+    }
+    const staged = row.staged as ProspectStagedRow;
+    const normalized = stagedToNormalized(staged);
+    const formalMatches = await findFormalOrganizationMatches({
+      normalizedDomain: normalized.core.normalizedDomain,
+      normalizedPhone: normalized.core.normalizedPhone,
+    });
+    prepared.push(
+      buildAtomicProspectImportRowPayload({
+        rowId: String(row.id),
+        rowNumber: Number(row.row_number),
+        staged,
+        formalMatch: formalMatches[0] ?? null,
+      }),
+    );
+  }
+  return prepared;
+}
+
 export async function createProspectImportUpload(input: {
   userId: string;
   listId: string;
@@ -188,7 +352,7 @@ export async function createProspectImportUpload(input: {
     expires_at: expiresAt.toISOString(),
     created_by: input.userId,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
 
   const { data: uploadData, error: uploadError } = await admin.storage
     .from(IMPORT_BUCKET)
@@ -233,6 +397,16 @@ export async function prepareProspectImport(input: {
       "CSVの取込処理が見つかりません。画面を再読み込みして、CSVを選び直してください。",
     );
   }
+  const currentStatus = String(job.status ?? "");
+  if (["ready", "importing", "completed"].includes(currentStatus)) {
+    throw new Error(PROSPECT_IMPORT_ALREADY_STARTED_MESSAGE);
+  }
+  if (currentStatus === "validating") {
+    throw new Error(PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE);
+  }
+  if (["failed", "cancelled"].includes(currentStatus)) {
+    throw new Error(PROSPECT_IMPORT_INVALID_STATE_MESSAGE);
+  }
   const listId =
     typeof job.prospect_list_id === "string" ? job.prospect_list_id : "";
   if (!listId) throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
@@ -270,7 +444,7 @@ export async function prepareProspectImport(input: {
     importJobId: input.importJobId,
     listId,
   });
-  await admin
+  const { data: mapped, error: mappedError } = await admin
     .from("prospect_import_jobs")
     .update({
       column_mapping: mapping,
@@ -279,7 +453,12 @@ export async function prepareProspectImport(input: {
       total_rows: parsed.rows.length,
       status: "mapped",
     })
-    .eq("id", input.importJobId);
+    .eq("id", input.importJobId)
+    .in("status", ["uploaded", "mapped"])
+    .select("id")
+    .maybeSingle();
+  if (mappedError) throw new Error(PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE);
+  if (!mapped) throw new Error(PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE);
 
   return {
     headers: parsed.headers,
@@ -300,36 +479,79 @@ export async function stageAndEnqueueProspectImport(input: {
   expectedListId?: string;
 }): Promise<{ totalRows: number; jobEnqueued: boolean }> {
   const admin = createAdminClient();
-  await prepareProspectImport({
-    importJobId: input.importJobId,
-    mapping: input.mapping,
-  });
+  const loadJob = async (): Promise<Record<string, unknown>> => {
+    const { data: job, error } = await admin
+      .from("prospect_import_jobs")
+      .select("storage_path,prospect_list_id,status,total_rows")
+      .eq("id", input.importJobId)
+      .maybeSingle();
+    if (error || !job) throw new Error(PROSPECT_IMPORT_NOT_FOUND_MESSAGE);
+    return job as Record<string, unknown>;
+  };
+  const existingStartResult = (
+    job: Record<string, unknown>,
+  ): { totalRows: number; jobEnqueued: boolean } | null => {
+    const status = String(job.status ?? "");
+    if (["ready", "importing", "completed"].includes(status)) {
+      return {
+        totalRows: Number(job.total_rows ?? 0),
+        jobEnqueued: status !== "completed",
+      };
+    }
+    if (status === "validating") {
+      throw new Error(PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE);
+    }
+    if (["failed", "cancelled"].includes(status)) {
+      throw new Error(PROSPECT_IMPORT_INVALID_STATE_MESSAGE);
+    }
+    return null;
+  };
+  const verifyListIdentity = async (
+    job: Record<string, unknown>,
+  ): Promise<string> => {
+    const listId =
+      typeof job.prospect_list_id === "string" ? job.prospect_list_id : "";
+    if (!listId || (input.expectedListId && input.expectedListId !== listId)) {
+      await markProspectImportJobUnavailable(
+        admin,
+        input.importJobId,
+        PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE,
+      );
+      throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
+    }
+    return listId;
+  };
 
-  const { data: job } = await admin
-    .from("prospect_import_jobs")
-    .select("storage_path,prospect_list_id")
-    .eq("id", input.importJobId)
-    .maybeSingle();
-  if (!job) {
-    throw new Error(
-      "CSVの取込処理が見つかりません。画面を再読み込みして、CSVを選び直してください。",
-    );
+  let job = await loadJob();
+  let listId = await verifyListIdentity(job);
+  const initialResult = existingStartResult(job);
+  if (initialResult) return initialResult;
+
+  try {
+    await prepareProspectImport({
+      importJobId: input.importJobId,
+      mapping: input.mapping,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      [
+        PROSPECT_IMPORT_ALREADY_STARTED_MESSAGE,
+        PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE,
+      ].includes(error.message)
+    ) {
+      job = await loadJob();
+      listId = await verifyListIdentity(job);
+      const concurrentResult = existingStartResult(job);
+      if (concurrentResult) return concurrentResult;
+    }
+    throw error;
   }
-  const listId =
-    typeof job.prospect_list_id === "string" ? job.prospect_list_id : "";
-  if (!listId || (input.expectedListId && input.expectedListId !== listId)) {
-    await markProspectImportJobUnavailable(
-      admin,
-      input.importJobId,
-      PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE,
-    );
-    throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
-  }
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId,
-  });
+
+  job = await loadJob();
+  listId = await verifyListIdentity(job);
+  const preparedResult = existingStartResult(job);
+  if (preparedResult) return preparedResult;
 
   const { data: file } = await admin.storage
     .from(IMPORT_BUCKET)
@@ -339,91 +561,114 @@ export async function stageAndEnqueueProspectImport(input: {
   const decoded = decodeCsvBuffer(buf, "auto");
   const parsed = parseCsv(decoded.text);
 
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId,
-  });
-
-  // Replace staged rows
-  await admin
-    .from("prospect_import_rows")
-    .delete()
-    .eq("prospect_import_job_id", input.importJobId);
-
-  const inserts = parsed.rows.map((values, idx) => {
-    const staged = mapRawRowToStaged(parsed.headers, values, input.mapping);
-    const v = validateStagedRow(staged);
-    const raw: Record<string, string> = {};
-    parsed.headers.forEach((h, i) => {
-      raw[h] = values[i] ?? "";
-    });
-    return {
-      prospect_import_job_id: input.importJobId,
-      row_number: parsed.rowNumbers[idx] ?? idx + 2,
-      raw,
-      staged,
-      status: v.ok ? "pending" : "invalid",
-      source_record_id: staged.externalRecordId,
-      error_message: v.errors.join("; ") || null,
-    };
-  });
-
-  for (let i = 0; i < inserts.length; i += 200) {
-    const chunk = inserts.slice(i, i + 200);
-    const { error } = await admin.from("prospect_import_rows").insert(chunk);
-    if (error) throw new Error(error.message);
+  const { data: claimed, error: claimError } = await admin
+    .from("prospect_import_jobs")
+    .update({ status: "validating" })
+    .eq("id", input.importJobId)
+    .eq("status", "mapped")
+    .select("id")
+    .maybeSingle();
+  if (claimError) throw new Error(PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE);
+  if (!claimed) {
+    const latest = await loadJob();
+    await verifyListIdentity(latest);
+    const concurrentResult = existingStartResult(latest);
+    if (concurrentResult) return concurrentResult;
+    throw new Error(PROSPECT_IMPORT_COMMIT_IN_PROGRESS_MESSAGE);
   }
 
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId,
-  });
-
-  await admin
-    .from("prospect_import_jobs")
-    .update({
-      status: "ready",
-      column_mapping: input.mapping,
-      total_rows: inserts.length,
-      invalid_count: inserts.filter((r) => r.status === "invalid").length,
-    })
-    .eq("id", input.importJobId);
-
-  await enqueueJob({
-    kind: "prospect_csv_import",
-    payload: {
+  try {
+    await assertImportJobListAcceptsImport({
+      admin,
       importJobId: input.importJobId,
       listId,
-      cursorRowNumber: 0,
-      actorId: input.actorId,
-      actorName: input.actorName,
-    },
-    priority: 40,
-    idempotencyKey: `prospect_csv_import:${input.importJobId}:start`,
-    createdBy: input.actorId,
-  });
+    });
 
-  await writeProspectAudit({
-    actorId: input.actorId,
-    actorName: input.actorName,
-    action: "prospect_import.committed",
-    entityType: "prospect_import",
-    entityId: input.importJobId,
-    changedFields: { total_rows: inserts.length },
-  });
+    // Only the request that changed mapped -> validating may replace staging.
+    const { error: deleteError } = await admin
+      .from("prospect_import_rows")
+      .delete()
+      .eq("prospect_import_job_id", input.importJobId);
+    if (deleteError) throw new Error(deleteError.message);
 
-  return { totalRows: inserts.length, jobEnqueued: true };
+    const inserts = parsed.rows.map((values, idx) => {
+      const staged = mapRawRowToStaged(parsed.headers, values, input.mapping);
+      const v = validateStagedRow(staged);
+      const raw: Record<string, string> = {};
+      parsed.headers.forEach((h, i) => {
+        raw[h] = values[i] ?? "";
+      });
+      return {
+        prospect_import_job_id: input.importJobId,
+        row_number: parsed.rowNumbers[idx] ?? idx + 2,
+        raw,
+        staged,
+        status: v.ok ? "pending" : "invalid",
+        source_record_id: staged.externalRecordId,
+        error_message: v.errors.join("; ") || null,
+      };
+    });
+
+    for (let i = 0; i < inserts.length; i += 200) {
+      const chunk = inserts.slice(i, i + 200);
+      const { error } = await admin.from("prospect_import_rows").insert(chunk);
+      if (error) throw new Error(error.message);
+    }
+
+    const { data: started, error: startError } = await admin.rpc(
+      "start_prospect_import_job",
+      {
+        p_import_job_id: input.importJobId,
+        p_expected_list_id: listId,
+        p_actor_id: input.actorId,
+        p_actor_name: input.actorName,
+        p_column_mapping: input.mapping,
+      },
+    );
+    if (startError) {
+      throw new Error(PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE);
+    }
+
+    const result = rpcObject(started);
+    const outcomeError = prospectImportStartOutcomeError(result.outcome);
+    if (outcomeError) throw new Error(outcomeError);
+    switch (result.outcome) {
+      case "started":
+      case "already_started":
+        return {
+          totalRows: rpcNumber(result.totalRows) || inserts.length,
+          jobEnqueued: true,
+        };
+      case "already_completed":
+        return {
+          totalRows: rpcNumber(result.totalRows) || inserts.length,
+          jobEnqueued: false,
+        };
+      default:
+        throw new Error(PROSPECT_IMPORT_INVALID_STATE_MESSAGE);
+    }
+  } catch (error) {
+    // A lost response after a committed start sees ready/importing/completed,
+    // so this compare-and-set cannot roll it back. Pre-start failures become
+    // safely retryable with the already staged rows replaced on the next try.
+    await admin
+      .from("prospect_import_jobs")
+      .update({ status: "mapped" })
+      .eq("id", input.importJobId)
+      .eq("status", "validating");
+    throw error;
+  }
 }
 
 export async function processProspectImportChunk(input: {
   importJobId: string;
   listId: string;
+  queueJobId: string;
+  workerId: string;
   cursorRowNumber: number;
   actorId: string;
   actorName: string;
-  enqueueNext?: boolean;
+  heartbeat?: () => Promise<boolean>;
 }): Promise<{
   done: boolean;
   nextCursor: number;
@@ -437,7 +682,7 @@ export async function processProspectImportChunk(input: {
   const admin = createAdminClient();
   const { data: importJob, error: importJobError } = await admin
     .from("prospect_import_jobs")
-    .select("prospect_list_id")
+    .select("prospect_list_id,status")
     .eq("id", input.importJobId)
     .maybeSingle();
   const jobListId =
@@ -445,23 +690,20 @@ export async function processProspectImportChunk(input: {
       ? importJob.prospect_list_id
       : "";
   if (importJobError || !jobListId || jobListId !== input.listId) {
-    await markProspectImportJobUnavailable(
-      admin,
-      input.importJobId,
-      PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE,
-    );
     throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
   }
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId: jobListId,
-  });
-
-  await admin
-    .from("prospect_import_jobs")
-    .update({ status: "importing" })
-    .eq("id", input.importJobId);
+  if (["completed", "failed", "cancelled"].includes(String(importJob?.status))) {
+    return {
+      done: true,
+      nextCursor: input.cursorRowNumber,
+      accepted: 0,
+      reused: 0,
+      probable: 0,
+      invalid: 0,
+      skipped: 0,
+      failed: 0,
+    };
+  }
 
   const { data: rows, error } = await admin
     .from("prospect_import_rows")
@@ -471,140 +713,68 @@ export async function processProspectImportChunk(input: {
     .gt("row_number", input.cursorRowNumber)
     .order("row_number", { ascending: true })
     .limit(CHUNK_SIZE);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
 
-  let accepted = 0;
-  let reused = 0;
-  let probable = 0;
-  let invalid = 0;
-  let skipped = 0;
-  let failed = 0;
-  let nextCursor = input.cursorRowNumber;
+  const preparedRows = await prepareAtomicProspectImportRows({
+    rows: (rows ?? []) as Array<Record<string, unknown>>,
+    heartbeat: input.heartbeat,
+  });
 
-  for (const row of rows ?? []) {
-    await assertImportJobListAcceptsImport({
-      admin,
-      importJobId: input.importJobId,
-      listId: jobListId,
-    });
-    nextCursor = row.row_number as number;
-    const staged = row.staged as ProspectStagedRow;
-    const result = await upsertProspectFromImport({
-      listId: input.listId,
-      staged,
-      actorId: input.actorId,
-      actorName: input.actorName,
-      importJobId: input.importJobId,
-    });
-    await admin
-      .from("prospect_import_rows")
-      .update({
-        status: result.status,
-        prospect_id: result.prospectId,
-        membership_id: result.membershipId,
-        match_reason: result.matchReason,
-        error_message: result.errorMessage,
-      })
-      .eq("id", String(row.id));
-
-    switch (result.status) {
-      case "accepted":
-        accepted += 1;
-        break;
-      case "reused":
-        reused += 1;
-        break;
-      case "probable_duplicate":
-        probable += 1;
-        break;
-      case "invalid":
-        invalid += 1;
-        break;
-      case "skipped":
-        skipped += 1;
-        break;
-      default:
-        failed += 1;
-    }
+  // Payload preparation performs read-only matching work. Re-check the lease
+  // immediately before the one transaction that is allowed to write.
+  if (input.heartbeat && !(await input.heartbeat())) {
+    throw new Error("lease_lost");
   }
 
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId: jobListId,
-  });
+  const { data: processed, error: processError } = await admin.rpc(
+    "process_prospect_import_chunk_atomic",
+    {
+      p_import_job_id: input.importJobId,
+      p_list_id: input.listId,
+      p_queue_job_id: input.queueJobId,
+      p_worker_id: input.workerId,
+      p_cursor_row_number: input.cursorRowNumber,
+      p_actor_id: input.actorId,
+      p_actor_name: input.actorName,
+      p_rows: preparedRows,
+    },
+  );
+  if (processError) {
+    throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
+  }
 
-  // refresh counters
-  const { data: job } = await admin
-    .from("prospect_import_jobs")
-    .select(
-      "accepted_count,reused_count,probable_duplicate_count,invalid_count,skipped_count",
-    )
-    .eq("id", input.importJobId)
-    .single();
-  const jobCounts = (job ?? {}) as {
-    accepted_count?: number;
-    reused_count?: number;
-    probable_duplicate_count?: number;
-    invalid_count?: number;
-    skipped_count?: number;
-  };
-
-  const { count: pendingLeft } = await admin
-    .from("prospect_import_rows")
-    .select("id", { count: "exact", head: true })
-    .eq("prospect_import_job_id", input.importJobId)
-    .eq("status", "pending");
-
-  const done = (pendingLeft ?? 0) === 0;
-  await assertImportJobListAcceptsImport({
-    admin,
-    importJobId: input.importJobId,
-    listId: jobListId,
-  });
-  await admin
-    .from("prospect_import_jobs")
-    .update({
-      accepted_count: Number(jobCounts.accepted_count ?? 0) + accepted,
-      reused_count: Number(jobCounts.reused_count ?? 0) + reused,
-      probable_duplicate_count:
-        Number(jobCounts.probable_duplicate_count ?? 0) + probable,
-      invalid_count: Number(jobCounts.invalid_count ?? 0) + invalid,
-      skipped_count: Number(jobCounts.skipped_count ?? 0) + skipped,
-      status: done ? "completed" : "importing",
-      finished_at: done ? new Date().toISOString() : null,
-    })
-    .eq("id", input.importJobId);
-
-  if (!done && input.enqueueNext !== false) {
-    await assertImportJobListAcceptsImport({
-      admin,
-      importJobId: input.importJobId,
-      listId: jobListId,
-    });
-    await enqueueJob({
-      kind: "prospect_csv_import",
-      payload: {
-        importJobId: input.importJobId,
-        listId: input.listId,
-        cursorRowNumber: nextCursor,
-        actorId: input.actorId,
-        actorName: input.actorName,
-      },
-      priority: 40,
-      idempotencyKey: `prospect_csv_import:${input.importJobId}:${nextCursor}`,
-      createdBy: input.actorId,
-    });
+  const result = rpcObject(processed);
+  if (["terminal_noop", "stale_noop"].includes(String(result.outcome))) {
+    return {
+      done: true,
+      nextCursor: rpcNumber(result.nextCursor) || input.cursorRowNumber,
+      accepted: 0,
+      reused: 0,
+      probable: 0,
+      invalid: 0,
+      skipped: 0,
+      failed: 0,
+    };
+  }
+  if (result.outcome === "list_unavailable") {
+    throw new Error(PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE);
+  }
+  if (result.outcome === "list_mismatch") {
+    throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
+  }
+  if (result.outcome === "lease_lost") throw new Error("lease_lost");
+  if (!["processed", "completed"].includes(String(result.outcome))) {
+    throw new Error(PROSPECT_IMPORT_ATOMIC_PROCESSING_FAILED_MESSAGE);
   }
 
   return {
-    done,
-    nextCursor,
-    accepted,
-    reused,
-    probable,
-    invalid,
-    skipped,
-    failed,
+    done: Boolean(result.done),
+    nextCursor: rpcNumber(result.nextCursor) || input.cursorRowNumber,
+    accepted: rpcNumber(result.accepted),
+    reused: rpcNumber(result.reused),
+    probable: rpcNumber(result.probable),
+    invalid: rpcNumber(result.invalid),
+    skipped: rpcNumber(result.skipped),
+    failed: rpcNumber(result.failed),
   };
 }

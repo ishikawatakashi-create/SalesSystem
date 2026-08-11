@@ -82,7 +82,7 @@ describe("prospect CSV import list guard", () => {
     );
   });
 
-  it("wires the guard into page, upload, prepare, commit and chunk execution", () => {
+  it("keeps early UX guards but uses atomic RPCs for commit and chunk writes", () => {
     const importSource = readFileSync(
       resolve(process.cwd(), "src/lib/prospects/import.ts"),
       "utf8",
@@ -98,11 +98,18 @@ describe("prospect CSV import list guard", () => {
       ),
       "utf8",
     );
+    const listSource = readFileSync(
+      resolve(process.cwd(), "src/lib/prospects/lists.ts"),
+      "utf8",
+    );
 
     expect(importSource).toContain(
       "await assertProspectListAcceptsImport(input.listId, { admin })",
     );
-    expect(importSource.match(/assertImportJobListAcceptsImport\(/g)?.length).toBeGreaterThanOrEqual(7);
+    expect(importSource).toContain('"start_prospect_import_job"');
+    expect(importSource).toContain('"process_prospect_import_chunk_atomic"');
+    expect(importSource).not.toContain("upsertProspectFromImport({");
+    expect(listSource).toContain('"archive_prospect_list_if_idle"');
     expect(actionSource).toContain("expectedListId: input.listId");
     expect(pageSource).toContain(
       'list.archived_at || list.status === "archived"',

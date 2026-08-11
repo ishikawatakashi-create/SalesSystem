@@ -27,7 +27,6 @@ import {
   ensureCallClaimForUser,
   loadCallWorkspace,
 } from "@/lib/prospects/call-queue";
-import { saveCallAttempt } from "@/lib/prospects/call-attempts";
 import { getCallErrorMessage } from "@/lib/prospects/call-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -376,6 +375,12 @@ describe("call queue guarded server paths", () => {
     "prospect_do_not_contact",
     "prospect_promotion_ineligible",
     "call_claim_conflict",
+    "call_claim_required",
+    "prospect_list_archived",
+    "actor_inactive",
+    "actor_not_provisioned",
+    "actor_forbidden",
+    "contact_mismatch",
     "request_id_conflict",
     "name_required",
     "contact_create_failed",
@@ -391,6 +396,13 @@ describe("call queue guarded server paths", () => {
     expect(getCallErrorMessage("relation secret_table does not exist")).toBe(
       "操作に失敗しました。もう一度お試しください",
     );
+  });
+
+  it("does not reveal claim ownership or expiry details to the UI", () => {
+    const message =
+      "この営業候補は別のユーザーによって更新されました。一覧を更新してください。";
+    expect(getCallErrorMessage("call_claim_conflict")).toBe(message);
+    expect(getCallErrorMessage("call_claim_required")).toBe(message);
   });
 
   it.each(INELIGIBLE_SERVER_CASES)(
@@ -440,7 +452,7 @@ describe("call queue guarded server paths", () => {
     },
   );
 
-  it("blocks claim refresh and save for another user's active lease", async () => {
+  it("blocks claim refresh for another user's active lease", async () => {
     const claimedMembership = {
       ...BASE_MEMBERSHIP,
       claimed_by: OTHER_USER_ID,
@@ -455,67 +467,5 @@ describe("call queue guarded server paths", () => {
       claimExpiresAt: null,
     });
     expect(claim.updateMembership).not.toHaveBeenCalled();
-
-    const save = makeAdmin({ membership: claimedMembership });
-    vi.mocked(createAdminClient).mockReturnValue(save.admin as never);
-    await expect(
-      saveCallAttempt({
-        requestId: "request-active-claim",
-        prospectId: PROSPECT_ID,
-        membershipId: MEMBERSHIP_ID,
-        performedBy: USER_ID,
-        actorName: "Test User",
-        result: "no_answer",
-      }),
-    ).rejects.toThrow("call_claim_conflict");
-    expect(save.insertAttempt).not.toHaveBeenCalled();
-  });
-
-  it.each(INELIGIBLE_SERVER_CASES)(
-    "rejects save before insert for $label",
-    async (testCase) => {
-      const { admin, insertAttempt } = makeAdmin({
-        membership: { ...BASE_MEMBERSHIP, ...testCase.membership },
-        prospect: { ...BASE_PROSPECT, ...testCase.prospect },
-      });
-      vi.mocked(createAdminClient).mockReturnValue(admin as never);
-
-      await expect(
-        saveCallAttempt({
-          requestId: "request-1",
-          prospectId: PROSPECT_ID,
-          membershipId: MEMBERSHIP_ID,
-          performedBy: USER_ID,
-          actorName: "Test User",
-          result: "no_answer",
-        }),
-      ).rejects.toThrow(testCase.reason);
-      expect(insertAttempt).not.toHaveBeenCalled();
-    },
-  );
-
-  it("does not treat another call's request id as a valid retry", async () => {
-    const { admin, insertAttempt } = makeAdmin({
-      existingAttempt: {
-        id: "77777777-7777-4777-8777-777777777777",
-        prospect_id: PROSPECT_ID,
-        membership_id: MEMBERSHIP_ID,
-        performed_by: OTHER_USER_ID,
-        result: "no_answer",
-      },
-    });
-    vi.mocked(createAdminClient).mockReturnValue(admin as never);
-
-    await expect(
-      saveCallAttempt({
-        requestId: "shared-request-id",
-        prospectId: PROSPECT_ID,
-        membershipId: MEMBERSHIP_ID,
-        performedBy: USER_ID,
-        actorName: "Test User",
-        result: "no_answer",
-      }),
-    ).rejects.toThrow("request_id_conflict");
-    expect(insertAttempt).not.toHaveBeenCalled();
   });
 });

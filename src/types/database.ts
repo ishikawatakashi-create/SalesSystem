@@ -678,6 +678,70 @@ export type Database = {
         Args: { p_membership_id: string; p_user_id: string };
         Returns: boolean;
       };
+      start_prospect_import_job: {
+        Args: {
+          p_import_job_id: string;
+          p_expected_list_id: string;
+          p_actor_id: string;
+          p_actor_name: string;
+          p_column_mapping: Record<string, unknown>;
+        };
+        Returns: Record<string, unknown>;
+      };
+      fail_prospect_import_job_if_current: {
+        Args: {
+          p_import_job_id: string;
+          p_list_id: string;
+          p_queue_job_id: string;
+          p_worker_id: string;
+          p_actor_id: string;
+          p_actor_name: string;
+        };
+        Returns: Record<string, unknown>;
+      };
+      archive_prospect_list_if_idle: {
+        Args: {
+          p_list_id: string;
+          p_actor_id: string;
+          p_actor_name: string;
+        };
+        Returns: Record<string, unknown>;
+      };
+      process_prospect_import_chunk_atomic: {
+        Args: {
+          p_import_job_id: string;
+          p_list_id: string;
+          p_queue_job_id: string;
+          p_worker_id: string;
+          p_cursor_row_number: number;
+          p_actor_id: string;
+          p_actor_name: string;
+          p_rows: Array<Record<string, unknown>>;
+        };
+        Returns: Record<string, unknown>;
+      };
+      save_prospect_call_attempt: {
+        Args: {
+          p_request_id: string;
+          p_membership_id: string;
+          p_prospect_id: string;
+          p_contact_id: string | null;
+          p_performed_by: string;
+          p_result: string;
+          p_note: string | null;
+          p_started_at: string | null;
+          p_next_contact_at: string | null;
+          p_clear_next_contact: boolean;
+          p_phone_used: string | null;
+          p_phone_normalized: string | null;
+        };
+        Returns: Array<{
+          attempt_id: string;
+          duplicated: boolean;
+          stage: string;
+          promote_cta_strong: boolean;
+        }>;
+      };
       prospect_list_call_stats: {
         Args: {
           p_list_ids: string[];

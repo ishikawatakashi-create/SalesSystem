@@ -145,7 +145,7 @@ export function CallWorkspace(props: Props) {
       setError("準備中です。少し待って再試行してください");
       return;
     }
-    if (effects?.requireNextContact && !nextLocal && !clearNext) {
+    if (effects?.requireNextContact && (!nextLocal || clearNext)) {
       setError("折返し希望は次回連絡日時が必須です");
       return;
     }
@@ -174,6 +174,14 @@ export function CallWorkspace(props: Props) {
           return;
         }
         if (saveAndNext) {
+          if (res.nextClaimFailed) {
+            setCallClosed(true);
+            setSuccess(
+              "架電結果は保存済みですが、次の架電候補を取得できませんでした。一覧を更新して再度お試しください。",
+            );
+            locking.current = false;
+            return;
+          }
           if (res.nextMembershipId) {
             const query = new URLSearchParams({
               list: props.listId,
@@ -195,7 +203,17 @@ export function CallWorkspace(props: Props) {
         if (res.promoteCtaStrong) {
           setShowPromote(true);
         }
-        const nextId = await newCallRequestIdAction();
+        let nextId: string;
+        try {
+          nextId = await newCallRequestIdAction();
+        } catch {
+          setCallClosed(true);
+          setSuccess(
+            "架電結果は保存済みですが、次の保存準備に失敗しました。画面を更新してから続けてください。",
+          );
+          locking.current = false;
+          return;
+        }
         setRequestId(nextId);
         setResult("");
         setNote("");

@@ -2,14 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/normalize";
-import { writeProspectAudit } from "@/lib/prospects/audit";
 import {
   getCallResultSideEffects,
   isCallResult,
-  type CallResult,
 } from "@/lib/prospects/call-results";
-import { setProspectDoNotContact } from "@/lib/prospects/dnc";
-import { guardCallQueueMembership } from "@/lib/prospects/call-queue";
 
 export type SaveCallAttemptInput = {
   requestId: string;
@@ -33,19 +29,6 @@ export type SaveCallAttemptResult = {
   promoteCtaStrong: boolean;
 };
 
-function isSameIdempotentAttempt(
-  existing: Record<string, unknown>,
-  input: SaveCallAttemptInput,
-  result: CallResult,
-): boolean {
-  return (
-    String(existing.prospect_id ?? "") === input.prospectId &&
-    String(existing.membership_id ?? "") === input.membershipId &&
-    String(existing.performed_by ?? "") === input.performedBy &&
-    String(existing.result ?? "") === result
-  );
-}
-
 export async function saveCallAttempt(
   input: SaveCallAttemptInput,
 ): Promise<SaveCallAttemptResult> {
@@ -55,190 +38,48 @@ export async function saveCallAttempt(
   if (!isCallResult(input.result)) {
     throw new Error("invalid_call_result");
   }
-  const result = input.result as CallResult;
+  const result = input.result;
   const effects = getCallResultSideEffects(result);
 
-  if (effects.requireNextContact && !input.nextContactAt && !input.clearNextContact) {
+  if (
+    effects.requireNextContact &&
+    (!input.nextContactAt || input.clearNextContact)
+  ) {
     throw new Error("next_contact_required");
   }
 
+  const note = input.note?.trim() || null;
+  const phoneUsed = input.phoneUsed?.trim() || null;
+  const phoneNormalized = normalizePhone(phoneUsed);
   const admin = createAdminClient();
-
-  // idempotency
-  const { data: existing } = await admin
-    .from("prospect_call_attempts")
-    .select("id,result,prospect_id,membership_id,performed_by")
-    .eq("request_id", input.requestId)
-    .maybeSingle();
-  if (existing) {
-    if (
-      !isSameIdempotentAttempt(
-        existing as Record<string, unknown>,
-        input,
-        result,
-      )
-    ) {
-      throw new Error("request_id_conflict");
-    }
-    const { data: mem } = await admin
-      .from("prospect_list_memberships")
-      .select("stage")
-      .eq("id", input.membershipId)
-      .maybeSingle();
-    return {
-      attemptId: String(existing.id),
-      duplicated: true,
-      stage: String(mem?.stage ?? "working"),
-      promoteCtaStrong: effects.promoteCtaStrong,
-    };
-  }
-
-  const eligibility = await guardCallQueueMembership(
-    {
-      membershipId: input.membershipId,
-      userId: input.performedBy,
-      expectedProspectId: input.prospectId,
-      requireAvailableClaim: true,
-    },
-    { admin },
-  );
-  if (!eligibility.ok) throw new Error(eligibility.reason);
-  const membership = eligibility.membership;
-
-  const phoneNormalized = input.phoneUsed
-    ? normalizePhone(input.phoneUsed)
-    : null;
-  const completedAt = new Date().toISOString();
-
-  const { data: attempt, error: insErr } = await admin
-    .from("prospect_call_attempts")
-    .insert({
-      prospect_id: input.prospectId,
-      membership_id: input.membershipId,
-      contact_id: input.contactId ?? null,
-      performed_by: input.performedBy,
-      result,
-      note: input.note?.trim() || null,
-      started_at: input.startedAt ?? null,
-      completed_at: completedAt,
-      next_contact_at: input.clearNextContact
-        ? null
-        : (input.nextContactAt ?? null),
-      clear_next_contact: Boolean(input.clearNextContact),
-      phone_used: input.phoneUsed?.trim() || null,
-      phone_normalized: phoneNormalized,
-      source: "manual_call",
-      request_id: input.requestId,
-    })
-    .select("id")
-    .single();
-  if (insErr) {
-    if (insErr.code === "23505") {
-      const { data: again } = await admin
-        .from("prospect_call_attempts")
-        .select("id,result,prospect_id,membership_id,performed_by")
-        .eq("request_id", input.requestId)
-        .maybeSingle();
-      if (again) {
-        if (
-          !isSameIdempotentAttempt(
-            again as Record<string, unknown>,
-            input,
-            result,
-          )
-        ) {
-          throw new Error("request_id_conflict");
-        }
-        return {
-          attemptId: String(again.id),
-          duplicated: true,
-          stage: String(membership.stage),
-          promoteCtaStrong: effects.promoteCtaStrong,
-        };
-      }
-    }
-    throw new Error(insErr.message);
-  }
-
-  let nextStage = String(membership.stage);
-  if (effects.membershipStage !== "unchanged") {
-    nextStage = effects.membershipStage;
-  }
-
-  let nextContactAt: string | null =
-    (membership.next_contact_at as string | null) ?? null;
-  if (input.clearNextContact) {
-    nextContactAt = null;
-  } else if (input.nextContactAt) {
-    nextContactAt = input.nextContactAt;
-  }
-
-  const callCount = Number(membership.call_count ?? 0) + 1;
-
-  const { error: updMemErr } = await admin
-    .from("prospect_list_memberships")
-    .update({
-      stage: nextStage,
-      next_contact_at: nextContactAt,
-      last_contact_at: completedAt,
-      last_call_result: result,
-      call_count: callCount,
-      claimed_by: null,
-      claimed_at: null,
-      claim_expires_at: null,
-      updated_at: completedAt,
-    })
-    .eq("id", input.membershipId);
-  if (updMemErr) throw new Error(updMemErr.message);
-
-  if (effects.setDoNotContact) {
-    await setProspectDoNotContact({
-      prospectId: input.prospectId,
-      doNotContact: true,
-      reason: input.note?.trim() || CALL_RESULT_REASON_DNC,
-      actorId: input.performedBy,
-      actorName: input.actorName,
-    });
-  }
-
-  if (effects.setPhoneInvalid) {
-    await admin
-      .from("prospects")
-      .update({
-        phone_invalid: true,
-        updated_at: completedAt,
-      })
-      .eq("id", input.prospectId);
-  }
-
-  await writeProspectAudit({
-    actorId: input.performedBy,
-    actorName: input.actorName,
-    action: "prospect.call_attempt.create",
-    entityType: "prospect",
-    entityId: input.prospectId,
-    requestId: input.requestId,
-    changedFields: {
-      attempt_id: attempt.id,
-      membership_id: input.membershipId,
-      result,
-      stage: nextStage,
-      next_contact_at: nextContactAt,
-      clear_next_contact: Boolean(input.clearNextContact),
-      contact_id: input.contactId ?? null,
-      has_note: Boolean(input.note?.trim()),
-    },
+  const { data, error } = await admin.rpc("save_prospect_call_attempt", {
+    p_request_id: input.requestId.trim(),
+    p_membership_id: input.membershipId,
+    p_prospect_id: input.prospectId,
+    p_contact_id: input.contactId ?? null,
+    p_performed_by: input.performedBy,
+    p_result: result,
+    p_note: note,
+    p_started_at: input.startedAt ?? null,
+    p_next_contact_at: input.clearNextContact
+      ? null
+      : (input.nextContactAt ?? null),
+    p_clear_next_contact: Boolean(input.clearNextContact),
+    p_phone_used: phoneUsed,
+    p_phone_normalized: phoneNormalized,
   });
+  if (error) throw new Error(error.message);
+
+  const saved = data?.[0];
+  if (!saved) throw new Error("call_attempt_save_failed");
 
   return {
-    attemptId: String(attempt.id),
-    duplicated: false,
-    stage: nextStage,
-    promoteCtaStrong: effects.promoteCtaStrong,
+    attemptId: String(saved.attempt_id),
+    duplicated: Boolean(saved.duplicated),
+    stage: String(saved.stage),
+    promoteCtaStrong: Boolean(saved.promote_cta_strong),
   };
 }
-
-const CALL_RESULT_REASON_DNC = "架電結果: 営業連絡不要";
 
 export async function listCallAttempts(input: {
   prospectId: string;

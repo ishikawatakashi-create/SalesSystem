@@ -9,6 +9,26 @@ import type {
   ProspectSourceType,
 } from "@/lib/prospects/types";
 
+export const PROSPECT_LIST_IMPORT_IN_PROGRESS_MESSAGE =
+  "CSV取込中のため、この営業リストはアーカイブできません。取込完了後にもう一度お試しください。";
+const PROSPECT_LIST_NOT_FOUND_MESSAGE = "営業リストが見つかりません。";
+
+type ArchiveProspectListRpcResult = Record<string, unknown> & {
+  outcome?: string;
+  list?: unknown;
+};
+
+export function prospectListArchiveOutcomeError(
+  outcome: string | undefined,
+): string | null {
+  if (outcome === "import_in_progress") {
+    return PROSPECT_LIST_IMPORT_IN_PROGRESS_MESSAGE;
+  }
+  if (outcome === "not_found") return PROSPECT_LIST_NOT_FOUND_MESSAGE;
+  if (outcome === "archived" || outcome === "already_archived") return null;
+  return "営業リストをアーカイブできませんでした。もう一度お試しください。";
+}
+
 export async function createProspectList(input: {
   name: string;
   description?: string | null;
@@ -63,6 +83,22 @@ export async function updateProspectList(input: {
   actorId: string;
   actorName: string;
 }): Promise<ProspectListRow> {
+  if (input.patch.status === "archived") {
+    const includesAnotherChange = Object.entries(input.patch).some(
+      ([key, value]) => key !== "status" && value !== undefined,
+    );
+    if (includesAnotherChange) {
+      throw new Error(
+        "営業リストの編集とアーカイブは同時に実行できません。変更を保存してからアーカイブしてください。",
+      );
+    }
+    return archiveProspectList({
+      id: input.id,
+      actorId: input.actorId,
+      actorName: input.actorName,
+    });
+  }
+
   const admin = createAdminClient();
   const update: Record<string, unknown> = {};
   if (input.patch.name != null) update.name = input.patch.name.trim();
@@ -71,9 +107,6 @@ export async function updateProspectList(input: {
   }
   if (input.patch.status != null) {
     update.status = input.patch.status;
-    if (input.patch.status === "archived") {
-      update.archived_at = new Date().toISOString();
-    }
   }
   if (input.patch.sourceType != null) update.source_type = input.patch.sourceType;
   if (input.patch.sourceName !== undefined) {
@@ -95,15 +128,41 @@ export async function updateProspectList(input: {
   await writeProspectAudit({
     actorId: input.actorId,
     actorName: input.actorName,
-    action:
-      input.patch.status === "archived"
-        ? "prospect_list.archived"
-        : "prospect_list.updated",
+    action: "prospect_list.updated",
     entityType: "prospect_list",
     entityId: input.id,
     changedFields: update,
   });
   return row;
+}
+
+export async function archiveProspectList(input: {
+  id: string;
+  actorId: string;
+  actorName: string;
+}): Promise<ProspectListRow> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("archive_prospect_list_if_idle", {
+    p_list_id: input.id,
+    p_actor_id: input.actorId,
+    p_actor_name: input.actorName,
+  });
+  if (error) {
+    throw new Error(
+      "営業リストをアーカイブできませんでした。もう一度お試しください。",
+    );
+  }
+
+  const result =
+    data && typeof data === "object"
+      ? (data as ArchiveProspectListRpcResult)
+      : ({} as ArchiveProspectListRpcResult);
+  const outcomeError = prospectListArchiveOutcomeError(result.outcome);
+  if (outcomeError) throw new Error(outcomeError);
+  if (!result.list || typeof result.list !== "object") {
+    throw new Error("営業リストの状態を確認できませんでした。");
+  }
+  return result.list as ProspectListRow;
 }
 
 export async function listProspectLists(input?: {

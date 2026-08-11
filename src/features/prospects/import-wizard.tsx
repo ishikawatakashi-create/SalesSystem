@@ -239,7 +239,7 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
             営業候補の取込を開始しました
           </p>
           <p className="mt-1 text-slate-600">
-            {`${totalRows}行を受け付けました。処理完了まで時間がかかる場合があります。正式な組織データは変更しません。`}
+            {`${totalRows}行を受け付けました。処理完了まで時間がかかる場合があります。完了または失敗するまで、この営業リストはアーカイブできません。正式な組織データは変更しません。`}
           </p>
           <a
             href={`/prospect-lists/${listId}`}

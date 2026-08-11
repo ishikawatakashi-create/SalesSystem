@@ -1,0 +1,3 @@
+-- Intentionally empty.
+-- Production-like fixtures are created and removed by scoped E2E scripts;
+-- `supabase db reset` still needs this configured seed path to exist.

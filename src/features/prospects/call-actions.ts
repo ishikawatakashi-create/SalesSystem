@@ -94,6 +94,7 @@ export async function saveCallAttemptAction(input: {
       promoteCtaStrong: boolean;
       nextMembershipId?: string | null;
       emptyQueue?: boolean;
+      nextClaimFailed?: boolean;
     }
   | { ok: false; error: string }
 > {
@@ -114,21 +115,32 @@ export async function saveCallAttemptAction(input: {
       phoneUsed: input.phoneUsed,
     });
 
-    revalidatePath(`/prospects/${input.prospectId}`);
-    if (input.listId) revalidatePath(`/prospect-lists/${input.listId}`);
-    revalidatePath("/call-queue");
+    // DB commit後のcache invalidation失敗で「保存失敗」と誤報しない。
+    try {
+      revalidatePath(`/prospects/${input.prospectId}`);
+      if (input.listId) revalidatePath(`/prospect-lists/${input.listId}`);
+      revalidatePath("/call-queue");
+    } catch {
+      // 保存結果を成功として返し、次の閲覧時の再取得に委ねる。
+    }
 
     let nextMembershipId: string | null = null;
     let emptyQueue = false;
+    let nextClaimFailed = false;
     if (input.saveAndNext) {
-      const next = await claimNextProspectCall({
-        userId: user.id,
-        actorName: user.display_name,
-        listId: input.listId,
-        filter: normalizeCallQueueFilter(input.filter),
-      });
-      if (!next) emptyQueue = true;
-      else nextMembershipId = next.id;
+      try {
+        const next = await claimNextProspectCall({
+          userId: user.id,
+          actorName: user.display_name,
+          listId: input.listId,
+          filter: normalizeCallQueueFilter(input.filter),
+        });
+        if (!next) emptyQueue = true;
+        else nextMembershipId = next.id;
+      } catch {
+        // 架電結果は既にcommit済み。次件取得だけを別の失敗境界にする。
+        nextClaimFailed = true;
+      }
     }
 
     return {
@@ -139,6 +151,7 @@ export async function saveCallAttemptAction(input: {
       promoteCtaStrong: saved.promoteCtaStrong,
       nextMembershipId,
       emptyQueue,
+      nextClaimFailed,
     };
   } catch (e) {
     return { ok: false, error: errMsg(e) };

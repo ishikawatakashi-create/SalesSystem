@@ -320,6 +320,17 @@ export const HELP_FAQS: HelpFaqItem[] = [
     related: ["import-prospect-csv"],
   },
   {
+    id: "faq-archive-during-prospect-import",
+    category: "sales",
+    question: "CSV取込中の営業リストをアーカイブできますか？",
+    answer: [
+      "できません。取込が完了または失敗するまで待ってからアーカイブしてください。",
+      "長時間「取込中」のまま変わらない場合は、管理者へ確認を依頼してください。",
+    ],
+    keywords: ["CSV", "取込中", "アーカイブ", "営業リスト"],
+    related: ["import-prospect-csv"],
+  },
+  {
     id: "faq-same-name",
     category: "sales",
     question: "同じ会社名ですが別会社かもしれません。",
