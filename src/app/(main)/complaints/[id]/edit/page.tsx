@@ -42,7 +42,7 @@ export default async function ComplaintEditPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            クレーム情報の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             編集を開始できません。通信状態を確認のうえ再試行してください。

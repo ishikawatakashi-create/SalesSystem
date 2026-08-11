@@ -15,6 +15,11 @@ import { InquiryReplyDraftPanel } from "@/features/inquiries/inquiry-reply-draft
 import { isDraftIntegrationConfigured } from "@/lib/inquiries/apps-script-draft-client";
 import { formatDateTime } from "@/features/customers/format";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import {
+  formatAttachmentSize,
+  inquiryParseWarningLabel,
+  inquirySourceLabel,
+} from "@/lib/inquiries/presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +130,7 @@ export default async function InquiryDetailPage({
               </dd>
               <dt className="text-slate-500">メール</dt>
               <dd>{inquiry.sender_email || "—"}</dd>
-              <dt className="text-slate-500">Reply-To</dt>
+              <dt className="text-slate-500">返信先メール</dt>
               <dd>{inquiry.reply_to_email || "—"}</dd>
               <dt className="text-slate-500">電話</dt>
               <dd>{inquiry.phone || "—"}</dd>
@@ -145,12 +150,13 @@ export default async function InquiryDetailPage({
                     "",
                 ).trim() || "—"}
               </dd>
-              <dt className="text-slate-500">source</dt>
-              <dd>{inquiry.source}</dd>
+              <dt className="text-slate-500">受信元</dt>
+              <dd>{inquirySourceLabel(inquiry.source)}</dd>
             </dl>
             {inquiry.parse_status !== "ok" && (
               <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
-                解析注意: {inquiry.parse_warning_code || inquiry.parse_status}
+                受信内容を確認してください：{" "}
+                {inquiryParseWarningLabel(inquiry.parse_warning_code)}
               </p>
             )}
           </section>
@@ -181,13 +187,15 @@ export default async function InquiryDetailPage({
           {Array.isArray(inquiry.attachment_meta) &&
             inquiry.attachment_meta.length > 0 && (
               <section className="rounded border border-slate-200 bg-white p-3 text-xs">
-                <h2 className="mb-2 font-semibold text-slate-800">添付メタ</h2>
+                <h2 className="mb-2 font-semibold text-slate-800">添付情報</h2>
                 <ul className="list-inside list-disc text-slate-700">
                   {inquiry.attachment_meta.map((a, i) => (
                     <li key={i}>
                       {String(a.filename ?? "（無名）")}
                       {a.mimeType ? ` · ${String(a.mimeType)}` : ""}
-                      {a.size != null ? ` · ${String(a.size)} bytes` : ""}
+                      {formatAttachmentSize(a.size)
+                        ? ` · ${formatAttachmentSize(a.size)}`
+                        : ""}
                     </li>
                   ))}
                 </ul>

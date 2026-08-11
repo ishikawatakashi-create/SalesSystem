@@ -16,6 +16,7 @@ import {
 } from "@/features/deals/list-data";
 import { DealListTable } from "@/features/deals/list-table";
 import { DealListToolbar } from "@/features/deals/list-toolbar";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export const dynamic = "force-dynamic";
 
@@ -56,18 +57,21 @@ export default async function DealsPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">案件一覧</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-        {canEdit && (
-          <Link
-            href="/deals/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-          >
-            新規登録
-          </Link>
-        )}
-      </div>
+      <PageHeading
+        title="案件一覧"
+        description="案件の進捗・見込み金額・関係者を管理します。"
+        meta={`${total}件`}
+        actions={
+          canEdit ? (
+            <Link
+              href="/deals/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              案件を登録
+            </Link>
+          ) : null
+        }
+      />
 
       <DealListToolbar query={query} filters={filters} />
 

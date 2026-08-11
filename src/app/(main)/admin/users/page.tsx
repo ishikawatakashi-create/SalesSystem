@@ -68,7 +68,12 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-5 text-xs">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-base font-bold">ユーザー管理</h1>
+        <div>
+          <h1 className="text-base font-bold">ユーザー管理</h1>
+          <p className="mt-0.5 text-xs text-slate-600">
+            利用者の登録・権限・利用状態と、メール招待を管理します。
+          </p>
+        </div>
       </div>
 
       <section className="space-y-2">
@@ -122,17 +127,19 @@ export default async function AdminUsersPage() {
 
       <details className="rounded border border-slate-200 bg-white">
         <summary className="cursor-pointer px-3 py-2 text-xs text-slate-600">
-          未プロビジョニング Auth ユーザー（{unprovisionedUsers.length}件）
+          登録が完了していないログインアカウント（{unprovisionedUsers.length}件）
         </summary>
         <div className="border-t border-slate-100">
           <p className="px-3 py-2 text-[11px] text-slate-500">
-            Auth には存在しますが app_users が未作成のユーザーです。自動削除しません。
+            ログインアカウントは作成されていますが、SalesSystemのユーザー登録が完了していません。招待状態とログイン履歴を確認してください。自動では削除されません。
           </p>
           <table className="w-full text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-3 py-2 font-medium">メールアドレス</th>
-                <th className="px-3 py-2 font-medium">Auth作成日時</th>
+                <th className="px-3 py-2 font-medium">
+                  ログインアカウント作成日時
+                </th>
                 <th className="px-3 py-2 font-medium">確認方針</th>
               </tr>
             </thead>
@@ -146,7 +153,7 @@ export default async function AdminUsersPage() {
                     })}
                   </td>
                   <td className="px-3 py-2">
-                    招待状態と認証ログを確認(自動削除なし)
+                    招待状態とログイン履歴を確認（自動削除なし）
                   </td>
                 </tr>
               ))}
@@ -156,7 +163,7 @@ export default async function AdminUsersPage() {
                     colSpan={3}
                     className="px-3 py-4 text-center text-slate-400"
                   >
-                    該当ユーザーはいません
+                    登録未完了のアカウントはありません
                   </td>
                 </tr>
               ) : null}

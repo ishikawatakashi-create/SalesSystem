@@ -10,6 +10,8 @@ import {
 import { PROSPECT_STAGE_LABELS, type ProspectMembershipStage } from "@/lib/prospects/types";
 import { CallWorkspace } from "@/features/prospects/call-workspace";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canStartProspectPromotion } from "@/lib/prospects/presentation";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +33,17 @@ export default async function CallQueueItemPage({
 
   const { membershipId } = await params;
   const sp = await searchParams;
+  const filter = normalizeCallQueueFilter(sp.filter);
   const workspace = await loadCallWorkspace({
     membershipId,
     userId: user.id,
   });
-  if (!workspace) redirect("/call-queue");
+  if (!workspace) {
+    const query = new URLSearchParams({ unavailable: "1" });
+    if (sp.list) query.set("list", sp.list);
+    query.set("filter", filter);
+    redirect(`/call-queue?${query.toString()}`);
+  }
 
   const { membership, prospect, list, contacts, recentAttempts, claimConflict } =
     workspace;
@@ -65,13 +73,13 @@ export default async function CallQueueItemPage({
   const canPromote =
     hasPermission(user.role, "prospect.promote") &&
     hasPermission(user.role, "customer.edit") &&
-    String(prospect.promotion_status) !== "completed";
+    canStartProspectPromotion(String(prospect.promotion_status));
 
   return (
     <div className="space-y-3 text-xs">
       <div className="flex items-center justify-between">
         <Link
-          href={`/call-queue?list=${sp.list ?? String(list.id)}&filter=${sp.filter ?? "eligible"}`}
+          href={`/call-queue?list=${sp.list ?? String(list.id)}&filter=${filter}`}
           className="text-slate-500"
         >
           ← 架電キュー
@@ -84,7 +92,7 @@ export default async function CallQueueItemPage({
         listName={String(list.name ?? "")}
         companyName={String(prospect.company_name)}
         stage={stage}
-        stageLabel={PROSPECT_STAGE_LABELS[stage] ?? stage}
+        stageLabel={PROSPECT_STAGE_LABELS[stage] ?? "状態要確認"}
         assigneeName={assigneeName}
         websiteUrl={(prospect.website_url as string | null) ?? null}
         mainPhone={(prospect.main_phone as string | null) ?? null}
@@ -130,7 +138,7 @@ export default async function CallQueueItemPage({
         }))}
         nextContactAt={(membership.next_contact_at as string | null) ?? null}
         claimConflict={claimConflict?.byName ?? null}
-        filter={sp.filter ?? "eligible"}
+        filter={filter}
         canPromote={canPromote}
       />
     </div>

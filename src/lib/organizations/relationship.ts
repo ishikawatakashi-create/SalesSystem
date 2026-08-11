@@ -37,6 +37,8 @@ export const PRIMARY_ORGANIZATION_RELATIONSHIP_FILTERS: Array<{
   { semanticKey: "municipality", label: "自治体" },
   { semanticKey: "education_research", label: "学校・研究" },
   { semanticKey: "partner", label: "パートナー" },
+  { semanticKey: "supplier", label: "仕入先" },
+  { semanticKey: "other", label: "その他" },
 ];
 
 const LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
@@ -47,7 +49,7 @@ export function organizationRelationshipLabel(
   semanticKey: string | null | undefined,
 ): string {
   if (!semanticKey) return "関係性未設定";
-  return LABEL_BY_KEY[semanticKey] ?? semanticKey;
+  return LABEL_BY_KEY[semanticKey] ?? "その他";
 }
 
 export function isKnownOrganizationRelationshipKey(key: string): boolean {

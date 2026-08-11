@@ -117,7 +117,7 @@ export function ContractListToolbar({
           </select>
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">担当者</span>
+          <span className="text-slate-500">自社担当者</span>
           <select
             name="staff"
             defaultValue={query.staffUserId ?? ""}

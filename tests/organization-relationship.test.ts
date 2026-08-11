@@ -38,6 +38,7 @@ describe("organization relationship masters", () => {
   it("日本語ラベルと default", () => {
     expect(organizationRelationshipLabel("customer")).toBe("顧客");
     expect(organizationRelationshipLabel("media")).toBe("メディア");
+    expect(organizationRelationshipLabel("internal_unknown")).toBe("その他");
     expect(DEFAULT_ORGANIZATION_RELATIONSHIP_SEMANTIC_KEY).toBe("customer");
     expect(PRIMARY_ORGANIZATION_RELATIONSHIP_FILTERS.length).toBeGreaterThan(3);
   });

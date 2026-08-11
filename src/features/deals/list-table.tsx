@@ -73,13 +73,13 @@ export function DealListTable({
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
             <th className="px-2 py-1.5 font-medium">{sortHeader("案件名")}</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
             <th className="px-2 py-1.5 font-medium">ステージ</th>
             <th className="px-2 py-1.5 font-medium">ステータス</th>
             <th className="px-2 py-1.5 font-medium">
               {sortHeader("見込み金額")}
             </th>
-            <th className="px-2 py-1.5 font-medium">顧客担当者</th>
+            <th className="px-2 py-1.5 font-medium">先方担当者</th>
             <th className="px-2 py-1.5 font-medium">自社担当者</th>
             <th className="px-2 py-1.5 font-medium">
               {sortHeader("見込みクローズ日")}
@@ -102,7 +102,7 @@ export function DealListTable({
                 {canEdit && !emptyFiltered && (
                   <span className="ml-2">
                     <Link href="/deals/new" className="text-primary underline">
-                      新規登録
+                      案件を登録
                     </Link>
                   </span>
                 )}

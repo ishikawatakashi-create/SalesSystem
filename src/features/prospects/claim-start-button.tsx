@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { claimNextCallAction } from "@/features/prospects/call-actions";
-import type { CallQueueFilter } from "@/lib/prospects/call-queue";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
 export function ClaimStartButton(props: {
   listId: string | null;
   filter: string;
 }) {
   const router = useRouter();
+  const filter = normalizeCallQueueFilter(props.filter);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -25,21 +26,23 @@ export function ClaimStartButton(props: {
           startTransition(async () => {
             const res = await claimNextCallAction({
               listId: props.listId,
-              filter: props.filter as CallQueueFilter,
+              filter,
             });
             if (!res.ok) {
               setError(res.error);
               return;
             }
             if ("empty" in res && res.empty) {
-              router.replace(
-                `/call-queue?empty=1&list=${props.listId ?? ""}&filter=${props.filter}`,
-              );
+              const query = new URLSearchParams({ empty: "1", filter });
+              if (props.listId) query.set("list", props.listId);
+              router.replace(`/call-queue?${query.toString()}`);
               return;
             }
             if ("membershipId" in res) {
+              const query = new URLSearchParams({ filter });
+              if (props.listId) query.set("list", props.listId);
               router.push(
-                `/call-queue/${res.membershipId}?list=${props.listId ?? ""}&filter=${props.filter}`,
+                `/call-queue/${res.membershipId}?${query.toString()}`,
               );
             }
           });

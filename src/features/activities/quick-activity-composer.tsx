@@ -36,6 +36,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
   const [showExtras, setShowExtras] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const composingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -48,6 +49,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
     if (!trimmed || saving) return;
     setSaving(true);
     setError(null);
+    setSuccess(null);
     const title = titleFromActivityBody(trimmed);
     const result = await createActivityAction({
       requestId,
@@ -75,6 +77,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
     }
     setBody("");
     setError(null);
+    setSuccess("対応履歴を登録しました");
     setRequestId(crypto.randomUUID());
     setSaving(false);
     router.refresh();
@@ -119,7 +122,10 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
         disabled={saving}
         placeholder="対応内容を入力…"
         className="w-full resize-y rounded border border-slate-300 px-2 py-1.5 text-xs disabled:bg-slate-50"
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          setBody(e.target.value);
+          setSuccess(null);
+        }}
         onCompositionStart={() => {
           composingRef.current = true;
         }}
@@ -149,7 +155,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
           className="text-slate-600 underline-offset-2 hover:underline"
           onClick={() => setShowExtras((v) => !v)}
         >
-          {showExtras ? "補助項目を隠す" : "分類・案件・担当者"}
+          {showExtras ? "補助項目を隠す" : "分類・案件・先方担当者"}
         </button>
         <span className="text-slate-400">
           Enterで登録 / Shift+Enterで改行
@@ -158,7 +164,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
           href={detailHref}
           className="ml-auto font-medium text-slate-800 underline-offset-2 hover:underline"
         >
-          ＋詳細
+          詳細入力へ
         </a>
         <button
           type="button"
@@ -166,7 +172,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
           onClick={() => void submit()}
           className="rounded bg-slate-800 px-2 py-1 text-white disabled:opacity-50"
         >
-          {saving ? "登録中…" : "登録"}
+          {saving ? "登録中…" : "対応履歴を登録"}
         </button>
       </div>
       {showExtras && (
@@ -232,7 +238,7 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
           )}
           {lockedContact && (
             <span className="self-end text-[11px] text-slate-500">
-              担当者: この担当者に紐付け
+              先方担当者: この担当者に紐付け
             </span>
           )}
         </div>
@@ -240,6 +246,11 @@ export function QuickActivityComposer(props: QuickActivityComposerProps) {
       {error && (
         <p className="mt-1 text-xs text-red-700" role="alert">
           {error}
+        </p>
+      )}
+      {success && (
+        <p className="mt-1 text-xs font-medium text-emerald-700" role="status">
+          {success}
         </p>
       )}
     </div>

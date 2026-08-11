@@ -28,7 +28,7 @@ export function ProspectPromoteButton(props: {
         className="rounded border border-emerald-600 px-2 py-1 text-emerald-800 hover:bg-emerald-50"
         onClick={() => setOpen(true)}
       >
-        正式組織へ昇格
+        正式な組織に昇格
       </button>
       {open ? (
         <PromoteDialog

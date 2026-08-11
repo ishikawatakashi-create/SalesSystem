@@ -2,13 +2,15 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeProspectAudit } from "@/lib/prospects/audit";
+import {
+  CALL_QUEUE_BLOCKING_PROMOTION_STATUSES,
+  CALL_QUEUE_ELIGIBLE_STAGES,
+  getCallQueueEligibilityFailure,
+  type CallQueueEligibilityFailure,
+} from "@/lib/prospects/call-eligibility";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
-export type CallQueueFilter =
-  | "eligible"
-  | "overdue"
-  | "today"
-  | "no_schedule"
-  | "all";
+export type { CallQueueFilter } from "@/lib/prospects/call-filter";
 
 export type ClaimedMembership = {
   id: string;
@@ -25,19 +27,103 @@ export type ClaimedMembership = {
   claim_expires_at: string | null;
 };
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+type CallQueueDependencies = {
+  admin?: AdminClient;
+  now?: Date;
+};
+
+type CallQueueGuardFailure =
+  | CallQueueEligibilityFailure
+  | "membership_not_found"
+  | "prospect_not_found";
+
+export type CallQueueGuardResult =
+  | {
+      ok: true;
+      membership: Record<string, unknown>;
+      prospect: Record<string, unknown>;
+    }
+  | { ok: false; reason: CallQueueGuardFailure };
+
+function nullableString(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
+export async function guardCallQueueMembership(
+  input: {
+    membershipId: string;
+    userId: string;
+    expectedProspectId?: string | null;
+    requireAvailableClaim?: boolean;
+  },
+  dependencies: CallQueueDependencies = {},
+): Promise<CallQueueGuardResult> {
+  const admin = dependencies.admin ?? createAdminClient();
+  const { data: membership, error: membershipError } = await admin
+    .from("prospect_list_memberships")
+    .select("*")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+  if (membershipError) throw new Error(membershipError.message);
+  if (!membership) return { ok: false, reason: "membership_not_found" };
+
+  const membershipRecord = membership as Record<string, unknown>;
+  const prospectId = String(membershipRecord.prospect_id ?? "");
+  const { data: prospect, error: prospectError } = await admin
+    .from("prospects")
+    .select("*")
+    .eq("id", prospectId)
+    .maybeSingle();
+  if (prospectError) throw new Error(prospectError.message);
+  if (!prospect) return { ok: false, reason: "prospect_not_found" };
+
+  const prospectRecord = prospect as Record<string, unknown>;
+  const reason = getCallQueueEligibilityFailure({
+    snapshot: {
+      membership: {
+        prospectId,
+        assignedUserId: nullableString(membershipRecord.assigned_user_id),
+        stage: String(membershipRecord.stage ?? ""),
+        archivedAt: nullableString(membershipRecord.archived_at),
+        claimedBy: nullableString(membershipRecord.claimed_by),
+        claimExpiresAt: nullableString(membershipRecord.claim_expires_at),
+      },
+      prospect: {
+        archivedAt: nullableString(prospectRecord.archived_at),
+        doNotContact: prospectRecord.do_not_contact === false ? false : true,
+        promotionStatus: nullableString(prospectRecord.promotion_status),
+      },
+    },
+    userId: input.userId,
+    expectedProspectId: input.expectedProspectId,
+    requireAvailableClaim: input.requireAvailableClaim,
+    now: dependencies.now,
+  });
+  if (reason) return { ok: false, reason };
+
+  return {
+    ok: true,
+    membership: membershipRecord,
+    prospect: prospectRecord,
+  };
+}
+
 export async function claimNextProspectCall(input: {
   userId: string;
   actorName: string;
   listId?: string | null;
-  filter?: CallQueueFilter;
+  filter?: string | null;
   leaseSeconds?: number;
 }): Promise<ClaimedMembership | null> {
   const admin = createAdminClient();
+  const filter = normalizeCallQueueFilter(input.filter);
   const { data, error } = await admin.rpc("claim_next_prospect_call", {
     p_user_id: input.userId,
     p_list_id: input.listId ?? null,
     p_lease_seconds: input.leaseSeconds ?? 600,
-    p_filter: input.filter ?? "eligible",
+    p_filter: filter,
   });
   if (error) throw new Error(error.message);
 
@@ -55,7 +141,7 @@ export async function claimNextProspectCall(input: {
       prospect_id: claimed.prospect_id,
       list_id: claimed.prospect_list_id,
       lease_seconds: input.leaseSeconds ?? 600,
-      filter: input.filter ?? "eligible",
+      filter,
     },
   });
   return claimed;
@@ -82,9 +168,7 @@ export async function releaseProspectCallClaim(input: {
 }
 
 /** MyDesk / KPI 用の軽量カウント */
-export async function countMyCallQueue(input: {
-  userId: string;
-}): Promise<{
+export async function countMyCallQueue(input: { userId: string }): Promise<{
   overdue: number;
   today: number;
   unstarted: number;
@@ -104,19 +188,28 @@ export async function countMyCallQueue(input: {
   const base = () =>
     admin
       .from("prospect_list_memberships")
-      .select("id,prospects!inner(do_not_contact,promotion_status,archived_at)", {
-        count: "exact",
-        head: true,
-      })
+      .select(
+        "id,prospects!inner(do_not_contact,promotion_status,archived_at)",
+        {
+          count: "exact",
+          head: true,
+        },
+      )
       .eq("assigned_user_id", input.userId)
       .is("archived_at", null)
       .in("stage", ["new", "assigned", "working"])
       .eq("prospects.do_not_contact", false)
       .is("prospects.archived_at", null)
-      .not("prospects.promotion_status", "eq", "completed");
+      .not(
+        "prospects.promotion_status",
+        "in",
+        `(${CALL_QUEUE_BLOCKING_PROMOTION_STATUSES.join(",")})`,
+      );
 
   const [overdueRes, todayRes, unstartedRes] = await Promise.all([
-    base().lt("next_contact_at", todayStartUtc).not("next_contact_at", "is", null),
+    base()
+      .lt("next_contact_at", todayStartUtc)
+      .not("next_contact_at", "is", null),
     base()
       .gte("next_contact_at", todayStartUtc)
       .lt("next_contact_at", tomorrowStartUtc),
@@ -131,36 +224,62 @@ export async function countMyCallQueue(input: {
 }
 
 /** Open call screen: refresh lease for current user when allowed */
-export async function ensureCallClaimForUser(input: {
-  membershipId: string;
-  userId: string;
-  claimedBy: string | null;
-  claimExpiresAt: string | null;
-  leaseSeconds?: number;
-}): Promise<void> {
-  const nowMs = Date.now();
-  const expiresMs = input.claimExpiresAt
-    ? new Date(input.claimExpiresAt).getTime()
-    : 0;
-  const canTake =
-    !input.claimedBy ||
-    input.claimedBy === input.userId ||
-    !input.claimExpiresAt ||
-    expiresMs < nowMs;
-  if (!canTake) return;
-
+export async function ensureCallClaimForUser(
+  input: {
+    membershipId: string;
+    userId: string;
+    claimedBy: string | null;
+    claimExpiresAt: string | null;
+    leaseSeconds?: number;
+  },
+): Promise<void> {
   const admin = createAdminClient();
+  const now = new Date();
+  const eligibility = await guardCallQueueMembership(
+    {
+      membershipId: input.membershipId,
+      userId: input.userId,
+      requireAvailableClaim: true,
+    },
+    { admin, now },
+  );
+  if (!eligibility.ok) return;
+
+  const currentClaimedBy = nullableString(eligibility.membership.claimed_by);
+  const currentClaimExpiresAt = nullableString(
+    eligibility.membership.claim_expires_at,
+  );
+  const nowMs = now.getTime();
   const lease = Math.max(input.leaseSeconds ?? 600, 60);
   const expires = new Date(nowMs + lease * 1000).toISOString();
-  await admin
+  let update = admin
     .from("prospect_list_memberships")
     .update({
       claimed_by: input.userId,
-      claimed_at: new Date(nowMs).toISOString(),
+      claimed_at: now.toISOString(),
       claim_expires_at: expires,
     })
     .eq("id", input.membershipId)
-    .is("archived_at", null);
+    .eq("assigned_user_id", input.userId)
+    .is("archived_at", null)
+    .in("stage", [...CALL_QUEUE_ELIGIBLE_STAGES]);
+
+  if (!currentClaimedBy) {
+    update = update.is("claimed_by", null);
+  } else if (currentClaimedBy === input.userId) {
+    update = update.eq("claimed_by", input.userId);
+  } else if (!currentClaimExpiresAt) {
+    update = update
+      .eq("claimed_by", currentClaimedBy)
+      .is("claim_expires_at", null);
+  } else {
+    update = update
+      .eq("claimed_by", currentClaimedBy)
+      .eq("claim_expires_at", currentClaimExpiresAt);
+  }
+
+  const { error } = await update.select("id");
+  if (error) throw new Error(error.message);
 }
 
 export async function loadCallWorkspace(input: {
@@ -175,24 +294,25 @@ export async function loadCallWorkspace(input: {
   claimConflict: { byName: string } | null;
 } | null> {
   const admin = createAdminClient();
-  const { data: membership } = await admin
-    .from("prospect_list_memberships")
-    .select("*")
-    .eq("id", input.membershipId)
-    .is("archived_at", null)
-    .maybeSingle();
-  if (!membership) return null;
+  const now = new Date();
+  const eligibility = await guardCallQueueMembership(
+    {
+      membershipId: input.membershipId,
+      userId: input.userId,
+    },
+    { admin, now },
+  );
+  if (!eligibility.ok) return null;
+
+  const membership = eligibility.membership;
+  const prospect = eligibility.prospect;
 
   const claimedBy = membership.claimed_by as string | null;
   const expires = membership.claim_expires_at
     ? new Date(String(membership.claim_expires_at)).getTime()
     : 0;
   let claimConflict: { byName: string } | null = null;
-  if (
-    claimedBy &&
-    claimedBy !== input.userId &&
-    expires > Date.now()
-  ) {
+  if (claimedBy && claimedBy !== input.userId && expires > now.getTime()) {
     const { data: u } = await admin
       .from("app_users")
       .select("display_name")
@@ -200,13 +320,6 @@ export async function loadCallWorkspace(input: {
       .maybeSingle();
     claimConflict = { byName: String(u?.display_name ?? "他ユーザー") };
   }
-
-  const { data: prospect } = await admin
-    .from("prospects")
-    .select("*")
-    .eq("id", String(membership.prospect_id))
-    .maybeSingle();
-  if (!prospect || prospect.archived_at) return null;
 
   const { data: list } = await admin
     .from("prospect_lists")

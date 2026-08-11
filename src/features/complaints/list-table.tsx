@@ -68,10 +68,10 @@ export function ComplaintListTable({
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
             <th className="px-2 py-1.5 font-medium">{sortHeader("発生日")}</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("タイトル")}</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
             <th className="px-2 py-1.5 font-medium">重要度</th>
             <th className="px-2 py-1.5 font-medium">対応状況</th>
-            <th className="px-2 py-1.5 font-medium">対応責任者</th>
+            <th className="px-2 py-1.5 font-medium">社内対応責任者</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("期限")}</th>
             <th className="px-2 py-1.5 font-medium">
               {sortHeader("更新日時")}
@@ -94,7 +94,7 @@ export function ComplaintListTable({
                       href="/complaints/new"
                       className="text-primary underline"
                     >
-                      新規登録
+                      クレームを登録
                     </Link>
                   </span>
                 )}

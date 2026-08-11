@@ -16,6 +16,7 @@ import {
 } from "@/features/activities/list-data";
 import { ActivityListTable } from "@/features/activities/list-table";
 import { ActivityListToolbar } from "@/features/activities/list-toolbar";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +62,12 @@ export default async function ActivitiesPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">対応履歴一覧</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-        <div className="ml-auto flex items-center gap-2">
+      <PageHeading
+        title="対応履歴一覧"
+        description="組織との対応内容を時系列で記録します。今後の予定は次回アクションで管理します。"
+        meta={`${total}件`}
+        actions={
+          <>
           {canBulk && (
             <Link
               href="/activities/bulk"
@@ -78,11 +81,12 @@ export default async function ActivitiesPage({
               href="/activities/new"
               className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
             >
-              新規登録
+              対応履歴を登録
             </Link>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <ActivityListToolbar query={query} filters={filters} />
 

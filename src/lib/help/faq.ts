@@ -407,9 +407,9 @@ export const HELP_FAQS: HelpFaqItem[] = [
   {
     id: "faq-activity-note",
     category: "activities",
-    question: "対応履歴の「次回アクション(入力記録)」はToDoですか？",
+    question: "対応履歴の「当時入力した次回予定（履歴メモ）」はToDoですか？",
     answer: [
-      "いいえ。履歴用のメモ（スナップショット）です。",
+      "いいえ。対応した時点で入力した予定を残す履歴メモです。",
       "実際のToDoは「次回アクション」として登録してください。",
     ],
     keywords: ["入力記録", "誤解", "ToDo"],

@@ -142,7 +142,7 @@ export function ComplaintDetailView({
               value={withInactive(labels.statusName, labels.statusInactive)}
             />
             <Item
-              label="対応責任者"
+              label="社内対応責任者"
               value={withInactive(labels.staffName, labels.staffInactive)}
             />
           </dl>

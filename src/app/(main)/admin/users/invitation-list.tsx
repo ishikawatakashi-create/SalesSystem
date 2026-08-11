@@ -97,7 +97,7 @@ function InviteTable(props: {
   function handleArchive(invitationId: string) {
     if (
       !window.confirm(
-        "この招待履歴を非表示にしますか？\n\n登録済みユーザーとAuthユーザーには影響しません。",
+        "この招待履歴を非表示にしますか？\n\n登録済みユーザーとログインアカウントには影響しません。",
       )
     ) {
       return;
@@ -231,7 +231,7 @@ function InviteTable(props: {
                     type="button"
                     disabled={pending}
                     onClick={() => setCancelTarget(inv)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded border border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
                     招待を取り消して完全削除
                   </button>

@@ -58,7 +58,7 @@ export function DealDetailView({
       />
       {savedNote && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          保存しました。顧客の見込み金額は進行中・保留案件から再集計される場合があります。
+          保存しました。組織の見込み金額は進行中・保留案件から再集計される場合があります。
         </div>
       )}
 
@@ -132,7 +132,7 @@ export function DealDetailView({
           <h2 className="mb-1 text-xs font-bold text-slate-700">関係者</h2>
           <dl className="divide-y divide-slate-100">
             <Item
-              label="顧客担当者"
+              label="先方担当者"
               value={
                 labels.contactNames.length === 0 ? (
                   "—"

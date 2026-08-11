@@ -69,7 +69,7 @@ export function ActivityListToolbar({
       </div>
       <FilterDisclosure appliedCount={advanced}>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">担当者</span>
+          <span className="text-slate-500">先方担当者</span>
           <select
             name="contact"
             defaultValue={query.contactPageId ?? ""}

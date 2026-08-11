@@ -64,7 +64,7 @@ export default async function CustomerContactNewPage({
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <p className="text-sm font-medium text-slate-900">
-          アーカイブ済みの顧客には担当者を組織を追加できません
+          アーカイブ済みの組織には先方担当者を追加できません
         </p>
         <Link
           href={`/organizations/${id}`}

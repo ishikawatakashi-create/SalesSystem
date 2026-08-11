@@ -172,7 +172,7 @@ export function ContractDetailView({
               value={detail.autoRenew ? "する" : "しない"}
             />
             <Item
-              label="担当者"
+              label="自社担当者"
               value={
                 labels.staffNames.length === 0 ? (
                   "—"

@@ -105,7 +105,7 @@ export const HELP_TERMS: HelpTerm[] = [
     short: "これからやること（ToDo）",
     detail: [
       "期限と自社担当者を持ち、完了操作があります。",
-      "対応履歴内の「入力記録」は正本ToDoではありません。",
+      "対応履歴内の「当時入力した次回予定（履歴メモ）」だけでは、今日やることには追加されません。",
     ],
     related: ["activity", "next-contact"],
   },

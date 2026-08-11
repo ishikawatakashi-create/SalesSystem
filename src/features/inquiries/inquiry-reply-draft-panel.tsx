@@ -53,7 +53,7 @@ export function InquiryReplyDraftPanel({
   if (!draftConfigured) {
     return (
       <section className="rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-        Gmail返信下書き連携は未設定です（管理者の Web App / secret 設定後に利用できます）。
+        Gmail返信下書きは現在利用できません。管理者に設定を確認してください。
       </section>
     );
   }
@@ -75,7 +75,7 @@ export function InquiryReplyDraftPanel({
           {aliases.map((a) => (
             <option key={a} value={a}>
               {a}
-              {primary && a === primary ? "（primary）" : ""}
+              {primary && a === primary ? "（既定）" : ""}
             </option>
           ))}
         </select>
@@ -107,10 +107,13 @@ export function InquiryReplyDraftPanel({
         {pending ? "作成中…" : "Gmail返信下書きを作成"}
       </button>
       {error ? (
-        <p className="mt-2 text-red-600">{error}</p>
+        <p className="mt-2 text-red-600" role="alert">{error}</p>
       ) : null}
       {done && message ? (
-        <div className="mt-2 space-y-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-emerald-900">
+        <div
+          className="mt-2 space-y-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-emerald-900"
+          role="status"
+        >
           <p>{message}</p>
           <a
             href="https://mail.google.com/mail/#drafts"

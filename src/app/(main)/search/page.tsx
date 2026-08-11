@@ -46,7 +46,7 @@ export default async function SearchPage({
 
   const groups = entityFilter
     ? result.groups.filter((g) => g.entity === entityFilter)
-    : result.groups;
+    : result.groups.filter((g) => g.hits.length > 0);
 
   return (
     <div>
@@ -132,7 +132,7 @@ export default async function SearchPage({
                         )}
                         {hit.badge && (
                           <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] font-normal text-slate-700">
-                            {hit.badge === "Prospect" ? "営業候補" : hit.badge}
+                            {hit.badge}
                           </span>
                         )}
                       </span>

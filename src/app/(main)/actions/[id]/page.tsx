@@ -52,7 +52,7 @@ export default async function ActionDetailPage({
       if (error.code === "in_trash") {
         return (
           <div className="mx-auto max-w-md py-16 text-center text-sm text-slate-600">
-            このアクションはNotionのゴミ箱にあります。
+            この次回アクションは削除済みです。
             <div className="mt-3">
               <Link href="/actions" className="text-xs text-primary underline">
                 一覧へ戻る
@@ -64,7 +64,7 @@ export default async function ActionDetailPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            次回アクションの取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             正本データを取得できないため、この画面ではキャッシュを表示しません。

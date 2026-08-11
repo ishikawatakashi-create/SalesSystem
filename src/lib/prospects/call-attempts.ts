@@ -9,6 +9,7 @@ import {
   type CallResult,
 } from "@/lib/prospects/call-results";
 import { setProspectDoNotContact } from "@/lib/prospects/dnc";
+import { guardCallQueueMembership } from "@/lib/prospects/call-queue";
 
 export type SaveCallAttemptInput = {
   requestId: string;
@@ -32,6 +33,19 @@ export type SaveCallAttemptResult = {
   promoteCtaStrong: boolean;
 };
 
+function isSameIdempotentAttempt(
+  existing: Record<string, unknown>,
+  input: SaveCallAttemptInput,
+  result: CallResult,
+): boolean {
+  return (
+    String(existing.prospect_id ?? "") === input.prospectId &&
+    String(existing.membership_id ?? "") === input.membershipId &&
+    String(existing.performed_by ?? "") === input.performedBy &&
+    String(existing.result ?? "") === result
+  );
+}
+
 export async function saveCallAttempt(
   input: SaveCallAttemptInput,
 ): Promise<SaveCallAttemptResult> {
@@ -53,10 +67,19 @@ export async function saveCallAttempt(
   // idempotency
   const { data: existing } = await admin
     .from("prospect_call_attempts")
-    .select("id,result")
+    .select("id,result,prospect_id,membership_id,performed_by")
     .eq("request_id", input.requestId)
     .maybeSingle();
   if (existing) {
+    if (
+      !isSameIdempotentAttempt(
+        existing as Record<string, unknown>,
+        input,
+        result,
+      )
+    ) {
+      throw new Error("request_id_conflict");
+    }
     const { data: mem } = await admin
       .from("prospect_list_memberships")
       .select("stage")
@@ -70,16 +93,17 @@ export async function saveCallAttempt(
     };
   }
 
-  const { data: membership, error: memErr } = await admin
-    .from("prospect_list_memberships")
-    .select("id,prospect_id,stage,next_contact_at,call_count,archived_at")
-    .eq("id", input.membershipId)
-    .maybeSingle();
-  if (memErr || !membership) throw new Error("membership_not_found");
-  if (membership.archived_at) throw new Error("membership_archived");
-  if (String(membership.prospect_id) !== input.prospectId) {
-    throw new Error("membership_prospect_mismatch");
-  }
+  const eligibility = await guardCallQueueMembership(
+    {
+      membershipId: input.membershipId,
+      userId: input.performedBy,
+      expectedProspectId: input.prospectId,
+      requireAvailableClaim: true,
+    },
+    { admin },
+  );
+  if (!eligibility.ok) throw new Error(eligibility.reason);
+  const membership = eligibility.membership;
 
   const phoneNormalized = input.phoneUsed
     ? normalizePhone(input.phoneUsed)
@@ -112,10 +136,19 @@ export async function saveCallAttempt(
     if (insErr.code === "23505") {
       const { data: again } = await admin
         .from("prospect_call_attempts")
-        .select("id")
+        .select("id,result,prospect_id,membership_id,performed_by")
         .eq("request_id", input.requestId)
         .maybeSingle();
       if (again) {
+        if (
+          !isSameIdempotentAttempt(
+            again as Record<string, unknown>,
+            input,
+            result,
+          )
+        ) {
+          throw new Error("request_id_conflict");
+        }
         return {
           attemptId: String(again.id),
           duplicated: true,

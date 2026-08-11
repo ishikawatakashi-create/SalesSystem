@@ -137,7 +137,7 @@ export function ActivityDetailView({
           <h2 className="mb-1 text-xs font-bold text-slate-700">関係者</h2>
           <dl className="divide-y divide-slate-100">
             <Item
-              label="顧客担当者"
+              label="先方担当者"
               value={
                 labels.contactNames.length === 0 ? (
                   "—"
@@ -176,7 +176,7 @@ export function ActivityDetailView({
 
         <section className="rounded border border-slate-200 bg-white p-3">
           <h2 className="mb-1 text-xs font-bold text-slate-700">
-            次回アクション(入力記録)
+            当時入力した次回予定（履歴メモ）
           </h2>
           <dl className="divide-y divide-slate-100">
             <Item
@@ -189,7 +189,7 @@ export function ActivityDetailView({
             />
           </dl>
           <p className="mt-1 text-[10px] text-slate-400">
-            入力記録のスナップショットです。正本は次回アクション一覧を参照してください。
+            これは対応時点の履歴メモです。現在の予定は「次回アクション一覧」で確認してください。
           </p>
         </section>
 

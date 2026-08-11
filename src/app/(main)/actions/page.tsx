@@ -15,6 +15,7 @@ import {
   loadListLabelMaps,
 } from "@/features/actions/list-data";
 import { ActionListTable } from "@/features/actions/list-table";
+import { PageHeading } from "@/components/ui/page-heading";
 import {
   ActionListTabs,
   ActionListToolbar,
@@ -63,18 +64,21 @@ export default async function ActionsPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">次回アクション一覧</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-        {canEdit && (
-          <Link
-            href="/actions/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-          >
-            新規登録
-          </Link>
-        )}
-      </div>
+      <PageHeading
+        title="次回アクション一覧"
+        description="これから行う連絡・訪問などを、期限と自社担当者で管理します。"
+        meta={`${total}件`}
+        actions={
+          canEdit ? (
+            <Link
+              href="/actions/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              次回アクションを登録
+            </Link>
+          ) : null
+        }
+      />
 
       <ActionListTabs view={view} params={params} />
       <ActionListToolbar query={query} filters={filters} view={view} />

@@ -16,6 +16,7 @@ import {
 } from "@/features/complaints/list-data";
 import { ComplaintListTable } from "@/features/complaints/list-table";
 import { ComplaintListToolbar } from "@/features/complaints/list-toolbar";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export const dynamic = "force-dynamic";
 
@@ -61,23 +62,28 @@ export default async function ComplaintsPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">クレーム一覧</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-        {query.unresolvedOnly && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
-            未解決のみ
-          </span>
-        )}
-        {canEdit && (
-          <Link
-            href="/complaints/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-          >
-            新規登録
-          </Link>
-        )}
-      </div>
+      <PageHeading
+        title="クレーム一覧"
+        description="クレームの内容・重要度・対応状況・社内対応責任者を管理します。"
+        status={
+          query.unresolvedOnly ? (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+              未解決のみ
+            </span>
+          ) : null
+        }
+        meta={`${total}件`}
+        actions={
+          canEdit ? (
+            <Link
+              href="/complaints/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              クレームを登録
+            </Link>
+          ) : null
+        }
+      />
 
       <ComplaintListToolbar query={query} filters={filters} />
 

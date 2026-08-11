@@ -8,11 +8,16 @@ describe("resolveNavGroup", () => {
     expect(resolveNavGroup("")).toBe("mydesk");
   });
 
-  it("顧客・担当者は customers", () => {
+  it("正式組織・営業候補・先方担当者は customers", () => {
+    expect(resolveNavGroup("/organizations")).toBe("customers");
+    expect(resolveNavGroup("/organizations/abc")).toBe("customers");
     expect(resolveNavGroup("/customers")).toBe("customers");
     expect(resolveNavGroup("/customers/abc")).toBe("customers");
     expect(resolveNavGroup("/contacts")).toBe("customers");
     expect(resolveNavGroup("/contacts/xyz/edit")).toBe("customers");
+    expect(resolveNavGroup("/prospect-lists")).toBe("customers");
+    expect(resolveNavGroup("/prospects")).toBe("customers");
+    expect(resolveNavGroup("/call-queue")).toBe("customers");
   });
 
   it("案件は deals", () => {

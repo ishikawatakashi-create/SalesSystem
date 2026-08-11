@@ -60,11 +60,11 @@ export default async function ContactActionNewPage({
           href={`/contacts/${id}`}
           className="ml-auto text-xs text-slate-500 hover:text-slate-900"
         >
-          担当者詳細へ戻る
+          先方担当者の詳細へ戻る
         </Link>
       </div>
       <p className="text-xs text-slate-500">
-        アクションに先方担当者フィールドはないため、所属顧客を事前選択しています。
+        次回アクションに先方担当者フィールドはないため、所属組織を事前選択しています。
       </p>
       <ActionForm
         meta={{ mode: "create", successRedirect: `/contacts/${id}` }}

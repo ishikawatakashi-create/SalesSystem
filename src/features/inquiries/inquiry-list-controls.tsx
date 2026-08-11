@@ -38,6 +38,7 @@ export function InquiryListControls({
   const [assignee, setAssignee] = useState(assignedUserId ?? "");
   const [currentStatus, setCurrentStatus] = useState<InquiryStatus>(status);
   const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [noActionOpen, setNoActionOpen] = useState(false);
   const [noActionReason, setNoActionReason] = useState("");
 
@@ -63,7 +64,7 @@ export function InquiryListControls({
           className="max-w-[9rem] rounded border border-slate-300 bg-white px-1 py-0.5 disabled:opacity-60"
           value={assignee}
           disabled={pending}
-          aria-label="担当者"
+          aria-label="社内対応担当"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onChange={(e) => {
@@ -71,6 +72,7 @@ export function InquiryListControls({
             const next = e.target.value;
             setAssignee(next);
             setError(null);
+            setSavedMessage(null);
             start(async () => {
               const r = await assignInquiryAction({
                 inquiryId,
@@ -81,6 +83,7 @@ export function InquiryListControls({
                 setError(r.message);
                 return;
               }
+              setSavedMessage("社内対応担当を保存しました");
               router.refresh();
             });
           }}
@@ -113,6 +116,7 @@ export function InquiryListControls({
             const prev = currentStatus;
             setCurrentStatus(next);
             setError(null);
+            setSavedMessage(null);
             start(async () => {
               const r = await setInquiryStatusAction({
                 inquiryId,
@@ -123,6 +127,7 @@ export function InquiryListControls({
                 setError(r.message);
                 return;
               }
+              setSavedMessage("状態を保存しました");
               router.refresh();
             });
           }}
@@ -134,7 +139,14 @@ export function InquiryListControls({
           ))}
         </select>
         {error ? (
-          <div className="mt-0.5 text-[10px] text-red-600">{error}</div>
+          <div className="mt-0.5 text-[10px] text-red-600" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {savedMessage ? (
+          <div className="mt-0.5 text-[10px] text-emerald-700" role="status">
+            {savedMessage}
+          </div>
         ) : null}
 
         {noActionOpen ? (
@@ -167,6 +179,7 @@ export function InquiryListControls({
                   className="rounded border border-slate-300 px-2 py-1"
                   onClick={() => {
                     setNoActionOpen(false);
+                    setSavedMessage(null);
                     setNoActionReason("");
                   }}
                 >
@@ -190,13 +203,14 @@ export function InquiryListControls({
                         setCurrentStatus(prev);
                         setError(r.message);
                       } else {
+                        setSavedMessage("対応不要に変更しました");
                         router.refresh();
                       }
                       setNoActionReason("");
                     });
                   }}
                 >
-                  保存
+                  対応不要にする
                 </button>
               </div>
             </div>

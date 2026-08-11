@@ -2,9 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeProspectAudit } from "@/lib/prospects/audit";
-import type {
-  ProspectListMembershipRow,
-  ProspectMembershipStage,
+import {
+  MANUAL_PROSPECT_MEMBERSHIP_STAGES,
+  type ProspectListMembershipRow,
+  type ProspectMembershipStage,
 } from "@/lib/prospects/types";
 
 export async function setMembershipAssignee(input: {
@@ -77,15 +78,82 @@ export async function setMembershipStage(input: {
   actorId: string;
   actorName: string;
 }): Promise<ProspectListMembershipRow> {
+  const requestedStage = String(input.stage);
+  if (requestedStage === "converted") {
+    throw new Error(
+      "「正式組織化済み」は正式な組織への登録処理でのみ設定できます",
+    );
+  }
+  if (
+    !MANUAL_PROSPECT_MEMBERSHIP_STAGES.includes(
+      requestedStage as (typeof MANUAL_PROSPECT_MEMBERSHIP_STAGES)[number],
+    )
+  ) {
+    throw new Error(
+      "指定された対応状況は利用できません。画面を再読み込みしてください。",
+    );
+  }
+  const stage = requestedStage as (typeof MANUAL_PROSPECT_MEMBERSHIP_STAGES)[number];
+
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const { data: current, error: readError } = await admin
     .from("prospect_list_memberships")
-    .update({ stage: input.stage })
+    .select("id,prospect_id,stage")
     .eq("id", input.membershipId)
     .is("archived_at", null)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!current) {
+    throw new Error(
+      "対象が見つからないため更新できません。画面を再読み込みしてください。",
+    );
+  }
+
+  if (current.stage === "converted") {
+    throw new Error(
+      "正式な組織に登録済みのため、対応状況は変更できません",
+    );
+  }
+
+  const prospectId =
+    typeof current.prospect_id === "string" ? current.prospect_id : "";
+  if (!prospectId) {
+    throw new Error(
+      "対象が見つからないため更新できません。画面を再読み込みしてください。",
+    );
+  }
+
+  const { data: prospect, error: prospectReadError } = await admin
+    .from("prospects")
+    .select("promotion_status")
+    .eq("id", prospectId)
+    .maybeSingle();
+  if (prospectReadError) throw new Error(prospectReadError.message);
+  if (!prospect) {
+    throw new Error(
+      "対象が見つからないため更新できません。画面を再読み込みしてください。",
+    );
+  }
+  if (prospect.promotion_status === "completed") {
+    throw new Error(
+      "正式な組織に登録済みのため、対応状況は変更できません",
+    );
+  }
+
+  const { data, error } = await admin
+    .from("prospect_list_memberships")
+    .update({ stage })
+    .eq("id", input.membershipId)
+    .is("archived_at", null)
+    .neq("stage", "converted")
     .select("*")
-    .single();
-  if (error || !data) throw new Error(error?.message ?? "stage update failed");
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    throw new Error(
+      "対応状況が更新されたため、画面を再読み込みして確認してください",
+    );
+  }
 
   await writeProspectAudit({
     actorId: input.actorId,
@@ -94,7 +162,7 @@ export async function setMembershipStage(input: {
     entityType: "prospect_membership",
     entityId: input.membershipId,
     changedFields: {
-      stage: input.stage,
+      stage,
       prospect_id: data.prospect_id,
       prospect_list_id: data.prospect_list_id,
     },
@@ -118,6 +186,11 @@ export async function bulkAssignMemberships(input: {
 }): Promise<{ updated: number; skipped: number }> {
   if (input.assigneeUserIds.length === 0) {
     throw new Error("担当者が必要です");
+  }
+  if (input.mode === "single" && input.assigneeUserIds.length !== 1) {
+    throw new Error(
+      "1人にまとめて割り当てる場合は、自社担当者を1人だけ選択してください",
+    );
   }
   const admin = createAdminClient();
   const onlyUnassigned = input.onlyUnassigned !== false;

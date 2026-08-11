@@ -27,7 +27,7 @@ export default function HelpQuickStartPage() {
           </li>
           <li>
             <Link href="/help/manual" className="underline">
-              完全マニュアル（詳細）
+              操作ガイド一覧
             </Link>
           </li>
         </ul>

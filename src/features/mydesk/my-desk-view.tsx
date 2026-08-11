@@ -37,7 +37,7 @@ const TODO_BADGE: Record<
 
 function statusLabel(semantic: string | null): string {
   if (!semantic) return "—";
-  return STATUS_LABEL[semantic] ?? semantic;
+  return STATUS_LABEL[semantic] ?? "状態要確認";
 }
 
 function Section({
@@ -250,7 +250,10 @@ export function MyDeskView({
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
           <h1 className="text-base font-bold text-slate-900">マイデスク</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-600">
+            今日の次回アクションと、担当中の案件・営業候補を確認します。
+          </p>
+          <p className="text-[11px] text-slate-500">
             {user.display_name} / 基準日 {snapshot.today}(JST)
           </p>
         </div>
@@ -259,13 +262,13 @@ export function MyDeskView({
             href="/organizations/new"
             className="rounded border border-slate-300 bg-white px-2 py-1 hover:bg-slate-50"
           >
-            +新規組織
+            組織を追加
           </Link>
           <Link
             href="/actions/new"
             className="rounded border border-slate-300 bg-white px-2 py-1 hover:bg-slate-50"
           >
-            +アクション
+            次回アクションを追加
           </Link>
         </div>
       </div>

@@ -54,7 +54,7 @@ export function MultiCheck({
   disabled?: boolean;
 }) {
   if (disabled) {
-    return <p className="text-xs text-slate-400">先に顧客を選択してください</p>;
+    return <p className="text-xs text-slate-400">先に組織を選択してください</p>;
   }
   if (options.length === 0) {
     return <p className="text-xs text-slate-400">{emptyText}</p>;
@@ -162,7 +162,7 @@ export function DealFormFields({
       {contactMismatch && contactMismatch.ids.length > 0 && (
         <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
           <p className="font-medium">
-            選択中の顧客担当者が、現在の顧客に所属していません。
+            選択中の先方担当者が、現在の組織に所属していません。
           </p>
           <p className="mt-0.5">
             対象: {contactMismatch.names.join("、") || "(不明)"}
@@ -173,7 +173,7 @@ export function DealFormFields({
             onClick={onClearIncompatibleContacts}
             className="mt-2 rounded border border-amber-400 bg-white px-3 py-1 hover:bg-amber-100"
           >
-            対象外の担当者を解除
+            対象外の先方担当者を解除
           </button>
         </div>
       )}
@@ -239,10 +239,10 @@ export function DealFormFields({
       <section className="rounded border border-slate-200 bg-white p-3">
         <h2 className="mb-2 text-xs font-bold text-slate-700">関係者</h2>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <Field label="顧客担当者" error={errMsg(errors, "contactPageIds")}>
+          <Field label="先方担当者" error={errMsg(errors, "contactPageIds")}>
             <MultiCheck
               disabled={!customerId}
-              emptyText="この顧客に紐づく担当者はありません"
+              emptyText="この組織に紐づく先方担当者はありません"
               options={contactsForCustomer.map((c) => ({
                 id: c.pageId,
                 label: c.name,

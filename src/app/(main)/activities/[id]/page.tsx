@@ -52,7 +52,7 @@ export default async function ActivityDetailPage({
       if (error.code === "in_trash") {
         return (
           <div className="mx-auto max-w-md py-16 text-center text-sm text-slate-600">
-            この対応履歴はNotionのゴミ箱にあります。
+            この対応履歴は削除済みです。
             <div className="mt-3">
               <Link
                 href="/activities"
@@ -67,7 +67,7 @@ export default async function ActivityDetailPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            対応履歴の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             正本データを取得できないため、この画面ではキャッシュを表示しません。

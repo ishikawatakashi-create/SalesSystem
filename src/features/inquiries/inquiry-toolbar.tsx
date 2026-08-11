@@ -74,7 +74,7 @@ export function InquiryToolbar({
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">担当</span>
+          <span className="text-slate-500">社内対応担当</span>
           <select
             value={assigned}
             onChange={(e) => setAssigned(e.target.value)}

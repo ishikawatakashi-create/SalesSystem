@@ -11,7 +11,7 @@ export type SearchEntity =
 export const SEARCH_ENTITY_LABELS: Record<SearchEntity, string> = {
   customers: "組織",
   prospects: "営業候補",
-  contacts: "担当者",
+  contacts: "先方担当者",
   deals: "案件",
   activities: "対応履歴",
   actions: "次回アクション",
@@ -40,7 +40,7 @@ export type GlobalSearchHit = {
   isArchived?: boolean;
   /** 組織(customer)のみ: 関係性 semantic_key */
   relationshipSemanticKeys?: string[];
-  /** Prospect バッジ用 */
+  /** 営業候補の状態バッジ用 */
   badge?: string;
   /** 昇格済み Prospect から正式組織へ */
   secondaryHref?: string;

@@ -1,6 +1,9 @@
 import "server-only";
 
-import { processProspectImportChunk } from "@/lib/prospects/import";
+import {
+  isTerminalProspectImportErrorMessage,
+  processProspectImportChunk,
+} from "@/lib/prospects/import";
 import type { JobHandler } from "@/lib/jobs/types";
 
 export const prospectCsvImportHandler: JobHandler = async (job, ctx) => {
@@ -44,6 +47,9 @@ export const prospectCsvImportHandler: JobHandler = async (job, ctx) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "prospect_csv_import_failed";
+    if (isTerminalProspectImportErrorMessage(message)) {
+      return { status: "failed", errorMessage: message };
+    }
     return {
       status: "retry",
       errorMessage: message,

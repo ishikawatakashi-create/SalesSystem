@@ -54,7 +54,10 @@ export function InquiryActionsPanel({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
   const [noActionReason, setNoActionReason] = useState("");
   const [showNoAction, setShowNoAction] = useState(false);
 
@@ -62,6 +65,19 @@ export function InquiryActionsPanel({
   const createOrgHref = `/organizations/new?fromInquiry=${inquiryId}${
     suggestedRel.length > 0 ? `&rel=${encodeURIComponent(suggestedRel.join(","))}` : ""
   }`;
+
+  function reportAction(
+    result: { ok: boolean; message?: string },
+    successMessage: string,
+  ) {
+    setFeedback({
+      kind: result.ok ? "success" : "error",
+      text: result.ok
+        ? successMessage
+        : result.message || "操作を完了できませんでした。もう一度お試しください。",
+    });
+    if (result.ok) router.refresh();
+  }
 
   if (!canEdit) {
     return (
@@ -73,14 +89,21 @@ export function InquiryActionsPanel({
 
   return (
     <div className="space-y-3 text-xs">
-      {message && (
-        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700">
-          {message}
+      {feedback && (
+        <div
+          className={
+            feedback.kind === "error"
+              ? "rounded border border-red-200 bg-red-50 px-2 py-1.5 text-red-700"
+              : "rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-emerald-800"
+          }
+          role={feedback.kind === "error" ? "alert" : "status"}
+        >
+          {feedback.text}
         </div>
       )}
 
       <section className="rounded border border-slate-200 bg-white p-3">
-        <h2 className="mb-2 font-semibold text-slate-800">担当・状態</h2>
+        <h2 className="mb-2 font-semibold text-slate-800">社内対応担当・状態</h2>
         <div className="flex flex-wrap items-center gap-2">
           <select
             className="rounded border border-slate-300 px-2 py-1"
@@ -93,8 +116,7 @@ export function InquiryActionsPanel({
                   inquiryId,
                   userId: v,
                 });
-                setMessage(r.ok ? "担当を更新しました" : r.message);
-                router.refresh();
+                reportAction(r, "社内対応担当を更新しました");
               });
             }}
           >
@@ -115,12 +137,11 @@ export function InquiryActionsPanel({
                   inquiryId,
                   userId: currentUserId,
                 });
-                setMessage(r.ok ? "自分を担当にしました" : r.message);
-                router.refresh();
+                reportAction(r, "自分を社内対応担当にしました");
               });
             }}
           >
-            自分を担当にする
+            自分を社内対応担当にする
           </button>
           <span className="text-slate-500">
             現在: {INQUIRY_STATUS_LABELS[status]}
@@ -145,8 +166,7 @@ export function InquiryActionsPanel({
                     inquiryId,
                     status: s,
                   });
-                  setMessage(r.ok ? "状態を更新しました" : r.message);
-                  router.refresh();
+                  reportAction(r, "状態を更新しました");
                 });
               }}
             >
@@ -192,8 +212,7 @@ export function InquiryActionsPanel({
                       noActionReason: noActionReason || null,
                     });
                     setShowNoAction(false);
-                    setMessage(r.ok ? "対応不要にしました" : r.message);
-                    router.refresh();
+                    reportAction(r, "対応不要にしました");
                   });
                 }}
               >
@@ -242,8 +261,7 @@ export function InquiryActionsPanel({
                         customerPageId: c.customerPageId,
                         contactPageId: c.contactPageId,
                       });
-                      setMessage(r.ok ? "組織を紐付けました" : r.message);
-                      router.refresh();
+                      reportAction(r, "組織を紐付けました");
                     });
                   }}
                 >
@@ -281,7 +299,7 @@ export function InquiryActionsPanel({
               href={`/contacts/${linkedContactPageId}`}
               className="rounded border border-slate-300 px-2 py-1.5 hover:bg-slate-50"
             >
-              紐付担当者を開く
+              紐付けた先方担当者を開く
             </Link>
           )}
         </div>
@@ -310,12 +328,7 @@ export function InquiryActionsPanel({
                   inquiryId,
                   requestId: crypto.randomUUID(),
                 });
-                setMessage(
-                  r.ok
-                    ? r.message || "対応履歴を作成しました"
-                    : r.message,
-                );
-                router.refresh();
+                reportAction(r, r.message || "対応履歴を作成しました");
               });
             }}
           >

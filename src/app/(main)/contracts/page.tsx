@@ -16,6 +16,7 @@ import {
 } from "@/features/contracts/list-data";
 import { ContractListTable } from "@/features/contracts/list-table";
 import { ContractListToolbar } from "@/features/contracts/list-toolbar";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export const dynamic = "force-dynamic";
 
@@ -63,18 +64,21 @@ export default async function ContractsPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">契約一覧</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-        {canEdit && (
-          <Link
-            href="/contracts/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-          >
-            新規登録
-          </Link>
-        )}
-      </div>
+      <PageHeading
+        title="契約一覧"
+        description="組織ごとの契約期間・金額・更新状況を管理します。"
+        meta={`${total}件`}
+        actions={
+          canEdit ? (
+            <Link
+              href="/contracts/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              契約を登録
+            </Link>
+          ) : null
+        }
+      />
 
       <ContractListToolbar query={query} filters={filters} />
 

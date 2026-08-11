@@ -42,7 +42,7 @@ export default async function ContactEditPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            先方担当者情報の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             編集を開始できません。通信状態を確認のうえ再試行してください。
@@ -77,7 +77,7 @@ export default async function ContactEditPage({
     <div className="mx-auto max-w-4xl space-y-3">
       <Breadcrumbs
         items={[
-          { label: "担当者一覧", href: "/contacts" },
+          { label: "先方担当者一覧", href: "/contacts" },
           {
             label: detail.name || "(無題)",
             href: `/contacts/${detail.notionPageId}`,

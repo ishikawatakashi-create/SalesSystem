@@ -49,10 +49,10 @@ export default async function CustomerDealNewPage({
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <p className="text-sm font-medium text-slate-900">
-          アーカイブ済みの顧客には案件を組織を追加できません
+          アーカイブ済みの組織には案件を追加できません
         </p>
         <p className="mt-1 text-xs text-slate-500">
-          顧客を有効に戻してから登録してください。
+          組織を有効に戻してから登録してください。
         </p>
         <Link
           href={`/organizations/${id}`}

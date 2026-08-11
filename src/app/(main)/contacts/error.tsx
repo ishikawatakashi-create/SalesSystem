@@ -9,7 +9,7 @@ export default function ContactsError({
   return (
     <div className="mx-auto max-w-md py-16 text-center">
       <p className="text-sm font-medium text-slate-900">
-        担当者情報の取得に失敗しました
+        先方担当者情報の取得に失敗しました
       </p>
       <p className="mt-1 text-xs text-slate-500">
         通信状態を確認のうえ、再試行してください。

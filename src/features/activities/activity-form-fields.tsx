@@ -54,7 +54,7 @@ function MultiCheck({
   disabled?: boolean;
 }) {
   if (disabled) {
-    return <p className="text-xs text-slate-400">先に顧客を選択してください</p>;
+    return <p className="text-xs text-slate-400">先に組織を選択してください</p>;
   }
   if (options.length === 0) {
     return <p className="text-xs text-slate-400">{emptyText}</p>;
@@ -221,11 +221,11 @@ export function ActivityFormFields({
         </Field>
       </div>
 
-      <Field label="顧客担当者">
+      <Field label="先方担当者">
         {lockedContactPageId ? (
           <p className="text-xs text-slate-800">
             {options.contacts.find((c) => c.pageId === lockedContactPageId)
-              ?.name ?? "(担当者)"}
+              ?.name ?? "(先方担当者)"}
           </p>
         ) : (
           <MultiCheck
@@ -236,7 +236,7 @@ export function ActivityFormFields({
             }))}
             values={contactValues}
             onToggle={(id) => toggleMulti("contactPageIds", id)}
-            emptyText="この顧客の担当者はありません"
+            emptyText="この組織の先方担当者はありません"
             disabled={!customerId}
           />
         )}
@@ -272,13 +272,13 @@ export function ActivityFormFields({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field
-          label="次回アクション(入力記録)"
+          label="当時入力した次回予定（履歴メモ）"
           error={errMsg(errors, "nextActionNote")}
         >
           <input className={inputCls} {...register("nextActionNote")} />
         </Field>
         <Field
-          label="次回予定日(入力記録)"
+          label="当時入力した予定日（履歴メモ）"
           error={errMsg(errors, "nextActionDate")}
         >
           <input
@@ -289,7 +289,7 @@ export function ActivityFormFields({
         </Field>
       </div>
       <p className="text-[11px] text-slate-500">
-        ※これは履歴用の記録です。実際のToDoは「次回アクション」に登録します。
+        ここへの入力だけでは「今日やること」には追加されません。予定として管理する場合は、下の「次回アクションも同時に作成」を選んでください。
       </p>
 
       {mode === "create" && showNextActionOption && (
@@ -304,7 +304,7 @@ export function ActivityFormFields({
                 })
               }
             />
-            続けて次回アクションを登録
+            次回アクションも同時に作成
           </label>
           {createNext && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">

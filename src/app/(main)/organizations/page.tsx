@@ -20,6 +20,8 @@ import { formatDate, formatYen } from "@/features/customers/format";
 import { CustomerListToolbar } from "@/features/customers/list-toolbar";
 import { RelationshipBadges } from "@/features/organizations/relationship-badges";
 import { PRIMARY_ORGANIZATION_RELATIONSHIP_FILTERS } from "@/lib/organizations/relationship";
+import { PageHeading } from "@/components/ui/page-heading";
+import { FormalOrganizationBadge } from "@/features/organizations/formal-organization-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,17 @@ export default async function CustomersPage({
   const total = count ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / CUSTOMER_LIST_PER_PAGE));
   const showingArchived = query.isArchived === true;
+  const hasRefinements = Boolean(
+    query.q ||
+      query.salesStatusId ||
+      query.businessCategoryId ||
+      query.staffUserId ||
+      query.prefecture ||
+      query.isArchived,
+  );
+  const clearHref = query.relationshipSemanticKey
+    ? `/organizations?relationship=${encodeURIComponent(query.relationshipSemanticKey)}`
+    : "/organizations";
 
   const sortHeader = (label: string) => {
     const key = SORTABLE[label];
@@ -87,20 +100,30 @@ export default async function CustomersPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">組織一覧</h1>
-        <span className="text-xs text-slate-500">
-          {total}件{showingArchived ? "(アーカイブ済み)" : ""}
-        </span>
-        {canEdit && (
+      <PageHeading
+        title="組織"
+        description="顧客・見込顧客・自治体・パートナーなど、正式登録した組織を管理します。"
+        status={<FormalOrganizationBadge />}
+        meta={`${total}件${showingArchived ? "（アーカイブ済み）" : ""}`}
+        supporting={
           <Link
-            href="/organizations/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            href="/prospect-lists"
+            className="font-medium text-slate-700 underline-offset-2 hover:underline"
           >
-            組織を追加
+            架電前の営業候補は営業リストで管理 →
           </Link>
-        )}
-      </div>
+        }
+        actions={
+          canEdit ? (
+            <Link
+              href="/organizations/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              組織を追加
+            </Link>
+          ) : null
+        }
+      />
 
       <div className="flex flex-wrap gap-1 text-xs">
         <Link
@@ -138,6 +161,7 @@ export default async function CustomersPage({
         query={query}
         filters={filters}
         showingArchived={showingArchived}
+        clearHref={clearHref}
       />
 
       <div className="overflow-x-auto rounded border border-slate-200 bg-white">
@@ -165,20 +189,43 @@ export default async function CustomersPage({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-3 py-10 text-center text-slate-500">
-                  {query.q ||
-                  query.salesStatusId ||
-                  query.businessCategoryId ||
-                  query.relationshipSemanticKey
-                    ? "条件に一致する組織がありません。条件を変更してください。"
-                    : "組織が登録されていません。"}
-                  {canEdit && !showingArchived && (
+                <td
+                  colSpan={14}
+                  className="px-3 py-10 text-center text-slate-500"
+                >
+                  {hasRefinements
+                    ? "条件に一致する組織がありません。条件を変更するか、絞り込みを解除してください。"
+                    : query.relationshipSemanticKey
+                      ? "この関係性の正式な組織はまだ登録されていません。"
+                    : "正式な組織はまだ登録されていません。"}
+                  {hasRefinements ? (
                     <span className="ml-2">
-                      <Link href="/organizations/new" className="text-primary underline">
-                        組織を追加
+                      <Link
+                        href={clearHref}
+                        className="font-medium text-primary underline"
+                      >
+                        条件を解除
                       </Link>
                     </span>
-                  )}
+                  ) : query.relationshipSemanticKey ? (
+                    <span className="ml-2">
+                      <Link
+                        href="/organizations"
+                        className="font-medium text-primary underline"
+                      >
+                        すべての正式な組織を見る
+                      </Link>
+                    </span>
+                  ) : canEdit && !showingArchived ? (
+                    <span className="ml-2">
+                      <Link
+                        href="/organizations/new"
+                        className="text-primary underline"
+                      >
+                        最初の組織を追加
+                      </Link>
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             )}

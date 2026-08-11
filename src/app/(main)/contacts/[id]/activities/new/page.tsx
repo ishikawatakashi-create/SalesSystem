@@ -83,7 +83,7 @@ export default async function ContactActivityNewPage({
           href={`/contacts/${id}`}
           className="ml-auto text-xs text-slate-500 hover:text-slate-900"
         >
-          担当者詳細へ戻る
+          先方担当者の詳細へ戻る
         </Link>
       </div>
       <ActivityForm

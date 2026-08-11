@@ -18,14 +18,28 @@ export function ProspectDncForm({
   const [pending, start] = useTransition();
   const [localReason, setLocalReason] = useState(reason);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   return (
     <section className="space-y-2 rounded border border-slate-200 bg-white p-3 text-xs">
-      <h2 className="font-semibold text-slate-800">Do Not Contact</h2>
-      {error ? <p className="text-red-600">{error}</p> : null}
+      <h2 className="font-semibold text-slate-800">営業連絡不要</h2>
+      <p className="text-[11px] text-slate-500">
+        設定すると、この企業はすべての営業リストの架電対象から外れます。
+      </p>
+      {error ? (
+        <p className="text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {success ? (
+        <p role="status" className="text-emerald-700">
+          {success}
+        </p>
+      ) : null}
       <input
+        aria-label="営業連絡不要にする理由"
         className="w-full rounded border border-slate-200 px-2 py-1"
-        placeholder="理由"
+        placeholder="理由（例：先方から営業連絡停止の希望）"
         value={localReason}
         onChange={(e) => setLocalReason(e.target.value)}
         disabled={pending}
@@ -38,6 +52,7 @@ export function ProspectDncForm({
             className="rounded bg-red-700 px-2 py-1 text-white disabled:opacity-50"
             onClick={() => {
               setError(null);
+              setSuccess(null);
               start(async () => {
                 const res = await setProspectDncAction({
                   prospectId,
@@ -45,11 +60,14 @@ export function ProspectDncForm({
                   reason: localReason,
                 });
                 if (!res.ok) setError(res.error);
-                else router.refresh();
+                else {
+                  setSuccess("営業連絡不要に設定しました");
+                  router.refresh();
+                }
               });
             }}
           >
-            DNC に設定
+            営業連絡不要に設定
           </button>
         ) : (
           <button
@@ -58,17 +76,21 @@ export function ProspectDncForm({
             className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
             onClick={() => {
               setError(null);
+              setSuccess(null);
               start(async () => {
                 const res = await setProspectDncAction({
                   prospectId,
                   doNotContact: false,
                 });
                 if (!res.ok) setError(res.error);
-                else router.refresh();
+                else {
+                  setSuccess("営業連絡不要を解除しました");
+                  router.refresh();
+                }
               });
             }}
           >
-            DNC を解除
+            営業連絡不要を解除
           </button>
         )}
       </div>

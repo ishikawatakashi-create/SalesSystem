@@ -14,7 +14,7 @@ const TOP_LINKS = [
   { href: "/help#common", label: "よくある操作" },
   { href: "/help/terminology", label: "用語集" },
   { href: "/help#categories", label: "画面別・カテゴリ" },
-  { href: "/help/manual", label: "完全マニュアル" },
+  { href: "/help/manual", label: "操作ガイド一覧" },
 ] as const;
 
 export default async function HelpTopPage({

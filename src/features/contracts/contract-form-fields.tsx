@@ -226,8 +226,8 @@ export function ContractFormFields({
       </section>
 
       <section className="rounded border border-slate-200 bg-white p-3">
-        <h2 className="mb-2 text-xs font-bold text-slate-700">担当者</h2>
-        <Field label="担当者" error={errMsg(errors, "staffPageIds")}>
+        <h2 className="mb-2 text-xs font-bold text-slate-700">自社担当者</h2>
+        <Field label="自社担当者" error={errMsg(errors, "staffPageIds")}>
           <MultiCheck
             emptyText="自社担当者がいません"
             options={options.staff.map((s) => ({

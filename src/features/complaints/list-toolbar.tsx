@@ -113,7 +113,7 @@ export function ComplaintListToolbar({
           </select>
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">対応責任者</span>
+          <span className="text-slate-500">社内対応責任者</span>
           <select
             name="staff"
             defaultValue={query.staffUserId ?? ""}

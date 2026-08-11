@@ -43,6 +43,8 @@ export default async function MainLayout({
         showSync={hasPermission(user.role, "sync.manage")}
         showGmail={hasPermission(user.role, "settings.manage")}
         showInquiries={showInquiries}
+        showProspects={hasPermission(user.role, "prospect.view")}
+        showCallQueue={hasPermission(user.role, "prospect.call")}
         inquiryNewCount={inquiryNewCount}
       />
       <main className="mx-auto max-w-7xl p-4">

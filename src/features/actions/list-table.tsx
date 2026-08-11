@@ -68,8 +68,8 @@ export function ActionListTable({
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
             <th className="px-2 py-1.5 font-medium">{sortHeader("期限")}</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("内容")}</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
-            <th className="px-2 py-1.5 font-medium">担当</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
+            <th className="px-2 py-1.5 font-medium">自社担当者</th>
             <th className="px-2 py-1.5 font-medium">状態</th>
             <th className="px-2 py-1.5 font-medium">優先度</th>
             <th className="px-2 py-1.5 font-medium">案件</th>
@@ -97,7 +97,7 @@ export function ActionListTable({
                       href="/actions/new"
                       className="text-primary underline"
                     >
-                      新規登録
+                      次回アクションを登録
                     </Link>
                   </span>
                 )}

@@ -5,9 +5,8 @@ import { listHelpArticles } from "@/lib/help/articles";
 import { HELP_CATEGORIES } from "@/lib/help/categories";
 
 /**
- * アプリ内の「完全マニュアル」入口。
- * 詳細本文の正本は docs/user-guide/manual.md。
- * ここでは記事一覧＋docsへの案内で探しやすくする。
+ * アプリ内の「操作ガイド一覧」ページ。
+ * やりたいことやカテゴリから、各操作記事へ辿れるようにする。
  */
 export default function HelpManualPage() {
   const articles = listHelpArticles({ includeAdmin: true });
@@ -17,16 +16,14 @@ export default function HelpManualPage() {
       <Breadcrumbs
         items={[
           { label: "ヘルプ", href: "/help" },
-          { label: "完全マニュアル" },
+          { label: "操作ガイド一覧" },
         ]}
       />
       <h1 className="mt-2 text-base font-bold text-slate-900">
-        SalesSystem 利用マニュアル
+        SalesSystem 操作ガイド一覧
       </h1>
       <p className="mt-1 text-xs text-slate-600">
-        アプリ内では操作記事をカテゴリ別に辿れます。印刷・研修用の長文は
-        <code className="mx-1 rounded bg-slate-100 px-1">docs/user-guide/manual.md</code>
-        を参照してください。
+        やりたい操作を下の一覧から選んでください。各記事で手順と注意点を確認できます。
       </p>
 
       <section className="mt-4 rounded border border-slate-200 bg-slate-50 p-3 text-xs">

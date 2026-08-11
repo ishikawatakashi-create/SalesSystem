@@ -16,15 +16,31 @@ import {
 } from "@/lib/prospects/types";
 import { MembershipControls } from "@/features/prospects/membership-controls";
 import { BulkAssignPanel } from "@/features/prospects/bulk-assign-panel";
-import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { FilterDisclosure } from "@/components/ui/filter-disclosure";
 import { formatDateTime } from "@/features/customers/format";
 import { fetchListCallKpis, formatRate } from "@/lib/prospects/kpi";
 import { CALL_RESULT_LABELS, type CallResult } from "@/lib/prospects/call-results";
+import { PageHeading } from "@/components/ui/page-heading";
+import { EmptyState } from "@/components/ui/state-messages";
+import { ProspectLifecycleStatus } from "@/features/prospects/lifecycle-status";
+import { AssignmentFilterFields } from "@/features/prospects/assignment-filter-fields";
+import {
+  buildProspectListDetailHref,
+  parseProspectListKpiPeriod,
+  parseProspectListPage,
+  PROSPECT_LIST_KPI_PERIODS,
+  resolveProspectAssignmentFilter,
+  type ProspectListDetailSearchParams,
+} from "@/lib/prospects/list-detail-params";
+import {
+  canStartProspectPromotion,
+  PROSPECT_LIST_STATUS_LABELS,
+  PROSPECT_SOURCE_TYPE_LABELS,
+} from "@/lib/prospects/presentation";
 
 export const dynamic = "force-dynamic";
 
-type RawParams = Record<string, string | string[] | undefined>;
+type RawParams = ProspectListDetailSearchParams;
 
 function str(params: RawParams, key: string): string | undefined {
   const v = params[key];
@@ -51,7 +67,7 @@ export default async function ProspectListDetailPage({
   const { id } = await params;
   const raw = await searchParams;
   const list = await getProspectList(id);
-  if (!list || list.archived_at) {
+  if (!list || list.archived_at || list.status === "archived") {
     redirect("/prospect-lists");
   }
 
@@ -59,11 +75,14 @@ export default async function ProspectListDetailPage({
   const canImport = hasPermission(user.role, "prospect.import");
   const canAssign = hasPermission(user.role, "prospect.assign");
   const canCall = hasPermission(user.role, "prospect.call");
-  const kpiPeriod =
-    (str(raw, "kpi") as "today" | "7d" | "30d" | "all" | undefined) ?? "30d";
+  const kpiPeriod = parseProspectListKpiPeriod(str(raw, "kpi"));
+  const assignmentFilter = resolveProspectAssignmentFilter({
+    assignedUserId: str(raw, "assigned"),
+    unassignedOnly: str(raw, "unassigned") === "1",
+  });
 
   const stageParam = str(raw, "stage") as ProspectMembershipStage | undefined;
-  const page = Math.max(Number(str(raw, "page") ?? "1") || 1, 1);
+  const page = parseProspectListPage(str(raw, "page"));
   const { items, total } = await queryProspectListMembers({
     listId: id,
     q: str(raw, "q"),
@@ -71,8 +90,8 @@ export default async function ProspectListDetailPage({
       stageParam && PROSPECT_MEMBERSHIP_STAGES.includes(stageParam)
         ? stageParam
         : null,
-    assignedUserId: str(raw, "assigned"),
-    unassignedOnly: str(raw, "unassigned") === "1",
+    assignedUserId: assignmentFilter.assignedUserId,
+    unassignedOnly: assignmentFilter.unassignedOnly,
     prefecture: str(raw, "prefecture"),
     industry: str(raw, "industry"),
     dncOnly: str(raw, "dnc") === "1",
@@ -122,40 +141,55 @@ export default async function ProspectListDetailPage({
     (str(raw, "dnc") === "1" ? 1 : 0) +
     (str(raw, "duplicate") === "1" ? 1 : 0) +
     (str(raw, "formalMatch") === "1" ? 1 : 0);
+  const hasFilters = Boolean(
+    str(raw, "q") ||
+      str(raw, "stage") ||
+      assignmentFilter.assignedUserId ||
+      assignmentFilter.unassignedOnly ||
+      advanced > 0,
+  );
 
   const pageCount = Math.max(Math.ceil(total / 50), 1);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
+      <div>
+        <div className="mb-1">
           <Link href="/prospect-lists" className="text-xs text-slate-500">
-            ← 営業リスト
+            ← 営業リスト一覧
           </Link>
-          <h1 className="text-base font-bold">{list.name}</h1>
-          <p className="text-xs text-slate-500">
-            {list.source_type}
-            {list.source_name ? ` / ${list.source_name}` : ""} · {list.status}
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canCall ? (
-            <Link
-              href={`/call-queue?list=${id}`}
-              className="rounded bg-slate-900 px-2 py-1 text-xs text-white"
-            >
-              架電キュー
-            </Link>
-          ) : null}
-          {canImport ? (
-            <Link
-              href={`/prospect-lists/${id}/import`}
-              className="rounded bg-slate-800 px-2 py-1 text-xs text-white"
-            >
-              CSVをインポート
-            </Link>
-          ) : null}
-        </div>
+        <PageHeading
+          title={list.name}
+          description="候補企業を割り当て、架電し、必要な企業を正式な組織へ登録するための作業リストです。昇格済みの企業も履歴として残ります。"
+          supporting={
+            <span>
+              入手元：{PROSPECT_SOURCE_TYPE_LABELS[list.source_type]}
+              {list.source_name ? `（${list.source_name}）` : ""} ・状態：
+              {PROSPECT_LIST_STATUS_LABELS[list.status]}
+            </span>
+          }
+          actions={
+            <>
+              {canCall ? (
+                <Link
+                  href={`/call-queue?list=${id}`}
+                  className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                >
+                  このリストの架電を開始
+                </Link>
+              ) : null}
+              {canImport ? (
+                <Link
+                  href={`/prospect-lists/${id}/import`}
+                  className="rounded border border-slate-400 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  CSVから営業候補を追加
+                </Link>
+              ) : null}
+            </>
+          }
+        />
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs">
@@ -165,18 +199,22 @@ export default async function ProspectListDetailPage({
         <Stat label="対応中" value={stats?.working_count ?? 0} />
         <Stat label="見込あり" value={stats?.qualified_count ?? 0} />
         <Stat label="対象外" value={stats?.disqualified_count ?? 0} />
-        <Stat label="DNC" value={stats?.dnc_count ?? 0} />
+        <Stat label="営業連絡不要" value={stats?.dnc_count ?? 0} />
         <Stat label="重複候補" value={stats?.duplicate_review_count ?? 0} />
       </div>
 
       {callKpi ? (
         <div className="space-y-1 text-xs">
           <div className="flex flex-wrap items-center gap-2 text-slate-600">
-            <span className="font-semibold text-slate-800">架電KPI</span>
-            {(["today", "7d", "30d", "all"] as const).map((p) => (
+            <span className="font-semibold text-slate-800">架電実績</span>
+            {PROSPECT_LIST_KPI_PERIODS.map((p) => (
               <Link
                 key={p}
-                href={`?kpi=${p}`}
+                href={buildProspectListDetailHref(raw, {
+                  kpi: p,
+                  assigned: assignmentFilter.assignedUserId,
+                  unassigned: assignmentFilter.unassignedOnly ? "1" : null,
+                })}
                 className={
                   kpiPeriod === p ? "font-semibold underline" : "underline"
                 }
@@ -193,11 +231,14 @@ export default async function ProspectListDetailPage({
           </div>
           <div className="flex flex-wrap gap-3">
             <Stat label="架電数" value={callKpi.attemptCount} />
-            <Stat label="接触(社数)" value={callKpi.connectedProspectCount} />
+            <Stat
+              label="接触できた企業"
+              value={callKpi.connectedProspectCount}
+            />
             <Stat label="興味あり" value={callKpi.interestedProspectCount} />
             <Stat label="アポ" value={callKpi.appointmentProspectCount} />
             <Stat label="対象外" value={callKpi.disqualifiedProspectCount} />
-            <Stat label="DNC" value={callKpi.dncProspectCount} />
+            <Stat label="営業連絡不要" value={callKpi.dncProspectCount} />
             <div className="rounded border border-slate-200 bg-white px-2 py-1">
               <div className="text-[10px] text-slate-500">接触率</div>
               <div className="font-semibold text-slate-800">
@@ -215,11 +256,12 @@ export default async function ProspectListDetailPage({
       ) : null}
 
       <form className="space-y-2 text-xs" method="get">
+        <input type="hidden" name="kpi" value={kpiPeriod} />
         <div className="flex flex-wrap gap-2">
           <input
             name="q"
             defaultValue={str(raw, "q") ?? ""}
-            placeholder="検索"
+            placeholder="会社名・所在地・Webドメイン"
             className="rounded border border-slate-200 px-2 py-1"
           />
           <select
@@ -227,39 +269,23 @@ export default async function ProspectListDetailPage({
             defaultValue={str(raw, "stage") ?? ""}
             className="rounded border border-slate-200 px-1 py-1"
           >
-            <option value="">すべてのstage</option>
+            <option value="">すべての対応状況</option>
             {PROSPECT_MEMBERSHIP_STAGES.map((s) => (
               <option key={s} value={s}>
                 {PROSPECT_STAGE_LABELS[s]}
               </option>
             ))}
           </select>
-          <select
-            name="assigned"
-            defaultValue={str(raw, "assigned") ?? ""}
-            className="rounded border border-slate-200 px-1 py-1"
-          >
-            <option value="">すべての担当</option>
-            {activeAssignees.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              name="unassigned"
-              value="1"
-              defaultChecked={str(raw, "unassigned") === "1"}
-            />
-            未割当のみ
-          </label>
+          <AssignmentFilterFields
+            assignees={activeAssignees}
+            initialAssignedUserId={assignmentFilter.assignedUserId}
+            initialUnassignedOnly={assignmentFilter.unassignedOnly}
+          />
           <button
             type="submit"
             className="rounded border border-slate-300 px-2 py-1"
           >
-            適用
+            条件を適用
           </button>
         </div>
         <FilterDisclosure appliedCount={advanced}>
@@ -283,7 +309,7 @@ export default async function ProspectListDetailPage({
                 value="1"
                 defaultChecked={str(raw, "dnc") === "1"}
               />
-              DNC
+              営業連絡不要のみ
             </label>
             <label className="flex items-center gap-1">
               <input
@@ -301,13 +327,13 @@ export default async function ProspectListDetailPage({
                 value="1"
                 defaultChecked={str(raw, "formalMatch") === "1"}
               />
-              正式組織match
+              既存の正式組織候補あり
             </label>
           </div>
         </FilterDisclosure>
       </form>
 
-      {canAssign ? (
+      {canAssign && items.length > 0 ? (
         <BulkAssignPanel
           listId={id}
           membershipIds={items.map((i) => i.membership.id)}
@@ -316,24 +342,50 @@ export default async function ProspectListDetailPage({
       ) : null}
 
       {items.length === 0 ? (
-        <CompactEmptyState message="該当する営業候補はありません。" />
+        <EmptyState
+          title={
+            hasFilters
+              ? "条件に一致する営業候補がありません"
+              : "この営業リストには候補企業がありません"
+          }
+          hint={
+            hasFilters
+              ? "条件を変更するか、絞り込みを解除してください。"
+              : "CSVを取り込んで、架電対象となる候補企業を追加してください。"
+          }
+          actionHref={
+            hasFilters
+              ? `/prospect-lists/${id}`
+              : canImport
+                ? `/prospect-lists/${id}/import`
+                : undefined
+          }
+          actionLabel={
+            hasFilters
+              ? "条件を解除"
+              : canImport
+                ? "CSVから営業候補を追加"
+                : undefined
+          }
+        />
       ) : (
         <div className="overflow-x-auto rounded border border-slate-200 bg-white">
           <table className="min-w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-2 py-1.5 font-medium">会社名</th>
+                <th className="px-2 py-1.5 font-medium">登録段階</th>
                 <th className="px-2 py-1.5 font-medium">所在地</th>
                 <th className="px-2 py-1.5 font-medium">業種</th>
-                <th className="px-2 py-1.5 font-medium">Web</th>
+                <th className="px-2 py-1.5 font-medium">Webドメイン</th>
                 <th className="px-2 py-1.5 font-medium">電話</th>
-                <th className="px-2 py-1.5 font-medium">担当者</th>
-                <th className="px-2 py-1.5 font-medium">担当/stage</th>
+                <th className="px-2 py-1.5 font-medium">連絡先担当者</th>
+                <th className="px-2 py-1.5 font-medium">自社担当者 / 対応状況</th>
                 <th className="px-2 py-1.5 font-medium">最終接触</th>
-                <th className="px-2 py-1.5 font-medium">結果</th>
+                <th className="px-2 py-1.5 font-medium">架電結果</th>
                 <th className="px-2 py-1.5 font-medium">次回</th>
-                <th className="px-2 py-1.5 font-medium">架電</th>
-                <th className="px-2 py-1.5 font-medium">flag</th>
+                <th className="px-2 py-1.5 font-medium">架電回数</th>
+                <th className="px-2 py-1.5 font-medium">確認事項</th>
               </tr>
             </thead>
             <tbody>
@@ -349,6 +401,12 @@ export default async function ProspectListDetailPage({
                     >
                       {prospect.company_name}
                     </Link>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <ProspectLifecycleStatus
+                      promotionStatus={prospect.promotion_status}
+                      promotedPageId={prospect.promoted_customer_page_id}
+                    />
                   </td>
                   <td className="px-2 py-1.5 text-slate-600">
                     {[prospect.prefecture, prospect.city]
@@ -380,7 +438,7 @@ export default async function ProspectListDetailPage({
                     {membership.last_call_result
                       ? CALL_RESULT_LABELS[
                           membership.last_call_result as CallResult
-                        ] ?? membership.last_call_result
+                        ] ?? "結果要確認"
                       : "—"}
                   </td>
                   <td className="whitespace-nowrap px-2 py-1.5 text-slate-500">
@@ -391,21 +449,29 @@ export default async function ProspectListDetailPage({
                   <td className="px-2 py-1.5">{membership.call_count ?? 0}</td>
                   <td className="px-2 py-1.5">
                     {prospect.do_not_contact ? (
-                      <span className="text-red-600">DNC</span>
-                    ) : null}{" "}
-                    {prospect.promotion_status === "completed" ? (
-                      <span className="text-emerald-700">正式組織化</span>
-                    ) : null}{" "}
+                      <span className="mr-1 inline-flex items-center gap-1 rounded border border-red-300 bg-red-50 px-1 py-0.5 text-[10px] text-red-800">
+                        <span aria-hidden="true">⊘</span>
+                        営業連絡不要
+                      </span>
+                    ) : null}
                     {prospect.duplicate_review_status === "probable" ? (
-                      <span className="text-amber-600">重複?</span>
-                    ) : null}{" "}
-                    {prospect.formal_org_match_page_id ? (
+                      <span className="mr-1 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[10px] text-amber-900">
+                        <span aria-hidden="true">!</span>
+                        重複候補
+                      </span>
+                    ) : null}
+                    {prospect.formal_org_match_page_id &&
+                    canStartProspectPromotion(prospect.promotion_status) ? (
                       <Link
                         href={`/organizations/${prospect.formal_org_match_page_id}`}
-                        className="text-primary underline"
+                        className="inline-flex items-center gap-1 rounded border border-blue-300 bg-blue-50 px-1 py-0.5 text-[10px] text-blue-800 hover:bg-blue-100"
                       >
-                        既存組織
+                        <span aria-hidden="true">↗</span>
+                        正式組織の候補あり
                       </Link>
+                    ) : !prospect.do_not_contact &&
+                      prospect.duplicate_review_status !== "probable" ? (
+                      <span className="text-slate-400">—</span>
                     ) : null}
                   </td>
                 </tr>
@@ -419,7 +485,12 @@ export default async function ProspectListDetailPage({
         <div className="flex gap-2 text-xs">
           {page > 1 ? (
             <Link
-              href={`?${new URLSearchParams({ ...Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] ?? "" : v ?? ""])), page: String(page - 1) }).toString()}`}
+              href={buildProspectListDetailHref(raw, {
+                assigned: assignmentFilter.assignedUserId,
+                unassigned: assignmentFilter.unassignedOnly ? "1" : null,
+                kpi: kpiPeriod,
+                page: String(page - 1),
+              })}
               className="underline"
             >
               前へ
@@ -430,7 +501,12 @@ export default async function ProspectListDetailPage({
           </span>
           {page < pageCount ? (
             <Link
-              href={`?${new URLSearchParams({ ...Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] ?? "" : v ?? ""])), page: String(page + 1) }).toString()}`}
+              href={buildProspectListDetailHref(raw, {
+                assigned: assignmentFilter.assignedUserId,
+                unassigned: assignmentFilter.unassignedOnly ? "1" : null,
+                kpi: kpiPeriod,
+                page: String(page + 1),
+              })}
               className="underline"
             >
               次へ

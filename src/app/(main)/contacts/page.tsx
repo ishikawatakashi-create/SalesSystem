@@ -16,6 +16,7 @@ import {
   loadListLabelMaps,
 } from "@/features/contacts/list-data";
 import { ContactListToolbar } from "@/features/contacts/list-toolbar";
+import { PageHeading } from "@/components/ui/page-heading";
 import { ClickableRow } from "@/features/customers/clickable-row";
 import { formatDateTime, formatOptional } from "@/features/contacts/format";
 
@@ -57,6 +58,12 @@ export default async function ContactsPage({
   const total = count ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / CONTACT_LIST_PER_PAGE));
   const showingInactive = query.isActive === false;
+  const hasActiveFilters = Boolean(
+    query.q ||
+      query.customerPageId ||
+      query.contactTypeId ||
+      showingInactive,
+  );
 
   const sortHeader = (label: string) => {
     const key = SORTABLE[label];
@@ -84,20 +91,21 @@ export default async function ContactsPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-bold">先方担当者一覧</h1>
-        <span className="text-xs text-slate-500">
-          {total}件{showingInactive ? "(無効のみ)" : ""}
-        </span>
-        {canEdit && (
-          <Link
-            href="/contacts/new"
-            className="ml-auto rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-          >
-            新規登録
-          </Link>
-        )}
-      </div>
+      <PageHeading
+        title="先方担当者一覧"
+        description="正式な組織に所属する、相手先の連絡先を管理します。"
+        meta={`${total}件${showingInactive ? "（無効のみ）" : ""}`}
+        actions={
+          canEdit ? (
+            <Link
+              href="/contacts/new"
+              className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              先方担当者を登録
+            </Link>
+          ) : null
+        }
+      />
 
       <ContactListToolbar
         query={query}
@@ -132,19 +140,25 @@ export default async function ContactsPage({
                   colSpan={10}
                   className="px-3 py-10 text-center text-slate-500"
                 >
-                  {query.q || query.customerPageId || query.contactTypeId
-                    ? "条件に一致する担当者がありません。条件を変更してください。"
-                    : "先方担当者が登録されていません。"}
-                  {canEdit && !showingInactive && (
+                  {hasActiveFilters
+                    ? "条件に一致する先方担当者はいません。"
+                    : "先方担当者がまだ登録されていません。"}
+                  {hasActiveFilters ? (
+                    <span className="ml-2">
+                      <Link href="/contacts" className="text-primary underline">
+                        条件をリセット
+                      </Link>
+                    </span>
+                  ) : canEdit ? (
                     <span className="ml-2">
                       <Link
                         href="/contacts/new"
                         className="text-primary underline"
                       >
-                        新規登録
+                        先方担当者を登録
                       </Link>
                     </span>
-                  )}
+                  ) : null}
                 </td>
               </tr>
             )}

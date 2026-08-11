@@ -74,7 +74,7 @@ export default async function DealDetailPage({
       if (error.code === "in_trash") {
         return (
           <div className="mx-auto max-w-md py-16 text-center text-sm text-slate-600">
-            この案件はNotionのゴミ箱にあります。
+            この案件は削除済みです。
             <div className="mt-3">
               <Link href="/deals" className="text-xs text-primary underline">
                 一覧へ戻る
@@ -86,7 +86,7 @@ export default async function DealDetailPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            案件情報の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             正本データを取得できないため、この画面ではキャッシュを表示しません。

@@ -174,7 +174,7 @@ export default async function CustomerDetailPage({
       if (error.code === "in_trash") {
         return (
           <div className="mx-auto max-w-md py-16 text-center text-sm text-slate-600">
-            この顧客はNotionのゴミ箱にあります。
+            この組織は削除済みです。
             <div className="mt-3">
               <Link href="/organizations" className="text-xs text-primary underline">
                 一覧へ戻る
@@ -186,11 +186,10 @@ export default async function CustomerDetailPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            組織情報の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            正本データを取得できないため、この画面ではキャッシュを表示しません。
-            通信状態を確認のうえ再試行してください。
+            最新の組織情報を取得できませんでした。通信状態を確認のうえ再試行してください。
           </p>
           <div className="mt-4 flex items-center justify-center gap-3 text-xs">
             <a
@@ -410,7 +409,7 @@ export default async function CustomerDetailPage({
                 href={`/organizations/${detail.notionPageId}/actions/new`}
                 className="rounded border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50"
               >
-                アクション追加
+                次回アクションを追加
               </Link>
             )}
           </div>
@@ -421,7 +420,7 @@ export default async function CustomerDetailPage({
               href={`/organizations/${detail.notionPageId}/contacts/new`}
               className="underline-offset-2 hover:underline"
             >
-              担当者追加
+              先方担当者を追加
             </Link>
           )}
           {canEditDeal && !detail.isArchived && (
@@ -524,7 +523,7 @@ export default async function CustomerDetailPage({
 
       {/* 4. 案件・担当者 */}
       <section className="space-y-2">
-        <h2 className="text-xs font-bold text-slate-700">案件・担当者</h2>
+        <h2 className="text-xs font-bold text-slate-700">案件・先方担当者</h2>
         <section className="rounded border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-2.5 py-1.5">
             <h3 className="text-xs font-bold text-slate-700">先方担当者</h3>
@@ -558,8 +557,8 @@ export default async function CustomerDetailPage({
               <CompactEmptyState
                 message={
                   includeInactiveContacts
-                    ? "担当者は登録されていません。"
-                    : "有効な担当者はいません。"
+                    ? "先方担当者は登録されていません。"
+                    : "有効な先方担当者はいません。"
                 }
                 actionHref={
                   canEditContact && !detail.isArchived
@@ -568,7 +567,7 @@ export default async function CustomerDetailPage({
                 }
                 actionLabel={
                   canEditContact && !detail.isArchived
-                    ? "担当者を追加"
+                    ? "先方担当者を追加"
                     : undefined
                 }
               />

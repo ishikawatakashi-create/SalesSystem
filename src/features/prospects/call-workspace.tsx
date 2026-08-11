@@ -18,6 +18,12 @@ import {
   saveCallAttemptAction,
 } from "@/features/prospects/call-actions";
 import { PromoteDialog } from "@/features/prospects/promote-dialog";
+import { ProspectLifecycleStatus } from "@/features/prospects/lifecycle-status";
+import {
+  formalMatchConfidenceLabel,
+  resolveProspectLifecycle,
+} from "@/lib/prospects/presentation";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
 type Props = {
   membershipId: string;
@@ -80,6 +86,7 @@ function localInputToIso(local: string): string | null {
 
 export function CallWorkspace(props: Props) {
   const router = useRouter();
+  const filter = normalizeCallQueueFilter(props.filter);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<CallResult | "">("");
   const [note, setNote] = useState("");
@@ -94,10 +101,12 @@ export function CallWorkspace(props: Props) {
   );
   const [phoneUsed, setPhoneUsed] = useState(props.mainPhone ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
   const [showPromote, setShowPromote] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [callClosed, setCallClosed] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const locking = useRef(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
@@ -108,9 +117,26 @@ export function CallWorkspace(props: Props) {
   }, [props.membershipId]);
 
   const effects = result ? getCallResultSideEffects(result) : null;
+  const lifecycle = resolveProspectLifecycle(
+    props.promotionStatus,
+    props.promotedPageId,
+  );
+  const selectedPhoneIsMarkedInvalid = Boolean(
+    props.phoneInvalid && props.mainPhone && phoneUsed === props.mainPhone,
+  );
 
   async function submit(saveAndNext: boolean) {
     if (locking.current || pending) return;
+    if (callClosed) {
+      setError("この企業は現在の架電対象から外れています。");
+      return;
+    }
+    if (props.claimConflict) {
+      setError(
+        `${props.claimConflict}さんが対応中のため、架電結果を保存できません。`,
+      );
+      return;
+    }
     if (!result) {
       setError("架電結果を選択してください");
       return;
@@ -125,6 +151,7 @@ export function CallWorkspace(props: Props) {
     }
     locking.current = true;
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
       try {
         const res = await saveCallAttemptAction({
@@ -139,7 +166,7 @@ export function CallWorkspace(props: Props) {
           phoneUsed: phoneUsed || null,
           saveAndNext,
           listId: props.listId,
-          filter: props.filter as "eligible",
+          filter,
         });
         if (!res.ok) {
           setError(res.error);
@@ -148,14 +175,21 @@ export function CallWorkspace(props: Props) {
         }
         if (saveAndNext) {
           if (res.nextMembershipId) {
+            const query = new URLSearchParams({
+              list: props.listId,
+              filter,
+            });
             router.replace(
-              `/call-queue/${res.nextMembershipId}?list=${props.listId}&filter=${props.filter}`,
+              `/call-queue/${res.nextMembershipId}?${query.toString()}`,
             );
             return;
           }
-          router.replace(
-            `/call-queue?empty=1&list=${props.listId}&filter=${props.filter}`,
-          );
+          const query = new URLSearchParams({
+            empty: "1",
+            list: props.listId,
+            filter,
+          });
+          router.replace(`/call-queue?${query.toString()}`);
           return;
         }
         if (res.promoteCtaStrong) {
@@ -163,8 +197,21 @@ export function CallWorkspace(props: Props) {
         }
         const nextId = await newCallRequestIdAction();
         setRequestId(nextId);
+        setResult("");
+        setNote("");
+        setShowSecondary(false);
+        const remainsCallable =
+          effects?.membershipStage !== "qualified" &&
+          effects?.membershipStage !== "disqualified" &&
+          !effects?.setDoNotContact;
+        setCallClosed(!remainsCallable);
+        setSuccess(
+          remainsCallable
+            ? "架電結果を保存しました"
+            : "架電結果を保存し、この企業を現在の架電対象から外しました",
+        );
         locking.current = false;
-        router.refresh();
+        if (remainsCallable) router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "保存に失敗しました");
         locking.current = false;
@@ -178,6 +225,7 @@ export function CallWorkspace(props: Props) {
       const composing = (e as KeyboardEvent & { isComposing?: boolean })
         .isComposing;
       if (composing) return;
+      if (showPromote || showAddContact || callClosed) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
@@ -206,10 +254,13 @@ export function CallWorkspace(props: Props) {
 
   async function copyPhone() {
     if (!phoneUsed) return;
+    setError(null);
+    setSuccess(null);
     try {
       await navigator.clipboard.writeText(phoneUsed);
+      setSuccess("電話番号をコピーしました");
     } catch {
-      /* ignore */
+      setError("電話番号をコピーできませんでした。番号を選択してコピーしてください。");
     }
   }
 
@@ -227,17 +278,22 @@ export function CallWorkspace(props: Props) {
             {props.companyName}
           </h1>
           <div className="mt-1 flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded bg-slate-100 px-1.5 py-0.5">
-              {props.stageLabel}
+            <ProspectLifecycleStatus
+              promotionStatus={props.promotionStatus}
+              promotedPageId={props.promotedPageId}
+            />
+            <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5">
+              対応状況：{props.stageLabel}
             </span>
             {props.assigneeName ? (
-              <span className="rounded bg-slate-100 px-1.5 py-0.5">
-                担当：{props.assigneeName}
+              <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5">
+                自社担当者：{props.assigneeName}
               </span>
             ) : null}
             {props.doNotContact ? (
-              <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-                DNC
+              <span className="inline-flex items-center gap-1 rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-red-800">
+                <span aria-hidden="true">⊘</span>
+                営業連絡不要
               </span>
             ) : null}
             {props.phoneInvalid ? (
@@ -245,25 +301,18 @@ export function CallWorkspace(props: Props) {
                 番号要確認
               </span>
             ) : null}
-            {props.promotionStatus === "completed" && props.promotedPageId ? (
-              <Link
-                href={`/organizations/${props.promotedPageId}`}
-                className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800 underline"
-              >
-                正式組織化済み
-              </Link>
-            ) : null}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <select
+            aria-label="架電に使う電話番号"
             className="rounded border border-slate-300 px-2 py-1"
             value={phoneUsed}
             onChange={(e) => setPhoneUsed(e.target.value)}
           >
             {props.mainPhone ? (
-              <option value={props.mainPhone}>会社: {props.mainPhone}</option>
+              <option value={props.mainPhone}>代表電話: {props.mainPhone}</option>
             ) : (
               <option value="">電話番号なし</option>
             )}
@@ -277,25 +326,31 @@ export function CallWorkspace(props: Props) {
           </select>
           <button
             type="button"
+            disabled={!phoneUsed}
             onClick={() => void copyPhone()}
-            className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"
+            className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             コピー
           </button>
-          {phoneUsed ? (
+          {phoneUsed && !selectedPhoneIsMarkedInvalid ? (
             <a
               href={`tel:${phoneUsed.replace(/[^\d+]/g, "")}`}
               className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"
             >
-              tel:
+              電話アプリで開く
             </a>
+          ) : null}
+          {selectedPhoneIsMarkedInvalid ? (
+            <span className="text-[11px] text-amber-800">
+              この番号は要確認のため、電話アプリでは開けません
+            </span>
           ) : null}
         </div>
 
         <div>
-          <div className="mb-1 font-semibold text-slate-700">担当者</div>
+          <div className="mb-1 font-semibold text-slate-700">連絡先担当者</div>
           {props.contacts.length === 0 ? (
-            <p className="text-slate-500">担当者候補なし</p>
+            <p className="text-slate-500">連絡先担当者の候補はありません</p>
           ) : (
             <select
               className="w-full rounded border border-slate-300 px-2 py-1"
@@ -326,7 +381,7 @@ export function CallWorkspace(props: Props) {
             className="mt-1 text-slate-600 underline"
             onClick={() => setShowAddContact((v) => !v)}
           >
-            担当者を追加
+            連絡先担当者を追加
           </button>
           {showAddContact ? (
             <div className="mt-2 flex gap-2">
@@ -350,12 +405,13 @@ export function CallWorkspace(props: Props) {
                       setContactId(res.contactId);
                       setNewContactName("");
                       setShowAddContact(false);
+                      setSuccess("連絡先担当者を追加しました");
                       router.refresh();
                     } else setError(res.error);
                   });
                 }}
               >
-                追加
+                連絡先担当者を追加
               </button>
             </div>
           ) : null}
@@ -374,25 +430,46 @@ export function CallWorkspace(props: Props) {
           ) : null}
           {props.address ? <div>所在地: {props.address}</div> : null}
           {props.industry ? <div>業種: {props.industry}</div> : null}
-          {props.formalMatch ? (
+          {lifecycle.kind === "completed" && props.promotedPageId ? (
+            <div className="text-emerald-800">
+              正式な組織に登録済み：{" "}
+              <Link
+                href={`/organizations/${props.promotedPageId}`}
+                className="font-medium underline"
+              >
+                正式な組織を開く
+              </Link>
+            </div>
+          ) : lifecycle.kind === "completed-link-missing" ? (
+            <div className="text-amber-800">
+              正式組織化済みですが、組織リンクを表示できません。管理者に確認してください。
+            </div>
+          ) : lifecycle.kind === "processing" ? (
+            <div className="text-blue-800">
+              正式な組織への登録を処理しています。
+            </div>
+          ) : props.formalMatch ? (
             <div>
-              正式組織候補（{props.formalMatch.confidence}）:{" "}
+              既存の正式な組織候補（
+              {formalMatchConfidenceLabel(props.formalMatch.confidence)}）:{" "}
               <Link
                 href={`/organizations/${props.formalMatch.pageId}`}
                 className="underline"
               >
-                組織を見る
+                正式な組織を確認
               </Link>
             </div>
           ) : (
-            <div className="text-slate-500">正式組織: 未登録</div>
+            <div className="text-slate-500">
+              正式な組織にはまだ登録されていません
+            </div>
           )}
         </div>
 
         <div>
           <div className="mb-1 font-semibold">過去履歴</div>
           {props.recentAttempts.length === 0 ? (
-            <p className="text-slate-500">なし</p>
+            <p className="text-slate-500">過去の架電履歴はありません</p>
           ) : (
             <ul className="space-y-1 text-slate-700">
               {props.recentAttempts.map((a) => (
@@ -402,7 +479,7 @@ export function CallWorkspace(props: Props) {
                     month: "numeric",
                     day: "numeric",
                   })}{" "}
-                  {CALL_RESULT_LABELS[a.result as CallResult] ?? a.result}
+                  {CALL_RESULT_LABELS[a.result as CallResult] ?? "結果要確認"}
                   {a.note ? ` — ${a.note}` : ""}
                 </li>
               ))}
@@ -414,7 +491,7 @@ export function CallWorkspace(props: Props) {
       <section className="space-y-3 rounded border border-slate-200 bg-white p-4">
         <h2 className="font-semibold">架電結果</h2>
         <p className="text-[11px] text-slate-500">
-          数字キー 1不通 2担当不在 3接触 4資料送付 5興味あり 6アポ 7興味なし /
+          数字キー 1不通 2担当不在 3接触 4資料送付（記録のみ） 5興味あり 6アポ 7興味なし /
           Ctrl/Cmd+Enter で保存して次へ
         </p>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" id={formId}>
@@ -422,14 +499,17 @@ export function CallWorkspace(props: Props) {
             <button
               key={r}
               type="button"
+              disabled={pending || callClosed || Boolean(props.claimConflict)}
               onClick={() => setResult(r)}
               className={
                 result === r
-                  ? "rounded border border-slate-800 bg-slate-800 px-2 py-2 text-left text-white"
-                  : "rounded border border-slate-300 px-2 py-2 text-left hover:bg-slate-50"
+                  ? "rounded border border-slate-800 bg-slate-800 px-2 py-2 text-left text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  : "rounded border border-slate-300 px-2 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               }
             >
-              {CALL_RESULT_LABELS[r]}
+              {r === "send_materials"
+                ? "資料送付（記録のみ）"
+                : CALL_RESULT_LABELS[r]}
             </button>
           ))}
         </div>
@@ -440,7 +520,8 @@ export function CallWorkspace(props: Props) {
         ) : null}
         <button
           type="button"
-          className="text-slate-600 underline"
+          disabled={pending || callClosed || Boolean(props.claimConflict)}
+          className="text-slate-600 underline disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => setShowSecondary((v) => !v)}
         >
           {showSecondary ? "その他を隠す" : "その他の結果"}
@@ -451,11 +532,12 @@ export function CallWorkspace(props: Props) {
               <button
                 key={r}
                 type="button"
+                disabled={pending || callClosed || Boolean(props.claimConflict)}
                 onClick={() => setResult(r)}
                 className={
                   result === r
-                    ? "rounded border border-slate-800 bg-slate-800 px-2 py-2 text-left text-white"
-                    : "rounded border border-slate-300 px-2 py-2 text-left hover:bg-slate-50"
+                    ? "rounded border border-slate-800 bg-slate-800 px-2 py-2 text-left text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    : "rounded border border-slate-300 px-2 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 }
               >
                 {CALL_RESULT_LABELS[r]}
@@ -471,6 +553,7 @@ export function CallWorkspace(props: Props) {
             className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
             rows={4}
             value={note}
+            disabled={pending || callClosed || Boolean(props.claimConflict)}
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
@@ -487,7 +570,9 @@ export function CallWorkspace(props: Props) {
             type="datetime-local"
             className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
             value={nextLocal}
-            disabled={clearNext}
+            disabled={
+              clearNext || pending || callClosed || Boolean(props.claimConflict)
+            }
             onChange={(e) => setNextLocal(e.target.value)}
           />
         </label>
@@ -495,31 +580,47 @@ export function CallWorkspace(props: Props) {
           <input
             type="checkbox"
             checked={clearNext}
+            disabled={pending || callClosed || Boolean(props.claimConflict)}
             onChange={(e) => setClearNext(e.target.checked)}
           />
           予定をクリア
         </label>
 
         {error ? (
-          <p className="rounded bg-red-50 px-2 py-1 text-red-700">{error}</p>
+          <p className="rounded bg-red-50 px-2 py-1 text-red-700" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-800"
+          >
+            {success}
+          </p>
         ) : null}
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={pending || Boolean(props.claimConflict)}
+            disabled={
+              pending || callClosed || Boolean(props.claimConflict)
+            }
             onClick={() => void submit(false)}
             className="rounded border border-slate-400 px-3 py-2 hover:bg-slate-50 disabled:opacity-50"
           >
-            保存
+            {pending ? "保存中…" : "架電結果を保存"}
           </button>
           <button
             type="button"
-            disabled={pending || Boolean(props.claimConflict)}
+            disabled={
+              pending || callClosed || Boolean(props.claimConflict)
+            }
             onClick={() => void submit(true)}
             className="rounded bg-slate-900 px-3 py-2 text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            保存して次へ →
+            {pending ? "保存中…" : "架電結果を保存して次へ →"}
           </button>
           {props.canPromote ? (
             <button
@@ -527,7 +628,7 @@ export function CallWorkspace(props: Props) {
               className="rounded border border-emerald-600 px-3 py-2 text-emerald-800 hover:bg-emerald-50"
               onClick={() => setShowPromote(true)}
             >
-              正式組織へ昇格
+              正式な組織に昇格
             </button>
           ) : null}
         </div>
@@ -535,7 +636,7 @@ export function CallWorkspace(props: Props) {
           href={`/prospects/${props.prospectId}`}
           className="inline-block text-slate-600 underline"
         >
-          Prospect詳細
+          営業候補の詳細
         </Link>
       </section>
 

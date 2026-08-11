@@ -94,7 +94,9 @@ export async function queryProspectListMembers(
     memQ = memQ.eq("stage", input.stage);
   }
 
-  memQ = memQ.order("updated_at", { ascending: false });
+  memQ = memQ
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: false });
 
   const { data, error, count } = await memQ.range(from, to);
   if (error) throw new Error(error.message);
@@ -190,6 +192,7 @@ export async function queryProspectPool(
 
   const { data, error, count } = await q
     .order("updated_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
   if (error) throw new Error(error.message);
   return { items: (data ?? []) as ProspectRow[], total: count ?? 0 };

@@ -34,7 +34,7 @@ export default async function ImportTemplatesPage() {
         </Link>
         <h1 className="text-base font-bold">CSVテンプレート</h1>
         <p className="text-xs text-slate-500">
-          架空サンプルのみ。実顧客データは含みません。移行キーは顧客→担当者→案件の順で解決します。
+          架空サンプルのみで、実際の組織データは含みません。組織→先方担当者→案件の順に関連付けを確認します。
         </p>
       </div>
       <div className="space-y-4">
@@ -54,7 +54,7 @@ export default async function ImportTemplatesPage() {
               {t.fieldsHelp.map((f) => (
                 <li key={f.key}>
                   <span className="font-medium text-slate-800">{f.label}</span>
-                  {f.required ? " (必須)" : ""} — {f.key}
+                  {f.required ? " (必須)" : ""} — CSV列名: {f.key}
                   {f.notes ? ` / ${f.notes}` : ""} / 例: {f.example}
                 </li>
               ))}

@@ -4,6 +4,11 @@ import { requirePermission, requireUser } from "@/lib/auth/require";
 import { createClient } from "@/lib/supabase/server";
 import { toIlikePattern } from "@/lib/search/escape";
 import {
+  complaintStatusLabel,
+  contractStatusLabel,
+  dealStatusLabel,
+} from "@/lib/search/presentation";
+import {
   SEARCH_ENTITIES,
   SEARCH_ENTITY_LABELS,
   type GlobalSearchHit,
@@ -252,8 +257,8 @@ export async function globalSearch(
         r.promotion_status === "completed"
           ? "正式組織化済み"
           : r.do_not_contact
-            ? "DNC"
-            : "Prospect",
+            ? "営業連絡不要"
+            : "営業候補・正式登録前",
       secondaryHref:
         r.promotion_status === "completed" && r.promoted_customer_page_id
           ? `/organizations/${r.promoted_customer_page_id}`
@@ -309,7 +314,7 @@ export async function globalSearch(
           r.customer_page_id
             ? customerNames.get(r.customer_page_id)
             : null,
-          r.status_semantic,
+          dealStatusLabel(r.status_semantic),
         ]
           .filter(Boolean)
           .join(" / ") || null,
@@ -389,7 +394,7 @@ export async function globalSearch(
           r.customer_page_id
             ? customerNames.get(r.customer_page_id)
             : null,
-          r.status_semantic,
+          contractStatusLabel(r.status_semantic),
         ]
           .filter(Boolean)
           .join(" / ") || null,
@@ -416,7 +421,7 @@ export async function globalSearch(
           r.customer_page_id
             ? customerNames.get(r.customer_page_id)
             : null,
-          r.status_semantic,
+          complaintStatusLabel(r.status_semantic),
           r.summary,
         ]
           .filter(Boolean)

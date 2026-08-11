@@ -6,6 +6,9 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { countMyCallQueue } from "@/lib/prospects/call-queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ClaimStartButton } from "@/features/prospects/claim-start-button";
+import { PageHeading } from "@/components/ui/page-heading";
+import { ProspectLifecycleStatus } from "@/features/prospects/lifecycle-status";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +19,7 @@ export default async function CallQueuePage({
     list?: string;
     filter?: string;
     empty?: string;
+    unavailable?: string;
   }>;
 }) {
   let user;
@@ -29,7 +33,7 @@ export default async function CallQueuePage({
 
   const sp = await searchParams;
   const listId = sp.list || null;
-  const filter = sp.filter || "eligible";
+  const filter = normalizeCallQueueFilter(sp.filter);
   const counts = await countMyCallQueue({ userId: user.id });
 
   const admin = createAdminClient();
@@ -43,23 +47,46 @@ export default async function CallQueuePage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 text-xs">
-      <div>
-        <h1 className="text-base font-bold">架電キュー</h1>
-        <p className="text-slate-600">
-          自分の担当 Prospect を期限優先で順に架電します。自動発信はしません。
-        </p>
-      </div>
+      <PageHeading
+        title="架電キュー"
+        description="自分に割り当てられた営業候補を、期限の近い順に確認して架電します。電話は自動発信されません。"
+        status={
+          <ProspectLifecycleStatus
+            promotionStatus="none"
+            promotedPageId={null}
+          />
+        }
+        supporting="条件を選んで「架電を開始」を押すと、次に連絡する企業を1件ずつ表示します。"
+      />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Stat label="再架電期限超過" value={counts.overdue} />
         <Stat label="本日再架電" value={counts.today} />
-        <Stat label="未着手担当" value={counts.unstarted} />
+        <Stat label="未着手（自分の担当）" value={counts.unstarted} />
       </div>
 
       {sp.empty === "1" ? (
-        <p className="rounded bg-slate-100 px-3 py-2 text-slate-700">
-          キューに次の対象がありません。
-        </p>
+        <div className="rounded border border-slate-200 bg-slate-100 px-3 py-2 text-slate-700">
+          <p className="font-medium">条件に合う次の架電対象はありません</p>
+          <p className="mt-0.5 text-[11px] text-slate-600">
+            営業リストで自社担当者や次回連絡予定を確認するか、条件を変更してください。
+          </p>
+          <Link
+            href="/prospect-lists"
+            className="mt-1 inline-block font-medium text-slate-800 underline-offset-2 hover:underline"
+          >
+            営業リストを確認 →
+          </Link>
+        </div>
+      ) : null}
+
+      {sp.unavailable === "1" ? (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+          <p className="font-medium">この架電対象は現在開けません</p>
+          <p className="mt-0.5 text-[11px] text-amber-800">
+            担当変更、営業連絡不要、進捗更新、またはアーカイブにより対象外になった可能性があります。最新の条件で架電を開始してください。
+          </p>
+        </div>
       ) : null}
 
       <form
@@ -82,7 +109,7 @@ export default async function CallQueuePage({
           </select>
         </label>
         <label className="block">
-          フィルタ
+          架電対象
           <select
             name="filter"
             defaultValue={filter}
@@ -99,7 +126,7 @@ export default async function CallQueuePage({
           type="submit"
           className="rounded border border-slate-400 px-3 py-1.5 hover:bg-slate-50"
         >
-          条件更新
+          条件を更新
         </button>
       </form>
 

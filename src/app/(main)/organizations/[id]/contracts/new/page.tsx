@@ -49,7 +49,7 @@ export default async function CustomerContractNewPage({
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <p className="text-sm font-medium text-slate-900">
-          アーカイブ済みの顧客には契約を組織を追加できません
+          アーカイブ済みの組織には契約を追加できません
         </p>
         <Link
           href={`/organizations/${id}`}

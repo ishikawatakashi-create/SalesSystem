@@ -17,6 +17,9 @@ export default async function NewProspectListPage() {
   return (
     <div className="mx-auto max-w-lg space-y-3">
       <h1 className="text-base font-bold">営業リストを作成</h1>
+      <p className="text-xs text-slate-600">
+        架電・営業対象となる候補企業をまとめるリストを作成します。
+      </p>
       <CreateProspectListForm />
     </div>
   );

@@ -49,7 +49,7 @@ export function ContactRelatedSection({
       <section className="rounded border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
           <h2 className="text-xs font-bold text-slate-700">
-            この担当者の対応履歴
+            この先方担当者の対応履歴
           </h2>
           <span className="text-xs text-slate-500">{activities.length}件</span>
           {canEditActivity && customerPageId && activities.length > 0 && (
@@ -78,7 +78,7 @@ export function ContactRelatedSection({
                     colSpan={4}
                     className="px-3 py-6 text-center text-slate-500"
                   >
-                    この担当者に紐づく対応履歴はありません。
+                    この先方担当者に紐づく対応履歴はありません。
                   </td>
                 </tr>
               )}
@@ -117,7 +117,7 @@ export function ContactRelatedSection({
       <section className="rounded border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
           <h2 className="text-xs font-bold text-slate-700">
-            所属顧客の未完了アクション
+            所属組織の未完了アクション
           </h2>
           <span className="text-xs text-slate-500">{openActions.length}件</span>
           {canEditAction && customerPageId && (
@@ -130,7 +130,7 @@ export function ContactRelatedSection({
           )}
         </div>
         <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] text-slate-400">
-          アクションに先方担当者フィールドはないため、同じ顧客の未完了アクションを表示しています。
+          次回アクションに先方担当者フィールドはないため、同じ組織の未完了アクションを表示しています。
         </p>
         <div className="overflow-x-auto">
           <table className="w-full whitespace-nowrap text-xs">

@@ -77,7 +77,7 @@ export function CustomerContractsSection({
                 <th className="px-2 py-1 font-medium">期間</th>
                 <th className="px-2 py-1 font-medium">支払状況</th>
                 <th className="px-2 py-1 font-medium">状態</th>
-                <th className="px-2 py-1 font-medium">担当者</th>
+                <th className="px-2 py-1 font-medium">自社担当者</th>
               </tr>
             </thead>
             <tbody>

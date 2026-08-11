@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { GlobalSearchBox } from "@/features/search/global-search-box";
 import { NavDropdown } from "@/components/layout/nav-dropdown";
 import { UserMenu } from "@/components/layout/user-menu";
+import { buildOrganizationNavSections } from "@/components/layout/organization-nav";
 import {
   navLinkClass,
   resolveNavGroup,
@@ -19,6 +20,8 @@ export function AppHeader({
   showSync,
   showGmail,
   showInquiries,
+  showProspects,
+  showCallQueue,
   inquiryNewCount = 0,
 }: {
   displayName: string;
@@ -28,6 +31,8 @@ export function AppHeader({
   showSync: boolean;
   showGmail?: boolean;
   showInquiries?: boolean;
+  showProspects: boolean;
+  showCallQueue: boolean;
   inquiryNewCount?: number;
 }) {
   const pathname = usePathname() || "/";
@@ -69,25 +74,10 @@ export function AppHeader({
           <NavDropdown
             label="組織"
             active={group === "customers"}
-            items={[
-              { href: "/organizations", label: "すべての組織" },
-              { href: "/organizations?relationship=customer", label: "顧客" },
-              { href: "/organizations?relationship=prospect", label: "見込顧客" },
-              { href: "/organizations?relationship=media", label: "メディア" },
-              {
-                href: "/organizations?relationship=municipality",
-                label: "自治体",
-              },
-              {
-                href: "/organizations?relationship=education_research",
-                label: "学校・研究",
-              },
-              { href: "/organizations?relationship=partner", label: "パートナー" },
-              { href: "/prospect-lists", label: "営業リスト" },
-              { href: "/prospects", label: "営業候補" },
-              { href: "/call-queue", label: "架電キュー" },
-              { href: "/contacts", label: "担当者" },
-            ]}
+            sections={buildOrganizationNavSections({
+              showProspects,
+              showCallQueue,
+            })}
           />
           <Link href="/deals" className={navLinkClass(group === "deals")}>
             案件

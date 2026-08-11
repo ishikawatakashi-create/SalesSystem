@@ -182,7 +182,7 @@ export function ComplaintFormFields({
           <Field label="対応状況">
             {singleSelect("statusPageId", options.statuses)}
           </Field>
-          <Field label="対応責任者">
+          <Field label="社内対応責任者">
             {singleSelect("staffPageId", options.staff)}
           </Field>
           <Field label="発生日" error={errMsg(errors, "occurredOn")}>

@@ -21,6 +21,76 @@ import type { ProspectStagedRow } from "@/lib/prospects/types";
 const IMPORT_BUCKET = "imports";
 const CHUNK_SIZE = 40;
 
+type ProspectImportAdminClient = ReturnType<typeof createAdminClient>;
+
+export const PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE =
+  "取込先の営業リストが見つからないか、アーカイブ済みのため、CSVを取り込めません。営業リスト一覧から取込先を選び直してください。";
+export const PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE =
+  "営業リストの状態を確認できませんでした。画面を再読み込みして、もう一度お試しください。";
+const PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE =
+  "取込先の営業リストを確認できませんでした。画面を再読み込みして、CSVを選び直してください。";
+
+export function isTerminalProspectImportErrorMessage(message: string): boolean {
+  return (
+    message === PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE ||
+    message === PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE
+  );
+}
+
+export async function assertProspectListAcceptsImport(
+  listId: string,
+  dependencies: { admin?: ProspectImportAdminClient } = {},
+): Promise<void> {
+  const admin = dependencies.admin ?? createAdminClient();
+  const { data: list, error } = await admin
+    .from("prospect_lists")
+    .select("id,status,archived_at")
+    .eq("id", listId)
+    .maybeSingle();
+  if (error) throw new Error(PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE);
+  if (!list || list.status === "archived" || list.archived_at) {
+    throw new Error(PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE);
+  }
+}
+
+async function markProspectImportJobUnavailable(
+  admin: ProspectImportAdminClient,
+  importJobId: string,
+  message: string,
+): Promise<void> {
+  await admin
+    .from("prospect_import_jobs")
+    .update({
+      status: "failed",
+      error_message: message,
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", importJobId);
+}
+
+async function assertImportJobListAcceptsImport(input: {
+  admin: ProspectImportAdminClient;
+  importJobId: string;
+  listId: string;
+}): Promise<void> {
+  try {
+    await assertProspectListAcceptsImport(input.listId, { admin: input.admin });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : PROSPECT_IMPORT_LIST_CHECK_FAILED_MESSAGE;
+    if (message === PROSPECT_IMPORT_LIST_UNAVAILABLE_MESSAGE) {
+      await markProspectImportJobUnavailable(
+        input.admin,
+        input.importJobId,
+        message,
+      );
+    }
+    throw new Error(message);
+  }
+}
+
 function cell(
   row: Record<string, string>,
   mapping: ProspectColumnMapping,
@@ -103,6 +173,7 @@ export async function createProspectImportUpload(input: {
   storagePath: string;
 }> {
   const admin = createAdminClient();
+  await assertProspectListAcceptsImport(input.listId, { admin });
   const importJobId = randomUUID();
   const storagePath = `prospects/${input.userId}/${importJobId}/${randomUUID()}.csv`;
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -156,8 +227,20 @@ export async function prepareProspectImport(input: {
     .from("prospect_import_jobs")
     .select("*")
     .eq("id", input.importJobId)
-    .single();
-  if (error || !job) throw new Error(error?.message ?? "job not found");
+    .maybeSingle();
+  if (error || !job) {
+    throw new Error(
+      "CSVの取込処理が見つかりません。画面を再読み込みして、CSVを選び直してください。",
+    );
+  }
+  const listId =
+    typeof job.prospect_list_id === "string" ? job.prospect_list_id : "";
+  if (!listId) throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId,
+  });
 
   const { data: file, error: dlErr } = await admin.storage
     .from(IMPORT_BUCKET)
@@ -182,6 +265,11 @@ export async function prepareProspectImport(input: {
     };
   });
 
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId,
+  });
   await admin
     .from("prospect_import_jobs")
     .update({
@@ -209,6 +297,7 @@ export async function stageAndEnqueueProspectImport(input: {
   mapping: ProspectColumnMapping;
   actorId: string;
   actorName: string;
+  expectedListId?: string;
 }): Promise<{ totalRows: number; jobEnqueued: boolean }> {
   const admin = createAdminClient();
   await prepareProspectImport({
@@ -220,8 +309,27 @@ export async function stageAndEnqueueProspectImport(input: {
     .from("prospect_import_jobs")
     .select("storage_path,prospect_list_id")
     .eq("id", input.importJobId)
-    .single();
-  if (!job) throw new Error("job not found");
+    .maybeSingle();
+  if (!job) {
+    throw new Error(
+      "CSVの取込処理が見つかりません。画面を再読み込みして、CSVを選び直してください。",
+    );
+  }
+  const listId =
+    typeof job.prospect_list_id === "string" ? job.prospect_list_id : "";
+  if (!listId || (input.expectedListId && input.expectedListId !== listId)) {
+    await markProspectImportJobUnavailable(
+      admin,
+      input.importJobId,
+      PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE,
+    );
+    throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
+  }
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId,
+  });
 
   const { data: file } = await admin.storage
     .from(IMPORT_BUCKET)
@@ -230,6 +338,12 @@ export async function stageAndEnqueueProspectImport(input: {
   const buf = Buffer.from(await file.arrayBuffer());
   const decoded = decodeCsvBuffer(buf, "auto");
   const parsed = parseCsv(decoded.text);
+
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId,
+  });
 
   // Replace staged rows
   await admin
@@ -261,6 +375,12 @@ export async function stageAndEnqueueProspectImport(input: {
     if (error) throw new Error(error.message);
   }
 
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId,
+  });
+
   await admin
     .from("prospect_import_jobs")
     .update({
@@ -275,7 +395,7 @@ export async function stageAndEnqueueProspectImport(input: {
     kind: "prospect_csv_import",
     payload: {
       importJobId: input.importJobId,
-      listId: job.prospect_list_id,
+      listId,
       cursorRowNumber: 0,
       actorId: input.actorId,
       actorName: input.actorName,
@@ -315,6 +435,29 @@ export async function processProspectImportChunk(input: {
   failed: number;
 }> {
   const admin = createAdminClient();
+  const { data: importJob, error: importJobError } = await admin
+    .from("prospect_import_jobs")
+    .select("prospect_list_id")
+    .eq("id", input.importJobId)
+    .maybeSingle();
+  const jobListId =
+    typeof importJob?.prospect_list_id === "string"
+      ? importJob.prospect_list_id
+      : "";
+  if (importJobError || !jobListId || jobListId !== input.listId) {
+    await markProspectImportJobUnavailable(
+      admin,
+      input.importJobId,
+      PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE,
+    );
+    throw new Error(PROSPECT_IMPORT_LIST_MISMATCH_MESSAGE);
+  }
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId: jobListId,
+  });
+
   await admin
     .from("prospect_import_jobs")
     .update({ status: "importing" })
@@ -339,6 +482,11 @@ export async function processProspectImportChunk(input: {
   let nextCursor = input.cursorRowNumber;
 
   for (const row of rows ?? []) {
+    await assertImportJobListAcceptsImport({
+      admin,
+      importJobId: input.importJobId,
+      listId: jobListId,
+    });
     nextCursor = row.row_number as number;
     const staged = row.staged as ProspectStagedRow;
     const result = await upsertProspectFromImport({
@@ -380,6 +528,12 @@ export async function processProspectImportChunk(input: {
     }
   }
 
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId: jobListId,
+  });
+
   // refresh counters
   const { data: job } = await admin
     .from("prospect_import_jobs")
@@ -403,6 +557,11 @@ export async function processProspectImportChunk(input: {
     .eq("status", "pending");
 
   const done = (pendingLeft ?? 0) === 0;
+  await assertImportJobListAcceptsImport({
+    admin,
+    importJobId: input.importJobId,
+    listId: jobListId,
+  });
   await admin
     .from("prospect_import_jobs")
     .update({
@@ -418,6 +577,11 @@ export async function processProspectImportChunk(input: {
     .eq("id", input.importJobId);
 
   if (!done && input.enqueueNext !== false) {
+    await assertImportJobListAcceptsImport({
+      admin,
+      importJobId: input.importJobId,
+      listId: jobListId,
+    });
     await enqueueJob({
       kind: "prospect_csv_import",
       payload: {

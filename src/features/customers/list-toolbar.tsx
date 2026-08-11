@@ -17,10 +17,12 @@ export function CustomerListToolbar({
   query,
   filters,
   showingArchived,
+  clearHref = "/organizations",
 }: {
   query: CustomerListQuery;
   filters: ListFilterOptions;
   showingArchived: boolean;
+  clearHref?: string;
 }) {
   const advanced = countAdvanced(query);
   return (
@@ -61,7 +63,7 @@ export function CustomerListToolbar({
           検索
         </button>
         <Link
-          href="/customers"
+          href={clearHref}
           className="h-7 leading-7 text-slate-500 hover:text-slate-900"
         >
           クリア
@@ -84,7 +86,7 @@ export function CustomerListToolbar({
           </select>
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-slate-500">担当者</span>
+          <span className="text-slate-500">自社担当者</span>
           <select
             name="staff"
             defaultValue={query.staffUserId ?? ""}
@@ -126,6 +128,13 @@ export function CustomerListToolbar({
       {query.sort && <input type="hidden" name="sort" value={query.sort} />}
       {query.sortDir && (
         <input type="hidden" name="dir" value={query.sortDir} />
+      )}
+      {query.relationshipSemanticKey && (
+        <input
+          type="hidden"
+          name="relationship"
+          value={query.relationshipSemanticKey}
+        />
       )}
     </form>
   );

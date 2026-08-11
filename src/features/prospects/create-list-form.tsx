@@ -8,6 +8,7 @@ import {
   PROSPECT_SOURCE_TYPES,
   type ProspectSourceType,
 } from "@/lib/prospects/types";
+import { PROSPECT_SOURCE_TYPE_LABELS } from "@/lib/prospects/presentation";
 
 export function CreateProspectListForm() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export function CreateProspectListForm() {
         />
       </label>
       <label className="block space-y-1">
-        <span className="text-slate-600">source_type</span>
+        <span className="text-slate-600">候補企業の入手方法</span>
         <select
           name="sourceType"
           defaultValue="csv"
@@ -63,13 +64,13 @@ export function CreateProspectListForm() {
         >
           {PROSPECT_SOURCE_TYPES.map((t) => (
             <option key={t} value={t}>
-              {t}
+              {PROSPECT_SOURCE_TYPE_LABELS[t]}
             </option>
           ))}
         </select>
       </label>
       <label className="block space-y-1">
-        <span className="text-slate-600">source_name</span>
+        <span className="text-slate-600">入手元の名称</span>
         <input
           name="sourceName"
           className="w-full rounded border border-slate-200 px-2 py-1"
@@ -80,7 +81,7 @@ export function CreateProspectListForm() {
         disabled={pending}
         className="rounded bg-slate-800 px-3 py-1.5 text-white disabled:opacity-50"
       >
-        作成
+        {pending ? "作成中…" : "営業リストを作成"}
       </button>
     </form>
   );

@@ -8,7 +8,6 @@ import { saveCallAttempt } from "@/lib/prospects/call-attempts";
 import {
   claimNextProspectCall,
   releaseProspectCallClaim,
-  type CallQueueFilter,
 } from "@/lib/prospects/call-queue";
 import {
   enqueueProspectPromote,
@@ -17,21 +16,20 @@ import {
 } from "@/lib/prospects/promote";
 import type { OrganizationRelationshipSemanticKey } from "@/lib/organizations/relationship";
 import { createProspectContactInline } from "@/lib/prospects/contacts-inline";
+import { getCallErrorMessage } from "@/lib/prospects/call-errors";
+import { normalizeCallQueueFilter } from "@/lib/prospects/call-filter";
 
 function errMsg(e: unknown): string {
   if (e instanceof AuthError) return e.message;
   if (e instanceof Error) {
-    if (e.message === "next_contact_required") {
-      return "折返し希望は次回連絡日時が必須です";
-    }
-    return e.message;
+    return getCallErrorMessage(e.message);
   }
   return "操作に失敗しました";
 }
 
 export async function claimNextCallAction(input: {
   listId?: string | null;
-  filter?: CallQueueFilter;
+  filter?: string | null;
 }): Promise<
   | { ok: true; membershipId: string; prospectId: string }
   | { ok: true; empty: true }
@@ -44,7 +42,7 @@ export async function claimNextCallAction(input: {
       userId: user.id,
       actorName: user.display_name,
       listId: input.listId,
-      filter: input.filter ?? "eligible",
+      filter: normalizeCallQueueFilter(input.filter),
     });
     if (!claimed) return { ok: true, empty: true };
     return {
@@ -86,7 +84,7 @@ export async function saveCallAttemptAction(input: {
   phoneUsed?: string | null;
   saveAndNext?: boolean;
   listId?: string | null;
-  filter?: CallQueueFilter;
+  filter?: string | null;
 }): Promise<
   | {
       ok: true;
@@ -127,7 +125,7 @@ export async function saveCallAttemptAction(input: {
         userId: user.id,
         actorName: user.display_name,
         listId: input.listId,
-        filter: input.filter ?? "eligible",
+        filter: normalizeCallQueueFilter(input.filter),
       });
       if (!next) emptyQueue = true;
       else nextMembershipId = next.id;

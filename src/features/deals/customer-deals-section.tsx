@@ -77,7 +77,7 @@ export function CustomerDealsSection({
                 <th className="px-2 py-1 font-medium">ステージ</th>
                 <th className="px-2 py-1 font-medium">ステータス</th>
                 <th className="px-2 py-1 font-medium">見込み金額</th>
-                <th className="px-2 py-1 font-medium">顧客担当者</th>
+                <th className="px-2 py-1 font-medium">先方担当者</th>
                 <th className="px-2 py-1 font-medium">自社担当者</th>
                 <th className="px-2 py-1 font-medium">見込みクローズ日</th>
               </tr>

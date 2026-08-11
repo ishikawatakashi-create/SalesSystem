@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { beginCsvUpload, completeCsvUpload } from "@/features/admin/imports/actions";
+import { csvActionErrorMessage } from "@/lib/admin-presentation";
 
 export function NewImportForm(props: {
   entities: Array<{ key: string; label: string }>;
@@ -31,7 +32,7 @@ export function NewImportForm(props: {
             fileSize: file.size,
           });
           if (!begun.ok) {
-            setError(begun.error);
+            setError(csvActionErrorMessage(begun.error));
             return;
           }
           const put = await fetch(begun.signedUploadUrl, {
@@ -40,12 +41,12 @@ export function NewImportForm(props: {
             body: file,
           });
           if (!put.ok) {
-            setError("upload_failed");
+            setError("CSVファイルをアップロードできませんでした。もう一度お試しください。");
             return;
           }
           const done = await completeCsvUpload(begun.importJobId);
           if (!done.ok) {
-            setError(done.error);
+            setError(csvActionErrorMessage(done.error));
             return;
           }
           router.push(`/admin/imports/${begun.importJobId}`);
@@ -53,7 +54,7 @@ export function NewImportForm(props: {
       }}
     >
       <label className="block text-xs">
-        <span className="mb-1 block text-slate-600">対象エンティティ</span>
+        <span className="mb-1 block text-slate-600">取込対象</span>
         <select
           className="w-full rounded border border-slate-300 px-2 py-1.5"
           value={entity}
@@ -76,13 +77,17 @@ export function NewImportForm(props: {
           required
         />
       </label>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && (
+        <p className="text-xs text-red-600" role="alert">
+          {error}
+        </p>
+      )}
       <button
         type="submit"
         disabled={pending}
         className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white disabled:opacity-50"
       >
-        {pending ? "アップロード中…" : "アップロードしてマッピングへ"}
+        {pending ? "アップロード中…" : "アップロードして列を対応付ける"}
       </button>
     </form>
   );

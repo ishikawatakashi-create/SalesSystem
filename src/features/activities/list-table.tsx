@@ -79,7 +79,7 @@ export function ActivityListTable({
               {sortHeader("対応日時")}
             </th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("タイトル")}</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
             <th className="px-2 py-1.5 font-medium">分類</th>
             <th className="px-2 py-1.5 font-medium">登録者</th>
             <th className="px-2 py-1.5 font-medium">案件</th>
@@ -105,7 +105,7 @@ export function ActivityListTable({
                       href="/activities/new"
                       className="text-primary underline"
                     >
-                      新規登録
+                      対応履歴を登録
                     </Link>
                   </span>
                 )}

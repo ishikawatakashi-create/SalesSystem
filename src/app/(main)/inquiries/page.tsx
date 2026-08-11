@@ -11,6 +11,7 @@ import { InquiryToolbar } from "@/features/inquiries/inquiry-toolbar";
 import { InquiryListControls } from "@/features/inquiries/inquiry-list-controls";
 import { CompactEmptyState } from "@/components/ui/compact-empty-state";
 import { formatDateTime } from "@/features/customers/format";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +41,25 @@ export default async function InquiriesPage({
   const raw = await searchParams;
   const tabParam = str(raw, "tab");
   const statusParam = str(raw, "status");
+  const queryParam = str(raw, "q");
+  const assignedParam = str(raw, "assigned");
+  const receivedFromParam = str(raw, "from");
+  const receivedToParam = str(raw, "to");
+  const hasActiveFilters = Boolean(
+    queryParam ||
+      assignedParam ||
+      statusParam ||
+      receivedFromParam ||
+      receivedToParam ||
+      (tabParam && tabParam !== "open"),
+  );
   const { rows, total } = await listInquiries({
     tab: tabParam || statusParam || "open",
-    q: str(raw, "q"),
-    assignedUserId: str(raw, "assigned"),
+    q: queryParam,
+    assignedUserId: assignedParam,
     status: tabParam ? statusParam : undefined,
-    receivedFrom: str(raw, "from"),
-    receivedTo: str(raw, "to"),
+    receivedFrom: receivedFromParam,
+    receivedTo: receivedToParam,
   });
 
   const admin = createAdminClient();
@@ -76,15 +89,24 @@ export default async function InquiriesPage({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <h1 className="text-base font-bold">お問い合わせ</h1>
-        <span className="text-xs text-slate-500">{total}件</span>
-      </div>
+      <PageHeading
+        title="お問い合わせ"
+        description="Webフォームから届いた問い合わせを、社内対応担当と状態で管理します。"
+        meta={`${total}件`}
+      />
       <Suspense fallback={null}>
         <InquiryToolbar assignees={activeAssignees} />
       </Suspense>
       {rows.length === 0 ? (
-        <CompactEmptyState message="該当するお問い合わせはありません。" />
+        <CompactEmptyState
+          message={
+            hasActiveFilters
+              ? "条件に一致するお問い合わせはありません。"
+              : "現在、対応が必要なお問い合わせはありません。"
+          }
+          actionHref={hasActiveFilters ? "/inquiries" : undefined}
+          actionLabel={hasActiveFilters ? "条件をリセット" : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded border border-slate-200 bg-white">
           <table className="min-w-full text-left text-xs">
@@ -95,7 +117,7 @@ export default async function InquiriesPage({
                 <th className="px-2 py-1.5 font-medium">会社</th>
                 <th className="px-2 py-1.5 font-medium">メール</th>
                 <th className="px-2 py-1.5 font-medium">概要</th>
-                <th className="px-2 py-1.5 font-medium">担当</th>
+                <th className="px-2 py-1.5 font-medium">社内対応担当</th>
                 <th className="px-2 py-1.5 font-medium">状態</th>
               </tr>
             </thead>

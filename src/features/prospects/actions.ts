@@ -142,6 +142,16 @@ export async function bulkAssignProspectsAction(input: {
     if (input.membershipIds.length === 0) {
       return { ok: false, error: "対象がありません" };
     }
+    if (input.assigneeUserIds.length === 0) {
+      return { ok: false, error: "自社担当者を選択してください" };
+    }
+    if (input.mode === "single" && input.assigneeUserIds.length !== 1) {
+      return {
+        ok: false,
+        error:
+          "1人にまとめて割り当てる場合は、自社担当者を1人だけ選択してください",
+      };
+    }
     if (input.membershipIds.length <= 80) {
       const result = await bulkAssignMemberships({
         membershipIds: input.membershipIds,
@@ -268,6 +278,7 @@ export async function commitProspectImportAction(input: {
       mapping: input.mapping,
       actorId: user.id,
       actorName: user.display_name,
+      expectedListId: input.listId,
     });
     revalidatePath(`/prospect-lists/${input.listId}`);
     return { ok: true, totalRows: result.totalRows };

@@ -129,7 +129,7 @@ export function DealForm({
     );
     if (mismatchOnSubmit.ids.length > 0) {
       setServerError(
-        "選択中の顧客担当者が現在の顧客に所属していません。解除してから保存してください",
+        "選択中の先方担当者が現在の組織に所属していません。解除してから保存してください",
       );
       return;
     }

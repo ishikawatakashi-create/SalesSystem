@@ -98,7 +98,7 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
             }}
           />
           <p className="text-slate-500">
-            UTF-8 / Shift_JIS。Notion には書き込みません。
+            UTF-8 / Shift_JIS形式のCSVに対応しています。正式な組織データは変更しません。
           </p>
         </div>
       )}
@@ -107,7 +107,10 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
         <div className="space-y-3">
           <div className="rounded border border-slate-200 bg-white p-3">
             <p className="mb-2 font-medium text-slate-800">
-              2. 列マッピング（{totalRows}行 / {encoding}）
+              2. CSV列の対応付け（{totalRows}行 / {encoding}）
+            </p>
+            <p className="mb-2 text-slate-500">
+              左の取込項目ごとに、対応するCSVの列名を選んでください。会社名は必須です。
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {PROSPECT_CSV_FIELDS.map((field: ProspectCsvField) => (
@@ -137,7 +140,7 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
             </div>
             {unmapped.length > 0 ? (
               <p className="mt-2 text-slate-500">
-                未マッピング列は source_attributes に保存:{" "}
+                対応付けていない追加列は、取込元情報として保持します：{" "}
                 {unmapped.join(", ")}
               </p>
             ) : null}
@@ -161,7 +164,7 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
                 });
               }}
             >
-              プレビュー更新
+              取込判定を更新
             </button>
           </div>
 
@@ -183,15 +186,17 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
                     </td>
                     <td className="px-2 py-1">
                       {p.ok ? (
-                        <span className="text-green-700">OK</span>
+                        <span className="inline-flex rounded bg-green-50 px-1.5 py-0.5 font-medium text-green-700">
+                          取込可能
+                        </span>
                       ) : (
-                        <span className="text-red-600">
-                          {p.errors.join("; ")}
+                        <span className="inline-flex rounded bg-red-50 px-1.5 py-0.5 font-medium text-red-700">
+                          取込不可：{p.errors.join("; ")}
                         </span>
                       )}
                       {p.warnings.length > 0 ? (
-                        <span className="ml-1 text-amber-600">
-                          {p.warnings.join("; ")}
+                        <span className="ml-1 inline-flex rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
+                          要確認：{p.warnings.join("; ")}
                         </span>
                       ) : null}
                     </td>
@@ -223,17 +228,18 @@ export function ProspectImportWizard({ listId }: { listId: string }) {
               });
             }}
           >
-            インポート実行
+            営業候補の取込を開始
           </button>
         </div>
       )}
 
       {step === "done" && (
         <div className="rounded border border-slate-200 bg-white p-3">
-          <p className="font-medium text-slate-800">取込を開始しました</p>
+          <p className="font-medium text-slate-800">
+            営業候補の取込を開始しました
+          </p>
           <p className="mt-1 text-slate-600">
-            {totalRows}行をキュー投入済み。バックグラウンドで処理されます（Notion
-            非書込）。
+            {`${totalRows}行を受け付けました。処理完了まで時間がかかる場合があります。正式な組織データは変更しません。`}
           </p>
           <a
             href={`/prospect-lists/${listId}`}

@@ -60,7 +60,7 @@ export function CustomerComplaintsSection({
                 <th className="px-2 py-1 font-medium">発生日</th>
                 <th className="px-2 py-1 font-medium">タイトル</th>
                 <th className="px-2 py-1 font-medium">重要度</th>
-                <th className="px-2 py-1 font-medium">対応責任者</th>
+                <th className="px-2 py-1 font-medium">社内対応責任者</th>
                 <th className="px-2 py-1 font-medium">期限</th>
                 <th className="px-2 py-1 font-medium">対応状況</th>
               </tr>

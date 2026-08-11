@@ -13,6 +13,7 @@ import {
 } from "@/features/admin/users/actions";
 import { isFixtureUserAccount } from "@/lib/auth/display-name";
 import { APP_ROLE_OPTIONS, getAppRoleLabel } from "@/lib/auth/role-labels";
+import { userRegistrationStatusLabel } from "@/lib/admin-presentation";
 import type { DisableImpact } from "@/lib/auth/admin-user-service";
 import type { PermanentDeleteReason } from "@/lib/auth/permanent-user-deletion-service";
 import type { AppRole } from "@/types/database";
@@ -184,9 +185,7 @@ function UserTable(props: {
                   </span>
                   {user.provisioning_status !== "completed" ? (
                     <span className="ml-1 text-[10px] text-slate-400">
-                      {user.provisioning_status === "profile_created"
-                        ? "担当者同期中"
-                        : user.provisioning_status}
+                      {userRegistrationStatusLabel(user.provisioning_status)}
                     </span>
                   ) : null}
                 </td>

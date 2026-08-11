@@ -65,7 +65,7 @@ export default async function ContactDetailPage({
       if (error.code === "in_trash") {
         return (
           <div className="mx-auto max-w-md py-16 text-center text-sm text-slate-600">
-            この担当者はNotionのゴミ箱にあります。
+            この先方担当者は削除済みです。
             <div className="mt-3">
               <Link href="/contacts" className="text-xs text-primary underline">
                 一覧へ戻る
@@ -77,7 +77,7 @@ export default async function ContactDetailPage({
       return (
         <div className="mx-auto max-w-md py-16 text-center">
           <p className="text-sm font-medium text-slate-900">
-            Notionへの接続に失敗しました
+            先方担当者情報の取得に失敗しました
           </p>
           <p className="mt-1 text-xs text-slate-500">
             正本データを取得できないため、この画面ではキャッシュを表示しません。
@@ -141,7 +141,7 @@ export default async function ContactDetailPage({
     <div className="mx-auto max-w-4xl space-y-3">
       <Breadcrumbs
         items={[
-          { label: "担当者一覧", href: "/contacts" },
+          { label: "先方担当者一覧", href: "/contacts" },
           { label: detail.name || "(無題)" },
         ]}
       />

@@ -5,6 +5,10 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ENTITY_DISPLAY_NAMES, type ImportEntity } from "@/lib/csv/entities";
 import { getEntityFields } from "@/lib/csv/mapping";
+import {
+  adminStatusBadgeClass,
+  importJobStatusPresentation,
+} from "@/lib/admin-presentation";
 import { ImportDetailClient } from "./import-detail-client";
 
 export default async function ImportDetailPage({
@@ -75,6 +79,7 @@ export default async function ImportDetailPage({
   const total = Number(job.row_count ?? 0);
   const done = (imported ?? 0) + (failed ?? 0) + (skipped ?? 0);
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const status = importJobStatusPresentation(String(job.status));
 
   return (
     <div className="space-y-4">
@@ -84,11 +89,16 @@ export default async function ImportDetailPage({
             ← CSV取込一覧
           </Link>
           <h1 className="text-base font-bold">
-            {String(job.file_name ?? "import")}
+            {String(job.file_name ?? "（ファイル名なし）")}
           </h1>
-          <p className="text-xs text-slate-500">
-            {ENTITY_DISPLAY_NAMES[entity] ?? entity} / {String(job.status)}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-slate-500">
+              {ENTITY_DISPLAY_NAMES[entity] ?? "取込対象を確認してください"}
+            </span>
+            <span className={adminStatusBadgeClass(status.tone)}>
+              {status.label}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -111,8 +121,8 @@ export default async function ImportDetailPage({
           <div className="text-slate-500">進捗</div>
           <div className="text-lg font-semibold">{pct}%</div>
         </div>
-        <div className="sm:col-span-4 text-slate-500">
-          pending={pending ?? 0} / skipped={skipped ?? 0} / 最終処理=
+        <div className="text-slate-500 sm:col-span-4">
+          未処理・処理中: {pending ?? 0}件 / 対象外: {skipped ?? 0}件 / 最終処理:{" "}
           {job.last_processed_at
             ? new Date(String(job.last_processed_at)).toLocaleString("ja-JP")
             : "-"}
@@ -123,6 +133,22 @@ export default async function ImportDetailPage({
           </div>
         )}
       </div>
+
+      <details className="rounded border border-slate-200 bg-white text-xs text-slate-600">
+        <summary className="cursor-pointer px-3 py-2 font-medium">
+          技術情報
+        </summary>
+        <dl className="grid gap-2 border-t border-slate-100 px-3 py-2 sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">取込状態コード</dt>
+            <dd className="font-mono">{String(job.status)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">取込処理ID</dt>
+            <dd className="break-all font-mono">{id}</dd>
+          </div>
+        </dl>
+      </details>
 
       <ImportDetailClient
         importJobId={id}

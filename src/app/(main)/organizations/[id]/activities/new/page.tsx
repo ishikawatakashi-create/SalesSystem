@@ -70,7 +70,7 @@ export default async function CustomerActivityNewPage({
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <p className="text-sm font-medium text-slate-900">
-          アーカイブ済みの顧客には対応履歴を組織を追加できません
+          アーカイブ済みの組織には対応履歴を追加できません
         </p>
         <Link
           href={`/organizations/${id}`}

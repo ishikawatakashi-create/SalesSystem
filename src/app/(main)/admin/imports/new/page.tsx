@@ -22,8 +22,7 @@ export default async function NewImportPage() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-base font-bold">CSV取込を開始</h1>
       <p className="text-xs text-slate-500">
-        UTF-8（BOM可）または Shift_JIS。最大20MB / 10,000行。原本はprivate
-        storageに保存されます。
+        UTF-8（BOM可）または Shift_JIS。最大20MB / 10,000行。原本は安全な保管領域に保存されます。
       </p>
       <NewImportForm entities={entities} />
     </div>

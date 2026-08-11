@@ -27,6 +27,14 @@ export const PROSPECT_MEMBERSHIP_STAGES = [
 export type ProspectMembershipStage =
   (typeof PROSPECT_MEMBERSHIP_STAGES)[number];
 
+export const MANUAL_PROSPECT_MEMBERSHIP_STAGES: readonly Exclude<
+  ProspectMembershipStage,
+  "converted"
+>[] = PROSPECT_MEMBERSHIP_STAGES.filter(
+  (stage): stage is Exclude<ProspectMembershipStage, "converted"> =>
+    stage !== "converted",
+);
+
 export const PROSPECT_STAGE_LABELS: Record<ProspectMembershipStage, string> = {
   new: "未着手",
   assigned: "割当済",

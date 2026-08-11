@@ -79,13 +79,13 @@ export function ContractListTable({
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
             <th className="px-2 py-1.5 font-medium">{sortHeader("契約名")}</th>
-            <th className="px-2 py-1.5 font-medium">顧客</th>
+            <th className="px-2 py-1.5 font-medium">組織</th>
             <th className="px-2 py-1.5 font-medium">取引区分</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("金額")}</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("期間")}</th>
             <th className="px-2 py-1.5 font-medium">支払状況</th>
             <th className="px-2 py-1.5 font-medium">状態</th>
-            <th className="px-2 py-1.5 font-medium">担当者</th>
+            <th className="px-2 py-1.5 font-medium">自社担当者</th>
             <th className="px-2 py-1.5 font-medium">{sortHeader("契約日")}</th>
             <th className="px-2 py-1.5 font-medium">
               {sortHeader("更新日時")}
@@ -108,7 +108,7 @@ export function ContractListTable({
                       href="/contracts/new"
                       className="text-primary underline"
                     >
-                      新規登録
+                      契約を登録
                     </Link>
                   </span>
                 )}
