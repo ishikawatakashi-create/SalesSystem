@@ -63,6 +63,7 @@ export function PromoteDialog(props: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pendingRef = useRef<HTMLParagraphElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const successRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
   const titleId = useId();
@@ -85,6 +86,10 @@ export function PromoteDialog(props: Props) {
   useEffect(() => {
     if (pending && !started) pendingRef.current?.focus();
   }, [pending, started]);
+
+  useEffect(() => {
+    if (error && !pending && !started) errorRef.current?.focus();
+  }, [error, pending, started]);
 
   function toggleRel(key: OrganizationRelationshipSemanticKey) {
     setRelationships((prev) => {
@@ -452,8 +457,10 @@ export function PromoteDialog(props: Props) {
 
             {error ? (
               <p
+                ref={errorRef}
                 role="alert"
-                className="rounded bg-red-50 px-2 py-1 text-red-700"
+                tabIndex={-1}
+                className="rounded bg-red-50 px-2 py-1 text-red-700 outline-none focus:ring-2 focus:ring-red-600"
               >
                 {error}
               </p>

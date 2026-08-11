@@ -48,4 +48,12 @@ describe("prospect promotion target confirmation", () => {
     expect(source).toContain("tabIndex={0}");
     expect(source).toContain("完了までお待ちください");
   });
+
+  it("moves focus to an in-dialog error after a failed request", () => {
+    expect(source).toContain(
+      "if (error && !pending && !started) errorRef.current?.focus()",
+    );
+    expect(source).toContain("ref={errorRef}");
+    expect(source).toContain('role="alert"');
+  });
 });
