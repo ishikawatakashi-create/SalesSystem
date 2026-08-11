@@ -21,7 +21,7 @@ security invoker set search_path = ''
 as $$
 begin
   if new.kind = 'prospect_csv_import'
-     and pg_catalog.coalesce(
+     and coalesce(
        pg_catalog.current_setting('app.atomic_prospect_import_enqueue', true),
        ''
      ) <> 'on' then
@@ -256,7 +256,7 @@ begin
 
   update public.prospect_import_jobs
   set status = 'ready',
-      column_mapping = pg_catalog.coalesce(p_column_mapping, '{}'::jsonb),
+      column_mapping = coalesce(p_column_mapping, '{}'::jsonb),
       total_rows = v_total_rows,
       invalid_count = v_invalid_count,
       error_message = null,
@@ -622,7 +622,7 @@ declare
   v_skipped int := 0;
   v_failed int := 0;
   v_pending_left int := 0;
-  v_next_cursor int := pg_catalog.coalesce(p_cursor_row_number, 0);
+  v_next_cursor int := coalesce(p_cursor_row_number, 0);
   v_next_queue_id uuid;
   v_next_idempotency_key text;
 begin
@@ -816,7 +816,7 @@ begin
     ) payload on true
     where r.prospect_import_job_id = p_import_job_id
       and r.status = 'pending'
-      and r.row_number > pg_catalog.coalesce(p_cursor_row_number, 0)
+      and r.row_number > coalesce(p_cursor_row_number, 0)
     order by r.row_number, r.id
     limit 40
     -- active_queue_job_id plus the import-job lock already serialize workers
@@ -830,7 +830,7 @@ begin
     v_core := v_item->'core';
     v_contact := v_item->'contact';
     v_formal := v_item->'formalMatch';
-    v_source_attributes := pg_catalog.coalesce(
+    v_source_attributes := coalesce(
       v_item->'sourceAttributes',
       '{}'::jsonb
     );
@@ -958,7 +958,7 @@ begin
           created_by
         ) values (
           v_core->>'companyName',
-          pg_catalog.coalesce(v_core->>'normalizedCompanyName', ''),
+          coalesce(v_core->>'normalizedCompanyName', ''),
           nullif(v_core->>'websiteUrl', ''),
           nullif(v_core->>'normalizedDomain', ''),
           nullif(v_core->>'mainPhone', ''),
@@ -970,7 +970,7 @@ begin
           nullif(v_core->>'industry', ''),
           nullif(v_core->>'employeeRange', ''),
           nullif(v_item->>'notes', ''),
-          pg_catalog.coalesce(v_core->>'searchText', ''),
+          coalesce(v_core->>'searchText', ''),
           case when v_probable_id is null then 'none' else 'probable' end,
           nullif(v_formal->>'pageId', ''),
           nullif(v_formal->>'externalId', ''),
@@ -1085,7 +1085,7 @@ begin
 
       v_contact_name := nullif(v_contact->>'name', '');
       if v_contact_name is not null then
-        v_contact_normalized_name := pg_catalog.coalesce(
+        v_contact_normalized_name := coalesce(
           v_contact->>'normalizedName',
           ''
         );
@@ -1108,7 +1108,7 @@ begin
         for update;
 
         select pg_catalog.count(*)::int,
-               pg_catalog.coalesce(
+               coalesce(
                  pg_catalog.bool_or(
                    (
                      v_contact_normalized_email is not null

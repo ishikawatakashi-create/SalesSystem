@@ -25,6 +25,10 @@ const migrationPath = resolve(
   process.cwd(),
   "supabase/migrations/20260811020000_atomic_prospect_import_archive.sql",
 );
+const repairMigrationPath = resolve(
+  process.cwd(),
+  "supabase/migrations/20260811030000_repair_atomic_prospect_import_functions.sql",
+);
 
 function functionSection(
   migration: string,
@@ -171,6 +175,21 @@ describe("atomic prospect import / archive migration", () => {
     expect(start).toContain("'app.atomic_prospect_import_enqueue'");
     expect(chunk).toContain("set_config(");
     expect(chunk).toContain("'app.atomic_prospect_import_enqueue'");
+  });
+
+  it("does not schema-qualify PostgreSQL COALESCE syntax", () => {
+    const repair = readFileSync(repairMigrationPath, "utf8").toLowerCase();
+    expect(migration).not.toContain("pg_catalog.coalesce");
+    expect(repair).toContain("pg_get_functiondef");
+    expect(repair).toContain("'pg_catalog.coalesce'");
+    expect(repair).toContain("'coalesce'");
+    for (const name of [
+      "guard_atomic_prospect_import_enqueue",
+      "start_prospect_import_job",
+      "process_prospect_import_chunk_atomic",
+    ]) {
+      expect(repair).toContain(name);
+    }
   });
 
   it("reconciles every terminal or orphan active import before archive", () => {
