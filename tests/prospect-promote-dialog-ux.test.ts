@@ -41,4 +41,11 @@ describe("prospect promotion target confirmation", () => {
     expect(source).toContain("aria-busy={pending}");
     expect(source).toContain('pending ? "登録処理中…"');
   });
+
+  it("keeps a focusable status inside the modal while the request is pending", () => {
+    expect(source).toContain("if (pending && !started) pendingRef.current?.focus()");
+    expect(source).toContain("ref={pendingRef}");
+    expect(source).toContain("tabIndex={0}");
+    expect(source).toContain("完了までお待ちください");
+  });
 });
